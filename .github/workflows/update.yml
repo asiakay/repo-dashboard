@@ -1,5 +1,8 @@
 name: Initialize & Update Repo Dashboard
 
+permissions:
+  contents: write
+  
 on:
   workflow_dispatch:
   schedule:

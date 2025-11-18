@@ -1,0 +1,124 @@
+name: Initialize & Update Repo Dashboard
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 * * * *"
+
+jobs:
+  init-and-update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      # ============================================================
+      # 1. FIRST-RUN DETECTOR
+      # ============================================================
+      - name: Check if project has been initialized
+        id: check_init
+        run: |
+          if [ -f ".project_initialized" ]; then
+            echo "initialized=true" >> $GITHUB_OUTPUT
+          else
+            echo "initialized=false" >> $GITHUB_OUTPUT
+          fi
+
+      # ============================================================
+      # 2. RUN INITIALIZATION ONLY IF FIRST RUN
+      # ============================================================
+      - name: Initialize folder structure (first run only)
+        if: steps.check_init.outputs.initialized == 'false'
+        run: |
+          echo "Running FIRST-TIME setup..."
+          mkdir -p public/data
+          mkdir -p public/js
+          mkdir -p public/components
+          mkdir -p public/icons
+          mkdir -p public/assets
+          mkdir -p worker
+          mkdir -p scripts
+          mkdir -p tests
+          mkdir -p docs
+
+      - name: Add placeholder files (first run only)
+        if: steps.check_init.outputs.initialized == 'false'
+        run: |
+          echo "<!-- Repo Dashboard UI -->" > public/index.html
+          echo "/* custom styles */" > public/styles.css
+          echo "// Cloudflare Worker entrypoint" > worker/worker.js
+          echo "// process repos script" > scripts/process-repos.js
+          echo "// worker test" > tests/worker.test.js
+          echo "# Architecture" > docs/architecture.md
+
+      - name: Mark project as initialized (first run only)
+        if: steps.check_init.outputs.initialized == 'false'
+        run: |
+          echo "Project initialized on $(date)" > .project_initialized
+
+      # ============================================================
+      # 3. FETCH REPO DATA (runs every time)
+      # ============================================================
+      - name: Fetch GitHub repositories
+        run: |
+          curl -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" \
+               -H "Accept: application/vnd.github+json" \
+               "https://api.github.com/users/asiakay/repos?per_page=200" \
+               > public/raw.json
+
+      # ============================================================
+      # 4. PROCESS DATA → repos.json
+      # ============================================================
+      - name: Process repo data into repos.json
+        run: |
+          node << 'EOF'
+          const fs = require('fs');
+          const raw = JSON.parse(fs.readFileSync('public/raw.json'));
+
+          function health(repo) {
+            let score = 0;
+            const days = (Date.now() - new Date(repo.updated_at)) / 86400000;
+            if (days > 30) score++;
+            if (days > 180) score += 2;
+            if (repo.open_issues_count > 5) score++;
+            if (!repo.description) score++;
+            return score < 2 ? "green" : score < 4 ? "yellow" : "red";
+          }
+
+          const cleaned = raw.map(r => ({
+            name: r.name,
+            full_name: r.full_name,
+            url: r.html_url,
+            description: r.description,
+            updated_at: r.updated_at,
+            language: r.language,
+            open_issues: r.open_issues_count,
+            health: health(r)
+          }));
+
+          fs.writeFileSync(
+            'public/data/repos.json',
+            JSON.stringify(cleaned, null, 2)
+          );
+          EOF
+
+      # ============================================================
+      # 5. COMMIT changes (first run files + repos.json every run)
+      # ============================================================
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Initialize structure + update repos.json"
+          file_pattern: |
+            .project_initialized
+            public/**
+            worker/**
+            scripts/**
+            tests/**
+            docs/**

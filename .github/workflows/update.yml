@@ -1,8 +1,9 @@
 name: Initialize & Update Repo Dashboard
 
+# 🔓 Required for auto-commits
 permissions:
   contents: write
-  
+
 on:
   workflow_dispatch:
   schedule:
@@ -34,12 +35,11 @@ jobs:
           fi
 
       # ============================================================
-      # 2. RUN INITIALIZATION ONLY IF FIRST RUN
+      # 2. INITIALIZE FOLDERS ON FIRST RUN ONLY
       # ============================================================
-      - name: Initialize folder structure (first run only)
+      - name: Create folder structure
         if: steps.check_init.outputs.initialized == 'false'
         run: |
-          echo "Running FIRST-TIME setup..."
           mkdir -p public/data
           mkdir -p public/js
           mkdir -p public/components
@@ -50,40 +50,54 @@ jobs:
           mkdir -p tests
           mkdir -p docs
 
-      - name: Add placeholder files (first run only)
+      - name: Create placeholder files
         if: steps.check_init.outputs.initialized == 'false'
         run: |
-          echo "<!-- Repo Dashboard UI -->" > public/index.html
-          echo "/* custom styles */" > public/styles.css
-          echo "// Cloudflare Worker entrypoint" > worker/worker.js
-          echo "// process repos script" > scripts/process-repos.js
-          echo "// worker test" > tests/worker.test.js
+          echo "<!-- Repo Dashboard -->" > public/index.html
+          echo "/* styles */" > public/styles.css
+          echo "// Worker entrypoint" > worker/worker.js
+          echo "// Process repos" > scripts/process-repos.js
+          echo "// Worker tests" > tests/worker.test.js
           echo "# Architecture" > docs/architecture.md
 
-      - name: Mark project as initialized (first run only)
+      - name: Mark project as initialized
         if: steps.check_init.outputs.initialized == 'false'
-        run: |
-          echo "Project initialized on $(date)" > .project_initialized
+        run: echo "initialized=$(date)" > .project_initialized
 
       # ============================================================
-      # 3. FETCH REPO DATA (runs every time)
+      # 3. FETCH GITHUB REPO DATA
       # ============================================================
       - name: Fetch GitHub repositories
         run: |
-          curl -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" \
+          mkdir -p public
+          curl -s -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" \
                -H "Accept: application/vnd.github+json" \
                "https://api.github.com/users/asiakay/repos?per_page=200" \
-               > public/raw.json
+               -o public/raw.json
 
       # ============================================================
-      # 4. PROCESS DATA → repos.json
+      # 4. PROCESS repos.json (with error handling)
       # ============================================================
-      - name: Process repo data into repos.json
+      - name: Convert raw.json → repos.json
         run: |
           node << 'EOF'
           const fs = require('fs');
+
+          // Load raw.json
           const raw = JSON.parse(fs.readFileSync('public/raw.json'));
 
+          // If API request failed (GitHub error response)
+          if (!Array.isArray(raw)) {
+            console.error("GitHub API returned an error instead of repos:", raw);
+            fs.writeFileSync('public/data/repos.json', JSON.stringify({
+              error: "GitHub API error",
+              timestamp: new Date(),
+              github_response: raw
+            }, null, 2));
+            process.exit(0);
+          }
+
+          // Repo health scoring
           function health(repo) {
             let score = 0;
             const days = (Date.now() - new Date(repo.updated_at)) / 86400000;
@@ -94,6 +108,7 @@ jobs:
             return score < 2 ? "green" : score < 4 ? "yellow" : "red";
           }
 
+          // Build cleaned repo list
           const cleaned = raw.map(r => ({
             name: r.name,
             full_name: r.full_name,
@@ -112,7 +127,7 @@ jobs:
           EOF
 
       # ============================================================
-      # 5. COMMIT changes (first run files + repos.json every run)
+      # 5. COMMIT RESULTS (folders + repos.json)
       # ============================================================
       - name: Commit changes
         uses: stefanzweifel/git-auto-commit-action@v5

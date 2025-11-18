@@ -1,6 +1,6 @@
 name: Initialize & Update Repo Dashboard
 
-# 🔓 Required for auto-commits
+# Needed so GitHub Actions can commit files to the repo
 permissions:
   contents: write
 
@@ -55,17 +55,29 @@ jobs:
         run: |
           echo "<!-- Repo Dashboard -->" > public/index.html
           echo "/* styles */" > public/styles.css
+          echo "{}" > public/data/repos.json
           echo "// Worker entrypoint" > worker/worker.js
           echo "// Process repos" > scripts/process-repos.js
-          echo "// Worker tests" > tests/worker.test.js
+          echo "// Worker test" > tests/worker.test.js
           echo "# Architecture" > docs/architecture.md
-
-      - name: Mark project as initialized
-        if: steps.check_init.outputs.initialized == 'false'
-        run: echo "initialized=$(date)" > .project_initialized
+          echo "// JS placeholder" > public/js/app.js
 
       # ============================================================
-      # 3. FETCH GITHUB REPO DATA
+      # 3. FORCE-STAGE ALL INITIALIZATION FILES
+      # ============================================================
+      - name: Force stage initialization files
+        if: steps.check_init.outputs.initialized == 'false'
+        run: |
+          git add public
+          git add worker
+          git add scripts
+          git add tests
+          git add docs
+          echo "Initialized $(date)" > .project_initialized
+          git add .project_initialized
+
+      # ============================================================
+      # 4. FETCH GITHUB REPO DATA
       # ============================================================
       - name: Fetch GitHub repositories
         run: |
@@ -76,28 +88,27 @@ jobs:
                -o public/raw.json
 
       # ============================================================
-      # 4. PROCESS repos.json (with error handling)
+      # 5. PROCESS raw.json → repos.json (with safety checks)
       # ============================================================
       - name: Convert raw.json → repos.json
         run: |
           node << 'EOF'
           const fs = require('fs');
 
-          // Load raw.json
           const raw = JSON.parse(fs.readFileSync('public/raw.json'));
 
-          // If API request failed (GitHub error response)
+          // If GitHub returned an error instead of an array
           if (!Array.isArray(raw)) {
-            console.error("GitHub API returned an error instead of repos:", raw);
+            console.error("GitHub API error:", raw);
             fs.writeFileSync('public/data/repos.json', JSON.stringify({
-              error: "GitHub API error",
-              timestamp: new Date(),
-              github_response: raw
+              error: true,
+              message: "GitHub API returned an error",
+              github_response: raw,
+              timestamp: new Date()
             }, null, 2));
             process.exit(0);
           }
 
-          // Repo health scoring
           function health(repo) {
             let score = 0;
             const days = (Date.now() - new Date(repo.updated_at)) / 86400000;
@@ -108,7 +119,6 @@ jobs:
             return score < 2 ? "green" : score < 4 ? "yellow" : "red";
           }
 
-          // Build cleaned repo list
           const cleaned = raw.map(r => ({
             name: r.name,
             full_name: r.full_name,
@@ -127,7 +137,7 @@ jobs:
           EOF
 
       # ============================================================
-      # 5. COMMIT RESULTS (folders + repos.json)
+      # 6. AUTO-COMMIT any changes (init OR updates)
       # ============================================================
       - name: Commit changes
         uses: stefanzweifel/git-auto-commit-action@v5

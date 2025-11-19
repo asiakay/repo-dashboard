@@ -67,6 +67,46 @@ jobs:
           echo "// JS placeholder" > public/js/app.js
 
       # ============================================================
+      # 2b. CREATE CLOUDFLARE PAGES + FUNCTIONS STRUCTURE
+      # ============================================================
+      - name: Create Pages + Functions directories
+        run: |
+          mkdir -p functions/api
+
+      - name: Generate Cloudflare Functions endpoint (api/repos)
+        run: |
+          cat << 'EOF' > functions/api/repos.js
+          export async function onRequest(context) {
+            const repos = await fetch(
+              "https://raw.githubusercontent.com/${{ github.repository }}/main/public/data/repos.json"
+            ).then(r => r.json());
+
+            return new Response(JSON.stringify({
+              count: repos.length,
+              repos
+            }), {
+              headers: {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+              }
+            });
+          }
+          EOF
+
+      - name: Generate wrangler.jsonc
+        run: |
+          cat << 'EOF' > wrangler.jsonc
+          {
+            "name": "repo-dashboard",
+            "compatibility_date": "2025-11-19",
+            "pages_build_output_dir": "./public",
+            "functions": {
+              "directory": "./functions"
+            }
+          }
+          EOF
+
+      # ============================================================
       # 3. FORCE-STAGE INITIALIZATION FILES
       # ============================================================
       - name: Force stage initialization files

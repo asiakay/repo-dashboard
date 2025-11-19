@@ -1,102 +1,116 @@
 body {
+  background: #f5f5f7;
+  font-family: Inter, system-ui, sans-serif;
   margin: 0;
-  font-family: system-ui, sans-serif;
-  background: #0f1115;
-  color: #e4e7eb;
+  padding: 0;
+  color: #222;
 }
 
-header {
-  padding: 20px;
-  background: #15181e;
-  border-bottom: 1px solid #222;
+.app-container {
+  max-width: 1100px;
+  margin: auto;
+  padding: 2rem;
 }
 
-h1 {
-  margin: 0 0 15px 0;
-  font-size: 28px;
-  font-weight: 600;
+header h1 {
+  margin: 0;
+  font-size: 2.4rem;
+  font-weight: 700;
+}
+
+.subtitle {
+  margin: 0.3rem 0 2rem;
+  color: #666;
 }
 
 .controls {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .controls input,
 .controls select {
-  padding: 10px;
-  background: #1b1f27;
-  color: #ccc;
-  border: 1px solid #333;
-  border-radius: 6px;
+  padding: 0.7rem 1rem;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  flex: 1;
+  font-size: 1rem;
 }
 
-#repo-grid {
+.repo-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 15px;
-  padding: 20px;
+  gap: 1.2rem;
 }
 
 .repo-card {
-  background: #161a20;
-  padding: 18px;
-  border-radius: 10px;
-  border: 1px solid #222;
-  transition: 0.2s ease;
+  background: white;
+  padding: 1rem;
+  border-radius: 12px;
+  border: 1px solid #ddd;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  transition: all 0.2s ease;
 }
 
 .repo-card:hover {
-  border-color: #444;
-  transform: translateY(-2px);
+  transform: translateY(-3px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.1);
 }
 
-.repo-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.repo-name {
-  font-size: 18px;
+.repo-title {
   font-weight: 600;
-  color: #89b4ff;
-  text-decoration: none;
+  font-size: 1.1rem;
 }
 
-.description {
-  margin: 10px 0;
-  font-size: 14px;
-  color: #bbb;
+.repo-desc {
+  color: #555;
+  font-size: 0.9rem;
+  margin: 0.3rem 0 0.6rem;
+  min-height: 40px;
+}
+
+.badges {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.8rem;
 }
 
 .badge {
-  display: inline-block;
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-size: 12px;
-  text-transform: capitalize;
-  font-weight: 500;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
-.badge.green {
-  background: #123d23;
-  color: #4fff91;
-}
-
-.badge.yellow {
-  background: #3e3611;
-  color: #ffe26a;
-}
-
-.badge.red {
-  background: #3a1111;
-  color: #ff7b7b;
-}
+.badge.green { background: #d4f8d4; color: #157c20; }
+.badge.yellow { background: #fff4c2; color: #9e7700; }
+.badge.red { background: #ffd4d4; color: #9e0000; }
 
 .meta {
-  margin-top: 10px;
-  font-size: 12px;
-  color: #888;
+  color: #666;
+  font-size: 0.8rem;
+}
+
+.pagination {
+  margin-top: 2rem;
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  align-items: center;
+}
+
+.pagination button {
+  padding: 0.6rem 1.2rem;
+  font-size: 1rem;
+  border-radius: 8px;
+  border: none;
+  background: black;
+  color: white;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.pagination button:hover {
+  background: #333;
 }

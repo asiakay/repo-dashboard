@@ -88,13 +88,31 @@ jobs:
           echo "------------------------------------------------"
 
       
-      - name: Fetch GitHub repositories
+      - name: Fetch GitHub repositories (debug mode)
         run: |
           mkdir -p public
-          curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN  }}" \
-               -H "Accept: application/vnd.github+json" \
-               "https://api.github.com/users/asiakay/repos?per_page=200" \
-               -o public/raw.json
+
+          echo "------ Curling with diagnostics ------"
+
+          curl -v \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/users/asiakay/repos?per_page=200" \
+            -o public/raw.json
+
+          echo "------ Checking exit code ------"
+          echo $?
+
+          echo "------ Listing public/ after curl ------"
+          ls -l public
+
+          echo "------ If file exists, show first 20 lines ------"
+          if [ -f public/raw.json ]; then
+            head -n 20 public/raw.json
+          else
+            echo "❌ raw.json does NOT exist"
+          fi
+
 
       # ============================================================
       # 4a. DEBUG — SHOW EXACT API RESPONSE

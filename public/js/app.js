@@ -1,92 +1,163 @@
 let allRepos = [];
 let filteredRepos = [];
 
-let currentPage = 1;
-const perPage = 12;
+// DOM refs
+const searchInput = document.getElementById("search");
+const languageFilter = document.getElementById("language-filter");
+const healthFilter = document.getElementById("health-filter");
+const sortBy = document.getElementById("sort-by");
+const repoList = document.getElementById("repo-list");
+const summaryText = document.getElementById("summary-text");
+
+// Stats pills
+const statTotal = document.getElementById("stat-total");
+const statGreen = document.getElementById("stat-green");
+const statYellow = document.getElementById("stat-yellow");
+const statRed = document.getElementById("stat-red");
 
 async function loadRepos() {
-  const res = await fetch("/data/repos.json");
-  allRepos = await res.json();
+  try {
+    const res = await fetch("/data/repos.json");
+    allRepos = await res.json();
 
-  filteredRepos = allRepos;
+    filteredRepos = [...allRepos];
 
-  populateLanguageFilter();
-  render();
+    populateLanguageFilter();
+    updateStats();
+    renderRepos();
+    summaryText.textContent = `Showing ${filteredRepos.length} repositories`;
+
+  } catch (err) {
+    console.error("Error loading repos:", err);
+    summaryText.textContent = "Failed to load repositories.";
+  }
 }
 
+// Build the language dropdown dynamically
 function populateLanguageFilter() {
-  const select = document.getElementById("languageFilter");
-  const langs = [...new Set(allRepos.map(r => r.language).filter(Boolean))];
+  const languages = [...new Set(allRepos.map(r => r.language).filter(Boolean))];
+  languages.sort();
 
-  langs.sort();
-  langs.forEach(lang => {
-    let opt = document.createElement("option");
+  languages.forEach(lang => {
+    const opt = document.createElement("option");
     opt.value = lang;
     opt.textContent = lang;
-    select.appendChild(opt);
+    languageFilter.appendChild(opt);
   });
 }
 
-function render() {
-  const grid = document.getElementById("repoGrid");
-  grid.innerHTML = "";
+// Update top stat pills
+function updateStats() {
+  statTotal.textContent = allRepos.length;
+  statGreen.textContent = allRepos.filter(r => r.health === "green").length;
+  statYellow.textContent = allRepos.filter(r => r.health === "yellow").length;
+  statRed.textContent = allRepos.filter(r => r.health === "red").length;
+}
 
-  const pageRepos = filteredRepos.slice((currentPage - 1) * perPage, currentPage * perPage);
+function applyFilters() {
+  let q = searchInput.value.toLowerCase();
+  let lang = languageFilter.value;
+  let health = healthFilter.value;
 
-  pageRepos.forEach(repo => {
-    grid.innerHTML += `
+  filteredRepos = allRepos.filter(repo => {
+
+    let matchesSearch =
+      repo.name.toLowerCase().includes(q) ||
+      (repo.description || "").toLowerCase().includes(q);
+
+    let matchesLanguage = lang ? repo.language === lang : true;
+
+    let matchesHealth = health ? repo.health === health : true;
+
+    return matchesSearch && matchesLanguage && matchesHealth;
+  });
+
+  applySorting();
+  summaryText.textContent = `Showing ${filteredRepos.length} repositories`;
+  renderRepos();
+}
+
+function applySorting() {
+  const val = sortBy.value;
+
+  filteredRepos.sort((a, b) => {
+    switch (val) {
+      case "updated_desc":
+        return new Date(b.updated_at) - new Date(a.updated_at);
+      case "updated_asc":
+        return new Date(a.updated_at) - new Date(b.updated_at);
+      case "name_asc":
+        return a.name.localeCompare(b.name);
+      case "name_desc":
+        return b.name.localeCompare(a.name);
+      case "issues_desc":
+        return (b.open_issues || 0) - (a.open_issues || 0);
+      default:
+        return 0;
+    }
+  });
+}
+
+// Render each repo card with your neon cosmic style
+function renderRepos() {
+  repoList.innerHTML = "";
+
+  if (!filteredRepos.length) {
+    repoList.innerHTML = `<p style="color:var(--text-muted); padding:10px;">No repositories found.</p>`;
+    return;
+  }
+
+  filteredRepos.forEach(repo => {
+    const updated = new Date(repo.updated_at).toLocaleDateString();
+    const issues = repo.open_issues || 0;
+
+    const card = `
       <div class="repo-card">
-        <div class="repo-title">
-          <a href="${repo.url}" target="_blank">${repo.name}</a>
-        </div>
-        <div class="repo-desc">${repo.description || "No description."}</div>
+        <div class="repo-header">
+          <div class="repo-name">
+            <a href="${repo.url}" target="_blank">${repo.name}</a>
+          </div>
 
-        <div class="badges">
-          <div class="badge ${repo.health}">${repo.health.toUpperCase()}</div>
-          ${repo.language ? `<div class="badge">${repo.language}</div>` : ""}
+          <div class="repo-badges">
+            <span class="badge badge-health-${repo.health}">
+              <span class="badge-dot"></span>${repo.health.toUpperCase()}
+            </span>
+
+            ${repo.language ? `
+            <span class="badge badge-language">
+              ${repo.language}
+            </span>` : ""}
+
+            ${issues > 0 ? `
+            <span class="badge badge-issues">
+              ${issues} issues
+            </span>` : ""}
+          </div>
         </div>
 
-        <div class="meta">Updated: ${new Date(repo.updated_at).toLocaleDateString()}</div>
+        <p class="repo-description">
+          ${repo.description || "No description."}
+        </p>
+
+        <div class="repo-meta">
+          <span>Updated: ${updated}</span>
+          <span>Branch: ${repo.default_branch || "main"}</span>
+        </div>
       </div>
     `;
-  });
 
-  document.getElementById("pageInfo").textContent =
-    `Page ${currentPage} of ${Math.ceil(filteredRepos.length / perPage)}`;
+    repoList.insertAdjacentHTML("beforeend", card);
+  });
 }
 
-document.getElementById("search").addEventListener("input", e => {
-  const q = e.target.value.toLowerCase();
-  filteredRepos = allRepos.filter(r =>
-    r.name.toLowerCase().includes(q) ||
-    (r.description || "").toLowerCase().includes(q)
-  );
-  currentPage = 1;
-  render();
+// Event listeners
+searchInput.addEventListener("input", applyFilters);
+languageFilter.addEventListener("change", applyFilters);
+healthFilter.addEventListener("change", applyFilters);
+sortBy.addEventListener("change", () => {
+  applySorting();
+  renderRepos();
 });
 
-document.getElementById("languageFilter").addEventListener("change", e => {
-  const lang = e.target.value;
-  filteredRepos = lang
-    ? allRepos.filter(r => r.language === lang)
-    : allRepos;
-
-  currentPage = 1;
-  render();
-});
-
-document.getElementById("prevBtn").addEventListener("click", () => {
-  if (currentPage > 1) {
-    currentPage--;
-    render();
-  }
-});
-
-document.getElementById("nextBtn").addEventListener("click", () => {
-  if (currentPage < Math.ceil(filteredRepos.length / perPage)) {
-    currentPage++;
-    render();
-  }
-});
-
+// Bootload
 loadRepos();

@@ -1,6 +1,5 @@
 name: Initialize & Update Repo Dashboard
 
-# Needed so GitHub Actions can commit files to the repo
 permissions:
   contents: write
 
@@ -14,6 +13,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # ============================================================
+      # CORE CHECKOUT + NODE
+      # ============================================================
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -63,7 +65,7 @@ jobs:
           echo "// JS placeholder" > public/js/app.js
 
       # ============================================================
-      # 3. FORCE-STAGE ALL INITIALIZATION FILES
+      # 3. FORCE-STAGE INITIALIZATION FILES
       # ============================================================
       - name: Force stage initialization files
         if: steps.check_init.outputs.initialized == 'false'
@@ -92,9 +94,15 @@ jobs:
       # ============================================================
       - name: Debug raw GitHub response
         run: |
-          echo "==== RAW JSON FROM GITHUB API ===="
+          echo "============ RAW JSON FROM GITHUB API ============"
           cat public/raw.json
-          echo "=================================="
+          echo "==================================================="
+
+      # ============================================================
+      # 4b. RE-CREATE public/data (IMPORTANT!)
+      # ============================================================
+      - name: Ensure public/data exists
+        run: mkdir -p public/data
 
       # ============================================================
       # 5. PROCESS raw.json → repos.json (with safety checks)
@@ -106,7 +114,6 @@ jobs:
 
           const raw = JSON.parse(fs.readFileSync('public/raw.json'));
 
-          // If GitHub returned an error instead of an array
           if (!Array.isArray(raw)) {
             console.error("GitHub API error:", raw);
             fs.writeFileSync('public/data/repos.json', JSON.stringify({
@@ -143,10 +150,12 @@ jobs:
             'public/data/repos.json',
             JSON.stringify(cleaned, null, 2)
           );
+
+          console.log("Wrote repos.json with", cleaned.length, "repos.");
           EOF
 
       # ============================================================
-      # 6. AUTO-COMMIT any changes (init OR updates)
+      # 6. AUTO-COMMIT ANY CHANGES (init OR updates)
       # ============================================================
       - name: Commit changes
         uses: stefanzweifel/git-auto-commit-action@v5
@@ -159,4 +168,3 @@ jobs:
             scripts/**
             tests/**
             docs/**
-

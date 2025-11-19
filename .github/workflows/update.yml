@@ -79,7 +79,7 @@ jobs:
           git add .project_initialized
 
       # ============================================================
-      # 4. FETCH GITHUB REPO DATA
+      # 4. DEBUG FILESYSTEM BEFORE CURL
       # ============================================================
       - name: Debug filesystem before curl
         run: |
@@ -87,7 +87,9 @@ jobs:
           ls -R .
           echo "------------------------------------------------"
 
-      
+      # ============================================================
+      # 4. FETCH GITHUB REPO DATA (DEBUG MODE)
+      # ============================================================
       - name: Fetch GitHub repositories (debug mode)
         run: |
           mkdir -p public
@@ -113,29 +115,38 @@ jobs:
             echo "❌ raw.json does NOT exist"
           fi
 
-
       # ============================================================
-      # 4a. DEBUG — SHOW EXACT API RESPONSE
+      # 4a. DEBUG RAW JSON (ONLY IF FILE EXISTS)
       # ============================================================
       - name: Debug raw GitHub response
+        if: success()
         run: |
-          echo "============ RAW JSON FROM GITHUB API ============"
-          cat public/raw.json
-          echo "==================================================="
+          if [ -f public/raw.json ]; then
+            echo "============ RAW JSON FROM GITHUB API ============"
+            head -n 30 public/raw.json
+            echo "==================================================="
+          else
+            echo "❌ raw.json not found — skipping debug"
+          fi
 
       # ============================================================
-      # 4b. RE-CREATE public/data (IMPORTANT!)
+      # 4b. ENSURE OUTPUT FOLDER EXISTS
       # ============================================================
       - name: Ensure public/data exists
         run: mkdir -p public/data
 
       # ============================================================
-      # 5. PROCESS raw.json → repos.json (with safety checks)
+      # 5. PROCESS raw.json → repos.json
       # ============================================================
       - name: Convert raw.json → repos.json
         run: |
           node << 'EOF'
           const fs = require('fs');
+
+          if (!fs.existsSync('public/raw.json')) {
+            console.error("❌ raw.json not found — cannot proceed.");
+            process.exit(1);
+          }
 
           const raw = JSON.parse(fs.readFileSync('public/raw.json'));
 
@@ -180,7 +191,7 @@ jobs:
           EOF
 
       # ============================================================
-      # 6. AUTO-COMMIT ANY CHANGES (init OR updates)
+      # 6. AUTO-COMMIT ANY CHANGES
       # ============================================================
       - name: Commit changes
         uses: stefanzweifel/git-auto-commit-action@v5

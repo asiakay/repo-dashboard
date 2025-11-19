@@ -88,6 +88,15 @@ jobs:
                -o public/raw.json
 
       # ============================================================
+      # 4a. DEBUG — SHOW EXACT API RESPONSE
+      # ============================================================
+      - name: Debug raw GitHub response
+        run: |
+          echo "==== RAW JSON FROM GITHUB API ===="
+          cat public/raw.json
+          echo "=================================="
+
+      # ============================================================
       # 5. PROCESS raw.json → repos.json (with safety checks)
       # ============================================================
       - name: Convert raw.json → repos.json

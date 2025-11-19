@@ -1,8 +1,5 @@
 {
   "name": "repo-dashboard",
   "compatibility_date": "2025-11-19",
-  "pages_build_output_dir": "./public",
-  "functions": {
-    "directory": "./functions"
-  }
+  "pages_build_output_dir": "./public"
 }

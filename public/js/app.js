@@ -1,121 +1,92 @@
-let repos = [];
-let filtered = [];
+let allRepos = [];
+let filteredRepos = [];
 
-const repoGrid = document.getElementById("repo-grid");
-const searchInput = document.getElementById("search");
-const filterLanguage = document.getElementById("filter-language");
-const filterHealth = document.getElementById("filter-health");
-const sortSelect = document.getElementById("sort");
+let currentPage = 1;
+const perPage = 12;
 
-// -----------------------------------
-// Load the repo data
-// -----------------------------------
 async function loadRepos() {
-  const res = await fetch("data/repos.json");
-  repos = await res.json();
-  filtered = repos.slice();
+  const res = await fetch("/data/repos.json");
+  allRepos = await res.json();
 
-  populateLanguages();
+  filteredRepos = allRepos;
+
+  populateLanguageFilter();
   render();
 }
 
-// -----------------------------------
-// Populate languages dropdown
-// -----------------------------------
-function populateLanguages() {
-  const langs = [...new Set(repos.map(r => r.language).filter(Boolean))];
+function populateLanguageFilter() {
+  const select = document.getElementById("languageFilter");
+  const langs = [...new Set(allRepos.map(r => r.language).filter(Boolean))];
 
-  langs.sort().forEach(lang => {
-    const opt = document.createElement("option");
+  langs.sort();
+  langs.forEach(lang => {
+    let opt = document.createElement("option");
     opt.value = lang;
     opt.textContent = lang;
-    filterLanguage.appendChild(opt);
+    select.appendChild(opt);
   });
 }
 
-// -----------------------------------
-// Render cards
-// -----------------------------------
 function render() {
-  repoGrid.innerHTML = "";
+  const grid = document.getElementById("repoGrid");
+  grid.innerHTML = "";
 
-  filtered.forEach(repo => {
-    const card = document.createElement("div");
-    card.classList.add("repo-card");
+  const pageRepos = filteredRepos.slice((currentPage - 1) * perPage, currentPage * perPage);
 
-    card.innerHTML = `
-      <div class="repo-top">
-        <a href="${repo.url}" class="repo-name" target="_blank">${repo.name}</a>
-        <span class="badge ${repo.health}">${repo.health}</span>
-      </div>
+  pageRepos.forEach(repo => {
+    grid.innerHTML += `
+      <div class="repo-card">
+        <div class="repo-title">
+          <a href="${repo.url}" target="_blank">${repo.name}</a>
+        </div>
+        <div class="repo-desc">${repo.description || "No description."}</div>
 
-      <p class="description">
-        ${repo.description || "No description provided."}
-      </p>
+        <div class="badges">
+          <div class="badge ${repo.health}">${repo.health.toUpperCase()}</div>
+          ${repo.language ? `<div class="badge">${repo.language}</div>` : ""}
+        </div>
 
-      <div class="meta">
-        <div>Language: ${repo.language || "Unknown"}</div>
-        <div>Open Issues: ${repo.open_issues}</div>
-        <div>Updated: ${new Date(repo.updated_at).toLocaleDateString()}</div>
+        <div class="meta">Updated: ${new Date(repo.updated_at).toLocaleDateString()}</div>
       </div>
     `;
-
-    repoGrid.appendChild(card);
   });
+
+  document.getElementById("pageInfo").textContent =
+    `Page ${currentPage} of ${Math.ceil(filteredRepos.length / perPage)}`;
 }
 
-// -----------------------------------
-// Search
-// -----------------------------------
-searchInput.addEventListener("input", () => {
-  const q = searchInput.value.toLowerCase();
-  filtered = repos.filter(r => r.name.toLowerCase().includes(q));
-  applyFilters();
+document.getElementById("search").addEventListener("input", e => {
+  const q = e.target.value.toLowerCase();
+  filteredRepos = allRepos.filter(r =>
+    r.name.toLowerCase().includes(q) ||
+    (r.description || "").toLowerCase().includes(q)
+  );
+  currentPage = 1;
+  render();
 });
 
-// -----------------------------------
-// Filters
-// -----------------------------------
-function applyFilters() {
-  const lang = filterLanguage.value;
-  const health = filterHealth.value;
+document.getElementById("languageFilter").addEventListener("change", e => {
+  const lang = e.target.value;
+  filteredRepos = lang
+    ? allRepos.filter(r => r.language === lang)
+    : allRepos;
 
-  filtered = repos.filter(r => {
-    return (
-      (lang ? r.language === lang : true) &&
-      (health ? r.health === health : true) &&
-      (searchInput.value
-        ? r.name.toLowerCase().includes(searchInput.value.toLowerCase())
-        : true)
-    );
-  });
-
-  applySort();
+  currentPage = 1;
   render();
-}
+});
 
-// -----------------------------------
-// Sorting
-// -----------------------------------
-function applySort() {
-  const mode = sortSelect.value;
-
-  if (mode === "updated") {
-    filtered.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+document.getElementById("prevBtn").addEventListener("click", () => {
+  if (currentPage > 1) {
+    currentPage--;
+    render();
   }
-  else if (mode === "issues") {
-    filtered.sort((a, b) => b.open_issues - a.open_issues);
-  }
-  else if (mode === "name") {
-    filtered.sort((a, b) => a.name.localeCompare(b.name));
-  }
-}
+});
 
-sortSelect.addEventListener("change", applyFilters);
-filterLanguage.addEventListener("change", applyFilters);
-filterHealth.addEventListener("change", applyFilters);
+document.getElementById("nextBtn").addEventListener("click", () => {
+  if (currentPage < Math.ceil(filteredRepos.length / perPage)) {
+    currentPage++;
+    render();
+  }
+});
 
-// -----------------------------------
-// Start
-// -----------------------------------
 loadRepos();

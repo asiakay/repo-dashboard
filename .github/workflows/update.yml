@@ -19,7 +19,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0   # <-- IMPORTANT: allows committing new files
 
       - name: Install Node
         uses: actions/setup-node@v4
@@ -72,11 +72,7 @@ jobs:
       - name: Force stage initialization files
         if: steps.check_init.outputs.initialized == 'false'
         run: |
-          git add public
-          git add worker
-          git add scripts
-          git add tests
-          git add docs
+          git add -A
           echo "Initialized $(date)" > .project_initialized
           git add .project_initialized
 
@@ -121,7 +117,6 @@ jobs:
       # 4a. DEBUG RAW JSON (ONLY IF FILE EXISTS)
       # ============================================================
       - name: Debug raw GitHub response
-        if: success()
         run: |
           if [ -f public/raw.json ]; then
             echo "============ RAW JSON FROM GITHUB API ============"
@@ -198,5 +193,5 @@ jobs:
       - name: Commit changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "Update repos.json"
-          add_options: "-A"
+          commit_message: "Update repo data"
+          add_options: "-A"   # <-- IMPORTANT: commits ALL new + modified files

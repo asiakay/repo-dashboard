@@ -1,303 +1,121 @@
-// JS placeholder
-// Simple UI "API" for filtering/sorting repos.json
+let repos = [];
+let filtered = [];
 
-const state = {
-  allRepos: [],
-  filteredRepos: [],
-  search: "",
-  language: "",
-  health: "",
-  sortBy: "updated_desc",
-};
+const repoGrid = document.getElementById("repo-grid");
+const searchInput = document.getElementById("search");
+const filterLanguage = document.getElementById("filter-language");
+const filterHealth = document.getElementById("filter-health");
+const sortSelect = document.getElementById("sort");
 
-document.addEventListener("DOMContentLoaded", () => {
-  const searchInput = document.getElementById("search");
-  const languageSelect = document.getElementById("language-filter");
-  const healthSelect = document.getElementById("health-filter");
-  const sortSelect = document.getElementById("sort-by");
-
-  searchInput.addEventListener("input", (e) => {
-    state.search = e.target.value.trim().toLowerCase();
-    applyFilters();
-  });
-
-  languageSelect.addEventListener("change", (e) => {
-    state.language = e.target.value;
-    applyFilters();
-  });
-
-  healthSelect.addEventListener("change", (e) => {
-    state.health = e.target.value;
-    applyFilters();
-  });
-
-  sortSelect.addEventListener("change", (e) => {
-    state.sortBy = e.target.value;
-    applyFilters();
-  });
-
-  loadRepos();
-});
-
+// -----------------------------------
+// Load the repo data
+// -----------------------------------
 async function loadRepos() {
-  try {
-    const res = await fetch("data/repos.json", {
-      headers: { "Cache-Control": "no-cache" },
-    });
+  const res = await fetch("data/repos.json");
+  repos = await res.json();
+  filtered = repos.slice();
 
-    if (!res.ok) {
-      throw new Error("Failed to load repos.json");
-    }
-
-    const data = await res.json();
-
-    if (!Array.isArray(data)) {
-      console.error("Expected repos.json to be an array, got:", data);
-      document.getElementById("summary-text").textContent =
-        "Error: repos.json is not in the expected format.";
-      return;
-    }
-
-    state.allRepos = data;
-    buildLanguageFilterOptions(data);
-    applyFilters();
-  } catch (err) {
-    console.error(err);
-    document.getElementById("summary-text").textContent =
-      "Error loading repo data. Check the console and GitHub Actions logs.";
-  }
+  populateLanguages();
+  render();
 }
 
-function buildLanguageFilterOptions(repos) {
-  const languageSelect = document.getElementById("language-filter");
-  const languages = Array.from(
-    new Set(
-      repos
-        .map((r) => r.language)
-        .filter((lang) => lang && typeof lang === "string")
-    )
-  ).sort((a, b) => a.localeCompare(b));
+// -----------------------------------
+// Populate languages dropdown
+// -----------------------------------
+function populateLanguages() {
+  const langs = [...new Set(repos.map(r => r.language).filter(Boolean))];
 
-  // Clear existing (keep "All languages" at top)
-  while (languageSelect.options.length > 1) {
-    languageSelect.remove(1);
-  }
-
-  for (const lang of languages) {
+  langs.sort().forEach(lang => {
     const opt = document.createElement("option");
     opt.value = lang;
     opt.textContent = lang;
-    languageSelect.appendChild(opt);
-  }
+    filterLanguage.appendChild(opt);
+  });
 }
 
+// -----------------------------------
+// Render cards
+// -----------------------------------
+function render() {
+  repoGrid.innerHTML = "";
+
+  filtered.forEach(repo => {
+    const card = document.createElement("div");
+    card.classList.add("repo-card");
+
+    card.innerHTML = `
+      <div class="repo-top">
+        <a href="${repo.url}" class="repo-name" target="_blank">${repo.name}</a>
+        <span class="badge ${repo.health}">${repo.health}</span>
+      </div>
+
+      <p class="description">
+        ${repo.description || "No description provided."}
+      </p>
+
+      <div class="meta">
+        <div>Language: ${repo.language || "Unknown"}</div>
+        <div>Open Issues: ${repo.open_issues}</div>
+        <div>Updated: ${new Date(repo.updated_at).toLocaleDateString()}</div>
+      </div>
+    `;
+
+    repoGrid.appendChild(card);
+  });
+}
+
+// -----------------------------------
+// Search
+// -----------------------------------
+searchInput.addEventListener("input", () => {
+  const q = searchInput.value.toLowerCase();
+  filtered = repos.filter(r => r.name.toLowerCase().includes(q));
+  applyFilters();
+});
+
+// -----------------------------------
+// Filters
+// -----------------------------------
 function applyFilters() {
-  const { allRepos, search, language, health, sortBy } = state;
+  const lang = filterLanguage.value;
+  const health = filterHealth.value;
 
-  let result = [...allRepos];
+  filtered = repos.filter(r => {
+    return (
+      (lang ? r.language === lang : true) &&
+      (health ? r.health === health : true) &&
+      (searchInput.value
+        ? r.name.toLowerCase().includes(searchInput.value.toLowerCase())
+        : true)
+    );
+  });
 
-  if (search) {
-    result = result.filter((repo) => {
-      const name = (repo.name || "").toLowerCase();
-      const desc = (repo.description || "").toLowerCase();
-      return name.includes(search) || desc.includes(search);
-    });
-  }
-
-  if (language) {
-    result = result.filter((repo) => repo.language === language);
-  }
-
-  if (health) {
-    result = result.filter((repo) => repo.health === health);
-  }
-
-  // Sort
-  result.sort((a, b) => compareRepos(a, b, sortBy));
-
-  state.filteredRepos = result;
-  renderRepos();
-  updateStats();
-  updateSummary();
+  applySort();
+  render();
 }
 
-function compareRepos(a, b, sortBy) {
-  switch (sortBy) {
-    case "updated_desc":
-      return (
-        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-      );
-    case "updated_asc":
-      return (
-        new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime()
-      );
-    case "name_asc":
-      return a.name.localeCompare(b.name);
-    case "name_desc":
-      return b.name.localeCompare(a.name);
-    case "issues_desc":
-      return (b.open_issues || 0) - (a.open_issues || 0);
-    default:
-      return 0;
+// -----------------------------------
+// Sorting
+// -----------------------------------
+function applySort() {
+  const mode = sortSelect.value;
+
+  if (mode === "updated") {
+    filtered.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+  }
+  else if (mode === "issues") {
+    filtered.sort((a, b) => b.open_issues - a.open_issues);
+  }
+  else if (mode === "name") {
+    filtered.sort((a, b) => a.name.localeCompare(b.name));
   }
 }
 
-function renderRepos() {
-  const container = document.getElementById("repo-list");
-  container.innerHTML = "";
+sortSelect.addEventListener("change", applyFilters);
+filterLanguage.addEventListener("change", applyFilters);
+filterHealth.addEventListener("change", applyFilters);
 
-  if (state.filteredRepos.length === 0) {
-    const empty = document.createElement("p");
-    empty.textContent = "No repositories match the current filters.";
-    empty.style.color = "#a0aec0";
-    empty.style.fontSize = "13px";
-    container.appendChild(empty);
-    return;
-  }
-
-  for (const repo of state.filteredRepos) {
-    const card = document.createElement("article");
-    card.className = "repo-card";
-
-    // Header
-    const header = document.createElement("div");
-    header.className = "repo-header";
-
-    const nameEl = document.createElement("div");
-    nameEl.className = "repo-name";
-
-    const link = document.createElement("a");
-    link.href = repo.url;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    link.textContent = repo.name || repo.full_name || "Unnamed repo";
-
-    nameEl.appendChild(link);
-
-    const badges = document.createElement("div");
-    badges.className = "repo-badges";
-
-    // Health badge
-    const healthBadge = document.createElement("span");
-    healthBadge.className = `badge badge-health-${repo.health || "green"}`;
-    const dot = document.createElement("span");
-    dot.className = "badge-dot";
-    const label = document.createElement("span");
-    label.textContent = healthLabel(repo.health);
-    healthBadge.appendChild(dot);
-    healthBadge.appendChild(label);
-    badges.appendChild(healthBadge);
-
-    // Language badge
-    if (repo.language) {
-      const langBadge = document.createElement("span");
-      langBadge.className = "badge badge-language";
-      langBadge.textContent = repo.language;
-      badges.appendChild(langBadge);
-    }
-
-    // Issues badge
-    if (typeof repo.open_issues === "number" && repo.open_issues > 0) {
-      const issuesBadge = document.createElement("span");
-      issuesBadge.className = "badge badge-issues";
-      issuesBadge.textContent = `${repo.open_issues} open issue${
-        repo.open_issues === 1 ? "" : "s"
-      }`;
-      badges.appendChild(issuesBadge);
-    }
-
-    header.appendChild(nameEl);
-    header.appendChild(badges);
-
-    card.appendChild(header);
-
-    // Description
-    if (repo.description) {
-      const desc = document.createElement("p");
-      desc.className = "repo-description";
-      desc.textContent = repo.description;
-      card.appendChild(desc);
-    }
-
-    // Meta
-    const meta = document.createElement("div");
-    meta.className = "repo-meta";
-
-    const updatedSpan = document.createElement("span");
-    updatedSpan.textContent = `Updated ${formatRelativeTime(repo.updated_at)}`;
-    meta.appendChild(updatedSpan);
-
-    const fullNameSpan = document.createElement("span");
-    fullNameSpan.textContent = repo.full_name || "";
-    meta.appendChild(fullNameSpan);
-
-    card.appendChild(meta);
-
-    container.appendChild(card);
-  }
-}
-
-function healthLabel(health) {
-  switch (health) {
-    case "green":
-      return "Healthy";
-    case "yellow":
-      return "Needs attention";
-    case "red":
-      return "Stale";
-    default:
-      return "Unknown";
-  }
-}
-
-function updateStats() {
-  const total = state.allRepos.length;
-  const green = state.allRepos.filter((r) => r.health === "green").length;
-  const yellow = state.allRepos.filter((r) => r.health === "yellow").length;
-  const red = state.allRepos.filter((r) => r.health === "red").length;
-
-  document.getElementById("stat-total").textContent = total;
-  document.getElementById("stat-green").textContent = green;
-  document.getElementById("stat-yellow").textContent = yellow;
-  document.getElementById("stat-red").textContent = red;
-}
-
-function updateSummary() {
-  const count = state.filteredRepos.length;
-  const total = state.allRepos.length;
-  const summary = document.getElementById("summary-text");
-
-  if (!total) {
-    summary.textContent = "No repositories found.";
-    return;
-  }
-
-  summary.textContent = `Showing ${count} of ${total} repositories. Filter with search, language, health, and sort controls.`;
-}
-
-function formatRelativeTime(isoDate) {
-  if (!isoDate) return "unknown";
-
-  const then = new Date(isoDate);
-  const now = new Date();
-  const diffMs = now - then;
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffDays < 1) {
-    const diffHours = Math.floor(diffMs / 3600000);
-    if (diffHours <= 0) return "just now";
-    return `${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
-  }
-
-  if (diffDays < 30) {
-    return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
-  }
-
-  const diffMonths = Math.floor(diffDays / 30);
-  if (diffMonths < 12) {
-    return `${diffMonths} month${diffMonths === 1 ? "" : "s"} ago`;
-  }
-
-  const diffYears = Math.floor(diffMonths / 12);
-  return `${diffYears} year${diffYears === 1 ? "" : "s"} ago`;
-}
+// -----------------------------------
+// Start
+// -----------------------------------
+loadRepos();

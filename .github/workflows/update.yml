@@ -128,30 +128,40 @@ jobs:
       # ============================================================
       # 4. FETCH GITHUB REPO DATA (DEBUG MODE)
       # ============================================================
-      - name: Fetch GitHub repositories (debug mode)
+      - name: Fetch ALL GitHub repositories (pagination)
         run: |
           mkdir -p public
+          PAGE=1
+          > public/raw.json  # truncate file
 
-          echo "------ Curling with diagnostics ------"
+          echo "[" >> public/raw.json
 
-          curl -v \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/users/asiakay/repos?per_page=200" \
-            -o public/raw.json
+          while true; do
+            echo "Fetching page $PAGE..."
 
-          echo "------ Checking exit code ------"
-          echo $?
+            RESP=$(curl -s \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/users/asiakay/repos?per_page=100&page=$PAGE")
 
-          echo "------ Listing public/ after curl ------"
-          ls -l public
+            COUNT=$(echo "$RESP" | jq 'length')
 
-          echo "------ If file exists, show first 20 lines ------"
-          if [ -f public/raw.json ]; then
-            head -n 20 public/raw.json
-          else
-            echo "❌ raw.json does NOT exist"
-          fi
+            # stop if empty page
+            if [ "$COUNT" -eq 0 ]; then
+              break
+            fi
+
+            # add comma only between pages
+            if [ "$PAGE" -gt 1 ]; then
+              echo "," >> public/raw.json
+            fi
+
+            echo "$RESP" >> public/raw.json
+            PAGE=$((PAGE+1))
+          done
+
+          echo "]" >> public/raw.json
+
 
       # ============================================================
       # 4a. DEBUG RAW JSON (ONLY IF FILE EXISTS)

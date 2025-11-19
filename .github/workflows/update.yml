@@ -199,4 +199,4 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Update repos.json"
-          file_pattern: ""
+          add_options: "-A"

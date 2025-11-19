@@ -18,6 +18,8 @@ jobs:
       # ============================================================
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install Node
         uses: actions/setup-node@v4
@@ -196,11 +198,5 @@ jobs:
       - name: Commit changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "Initialize structure + update repos.json"
-          file_pattern: |
-            .project_initialized
-            public/**
-            worker/**
-            scripts/**
-            tests/**
-            docs/**
+          commit_message: "Update repos.json"
+          file_pattern: ""

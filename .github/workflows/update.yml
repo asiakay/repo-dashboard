@@ -19,7 +19,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # <-- IMPORTANT: allows committing new files
+          fetch-depth: 0   # IMPORTANT for committing new files
 
       - name: Install Node
         uses: actions/setup-node@v4
@@ -39,7 +39,7 @@ jobs:
           fi
 
       # ============================================================
-      # 2. INITIALIZE FOLDERS ON FIRST RUN ONLY
+      # 2. FIRST-RUN FOLDER INITIALIZER
       # ============================================================
       - name: Create folder structure
         if: steps.check_init.outputs.initialized == 'false'
@@ -65,6 +65,13 @@ jobs:
           echo "// Worker test" > tests/worker.test.js
           echo "# Architecture" > docs/architecture.md
           echo "// JS placeholder" > public/js/app.js
+
+      - name: Stage initial structure
+        if: steps.check_init.outputs.initialized == 'false'
+        run: |
+          git add -A
+          echo "Initialized $(date)" > .project_initialized
+          git add .project_initialized
 
       # ============================================================
       # 2b. CREATE CLOUDFLARE PAGES + FUNCTIONS STRUCTURE
@@ -107,35 +114,17 @@ jobs:
           EOF
 
       # ============================================================
-      # 3. FORCE-STAGE INITIALIZATION FILES
+      # 3. FETCH ALL GITHUB REPOS (PAGINATION ENABLED)
       # ============================================================
-      - name: Force stage initialization files
-        if: steps.check_init.outputs.initialized == 'false'
-        run: |
-          git add -A
-          echo "Initialized $(date)" > .project_initialized
-          git add .project_initialized
-
-      # ============================================================
-      # 4. DEBUG FILESYSTEM BEFORE CURL
-      # ============================================================
-      - name: Debug filesystem before curl
-        run: |
-          echo "------ Checking directories before curl ------"
-          ls -R .
-          echo "------------------------------------------------"
-
-      # ============================================================
-      # 4. FETCH GITHUB REPO DATA (DEBUG MODE)
-      # ============================================================
-      - name: Fetch ALL GitHub repositories (pagination)
+      - name: Fetch ALL GitHub repositories (paginated)
         run: |
           mkdir -p public
-          PAGE=1
-          > public/raw.json  # truncate file
+          > public/raw.json
 
           echo "[" >> public/raw.json
-
+          PAGE=1
+          FIRST=true
+          
           while true; do
             echo "Fetching page $PAGE..."
 
@@ -146,44 +135,27 @@ jobs:
 
             COUNT=$(echo "$RESP" | jq 'length')
 
-            # stop if empty page
             if [ "$COUNT" -eq 0 ]; then
               break
             fi
 
-            # add comma only between pages
-            if [ "$PAGE" -gt 1 ]; then
+            if [ "$FIRST" = true ]; then
+              FIRST=false
+            else
               echo "," >> public/raw.json
             fi
 
             echo "$RESP" >> public/raw.json
+
             PAGE=$((PAGE+1))
           done
 
           echo "]" >> public/raw.json
 
+          echo "Finished pagination."
 
       # ============================================================
-      # 4a. DEBUG RAW JSON (ONLY IF FILE EXISTS)
-      # ============================================================
-      - name: Debug raw GitHub response
-        run: |
-          if [ -f public/raw.json ]; then
-            echo "============ RAW JSON FROM GITHUB API ============"
-            head -n 30 public/raw.json
-            echo "==================================================="
-          else
-            echo "❌ raw.json not found — skipping debug"
-          fi
-
-      # ============================================================
-      # 4b. ENSURE OUTPUT FOLDER EXISTS
-      # ============================================================
-      - name: Ensure public/data exists
-        run: mkdir -p public/data
-
-      # ============================================================
-      # 5. PROCESS raw.json → repos.json
+      # 4. PROCESS raw.json → repos.json
       # ============================================================
       - name: Convert raw.json → repos.json
         run: |
@@ -191,7 +163,7 @@ jobs:
           const fs = require('fs');
 
           if (!fs.existsSync('public/raw.json')) {
-            console.error("❌ raw.json not found — cannot proceed.");
+            console.error("❌ raw.json not found");
             process.exit(1);
           }
 
@@ -201,7 +173,6 @@ jobs:
             console.error("GitHub API error:", raw);
             fs.writeFileSync('public/data/repos.json', JSON.stringify({
               error: true,
-              message: "GitHub API returned an error",
               github_response: raw,
               timestamp: new Date()
             }, null, 2));
@@ -238,10 +209,10 @@ jobs:
           EOF
 
       # ============================================================
-      # 6. AUTO-COMMIT ANY CHANGES
+      # 5. COMMIT EVERYTHING
       # ============================================================
       - name: Commit changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "Update repo data"
-          add_options: "-A"   # <-- IMPORTANT: commits ALL new + modified files
+          commit_message: "Update repo data (paginated)"
+          add_options: "-A"

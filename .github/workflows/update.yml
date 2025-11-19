@@ -6,7 +6,189 @@ permissions:
 on:
   workflow_dispatch:
   schedule:
+    - cron: "0 * * * *"name: Initialize & Update Repo Dashboard
+
+permissions:
+  contents: write
+
+on:
+  workflow_dispatch:
+  schedule:
     - cron: "0 * * * *"
+
+jobs:
+  init-and-update:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ============================================================
+      # 0. CHECKOUT + NODE
+      # ============================================================
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      # ============================================================
+      # 1. FIRST-RUN DETECTOR
+      # ============================================================
+      - name: Check initialization status
+        id: check_init
+        run: |
+          if [ -f ".project_initialized" ]; then
+            echo "initialized=true" >> $GITHUB_OUTPUT
+          else
+            echo "initialized=false" >> $GITHUB_OUTPUT
+          fi
+
+      # ============================================================
+      # 2. INITIALIZE FOLDERS / FILES ON FIRST RUN ONLY
+      # ============================================================
+      - name: Create folder structure
+        if: steps.check_init.outputs.initialized == 'false'
+        run: |
+          mkdir -p public/data \
+                   public/js \
+                   public/components \
+                   public/icons \
+                   public/assets \
+                   worker \
+                   scripts \
+                   tests \
+                   docs
+
+      - name: Create placeholder files
+        if: steps.check_init.outputs.initialized == 'false'
+        run: |
+          echo "<!-- Repo Dashboard -->" > public/index.html
+          echo "/* styles */" > public/styles.css
+          echo "{}" > public/data/repos.json
+          echo "// Worker entrypoint" > worker/worker.js
+          echo "// Process repos" > scripts/process-repos.js
+          echo "// Tests" > tests/worker.test.js
+          echo "# Architecture" > docs/architecture.md
+          echo "// JS placeholder" > public/js/app.js
+
+      - name: Stage initialization files
+        if: steps.check_init.outputs.initialized == 'false'
+        run: |
+          git add public worker scripts tests docs
+          echo "Initialized $(date)" > .project_initialized
+          git add .project_initialized
+
+      # ============================================================
+      # 3. FETCH ALL REPOS WITH PAGINATION
+      # ============================================================
+      - name: Fetch ALL GitHub repositories (pagination)
+        run: |
+          mkdir -p public
+          echo "[] " > public/raw.json
+
+          PAGE=1
+          PER_PAGE=100
+
+          while true; do
+            echo "---- Fetching page $PAGE ----"
+
+            curl -s \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/users/asiakay/repos?per_page=$PER_PAGE&page=$PAGE" \
+              -o page.json
+
+            COUNT=$(jq '. | length' page.json)
+            echo "Items on page $PAGE: $COUNT"
+
+            if [ "$COUNT" -eq 0 ]; then
+              echo "No more repos found."
+              break
+            fi
+
+            jq -s ".[0] + .[1]" public/raw.json page.json > merged.json
+            mv merged.json public/raw.json
+
+            PAGE=$((PAGE + 1))
+          done
+
+          echo "Total repos fetched:"
+          jq 'length' public/raw.json
+
+      - name: Debug raw.json
+        run: |
+          echo "==== RAW.JSON SAMPLE ===="
+          head -n 40 public/raw.json || true
+          echo "========================="
+
+      # ============================================================
+      # 4. ENSURE public/data EXISTS
+      # ============================================================
+      - name: Ensure data directory exists
+        run: mkdir -p public/data
+
+      # ============================================================
+      # 5. PROCESS raw.json → repos.json
+      # ============================================================
+      - name: Convert raw.json → repos.json
+        run: |
+          node << 'EOF'
+          const fs = require('fs');
+
+          const raw = JSON.parse(fs.readFileSync('public/raw.json'));
+
+          if (!Array.isArray(raw)) {
+            fs.writeFileSync('public/data/repos.json', JSON.stringify({
+              error: true,
+              message: "GitHub API returned non-array response",
+              github_response: raw,
+              timestamp: new Date()
+            }, null, 2));
+            process.exit(0);
+          }
+
+          function health(repo) {
+            let score = 0;
+            const days = (Date.now() - new Date(repo.updated_at)) / 86400000;
+            if (days > 30) score++;
+            if (days > 180) score += 2;
+            if (repo.open_issues_count > 5) score++;
+            if (!repo.description) score++;
+            return score < 2 ? "green" : score < 4 ? "yellow" : "red";
+          }
+
+          const cleaned = raw.map(r => ({
+            name: r.name,
+            full_name: r.full_name,
+            url: r.html_url,
+            description: r.description,
+            updated_at: r.updated_at,
+            language: r.language,
+            open_issues: r.open_issues_count,
+            health: health(r)
+          }));
+
+          fs.writeFileSync('public/data/repos.json', JSON.stringify(cleaned, null, 2));
+          console.log("Wrote repos.json with", cleaned.length, "repos.");
+          EOF
+
+      # ============================================================
+      # 6. AUTO-COMMIT CHANGES
+      # ============================================================
+      - name: Commit updated data
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Update repos.json + dashboard data"
+          file_pattern: |
+            public/raw.json
+            public/data/repos.json
+            .project_initialized
+            public/**
+            worker/**
+            scripts/**
+            tests/**
+            docs/**
+
 
 jobs:
   init-and-update:

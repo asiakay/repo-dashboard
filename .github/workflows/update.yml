@@ -81,6 +81,13 @@ jobs:
       # ============================================================
       # 4. FETCH GITHUB REPO DATA
       # ============================================================
+      - name: Debug filesystem before curl
+        run: |
+          echo "------ Checking directories before curl ------"
+          ls -R .
+          echo "------------------------------------------------"
+
+      
       - name: Fetch GitHub repositories
         run: |
           mkdir -p public

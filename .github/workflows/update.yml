@@ -77,7 +77,7 @@ jobs:
       - name: Fetch ALL GitHub repositories (pagination)
         run: |
           mkdir -p public
-          echo "[] " > public/raw.json
+          echo "[]" > /tmp/raw.json
 
           PAGE=1
           PER_PAGE=100
@@ -98,19 +98,19 @@ jobs:
               break
             fi
 
-            jq -s ".[0] + .[1]" public/raw.json page.json > merged.json
-            mv merged.json public/raw.json
+            jq -s ".[0] + .[1]" /tmp/raw.json page.json > merged.json
+            mv merged.json /tmp/raw.json
 
             PAGE=$((PAGE + 1))
           done
 
           echo "Total repos fetched:"
-          jq 'length' public/raw.json
+          jq 'length' /tmp/raw.json
 
       - name: Debug raw.json
         run: |
           echo "==== RAW.JSON SAMPLE ===="
-          head -n 40 public/raw.json || true
+          head -n 40 /tmp/raw.json || true
           echo "========================="
 
       # ============================================================
@@ -127,7 +127,7 @@ jobs:
           node << 'EOF'
           const fs = require('fs');
 
-          const raw = JSON.parse(fs.readFileSync('public/raw.json'));
+          const raw = JSON.parse(fs.readFileSync('/tmp/raw.json'));
 
           if (!Array.isArray(raw)) {
             fs.writeFileSync('public/data/repos.json', JSON.stringify({
@@ -177,7 +177,7 @@ jobs:
         with:
           commit_message: "Update repos.json + dashboard data"
           file_pattern: |
-            public/raw.json
+            public/.nojekyll
             public/data/repos.json
             .project_initialized
             public/**

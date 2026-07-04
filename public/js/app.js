@@ -8,6 +8,7 @@ const healthFilter = document.getElementById("health-filter");
 const sortBy = document.getElementById("sort-by");
 const repoList = document.getElementById("repo-list");
 const summaryText = document.getElementById("summary-text");
+const dataFreshness = document.getElementById("data-freshness");
 
 // Stats pills
 const statTotal = document.getElementById("stat-total");
@@ -15,10 +16,44 @@ const statGreen = document.getElementById("stat-green");
 const statYellow = document.getElementById("stat-yellow");
 const statRed = document.getElementById("stat-red");
 
+// Clickable stat pill filtering
+const pillMeta = [
+  { pill: document.getElementById("pill-total"), health: "" },
+  { pill: document.getElementById("pill-green"), health: "green" },
+  { pill: document.getElementById("pill-yellow"), health: "yellow" },
+  { pill: document.getElementById("pill-red"), health: "red" },
+];
+
+pillMeta.forEach(({ pill, health }) => {
+  pill.addEventListener("click", () => {
+    const current = healthFilter.value;
+    healthFilter.value = current === health ? "" : health;
+    updateActivePill();
+    applyFilters();
+  });
+});
+
+function updateActivePill() {
+  const active = healthFilter.value;
+  pillMeta.forEach(({ pill, health }) => {
+    pill.classList.toggle("active", health === active);
+  });
+}
+
 async function loadRepos() {
   try {
     const res = await fetch("/data/repos.json");
-    allRepos = await res.json();
+    const data = await res.json();
+
+    // Handle both the new envelope { generated_at, repos } and bare arrays
+    if (Array.isArray(data)) {
+      allRepos = data;
+    } else {
+      allRepos = data.repos || [];
+      if (data.generated_at) {
+        showFreshness(data.generated_at);
+      }
+    }
 
     filteredRepos = [...allRepos];
 
@@ -33,11 +68,19 @@ async function loadRepos() {
   }
 }
 
-// Build the language dropdown dynamically
+function showFreshness(isoString) {
+  const mins = Math.round((Date.now() - new Date(isoString)) / 60000);
+  const label = mins < 2
+    ? "Refreshed just now"
+    : mins < 60
+    ? `Refreshed ${mins}m ago`
+    : `Refreshed ${Math.round(mins / 60)}h ago`;
+  dataFreshness.textContent = " · " + label;
+}
+
 function populateLanguageFilter() {
   const languages = [...new Set(allRepos.map(r => r.language).filter(Boolean))];
   languages.sort();
-
   languages.forEach(lang => {
     const opt = document.createElement("option");
     opt.value = lang;
@@ -46,7 +89,6 @@ function populateLanguageFilter() {
   });
 }
 
-// Update top stat pills
 function updateStats() {
   statTotal.textContent = allRepos.length;
   statGreen.textContent = allRepos.filter(r => r.health === "green").length;
@@ -55,20 +97,17 @@ function updateStats() {
 }
 
 function applyFilters() {
-  let q = searchInput.value.toLowerCase();
-  let lang = languageFilter.value;
-  let health = healthFilter.value;
+  const q = searchInput.value.toLowerCase();
+  const lang = languageFilter.value;
+  const health = healthFilter.value;
 
   filteredRepos = allRepos.filter(repo => {
-
-    let matchesSearch =
+    const matchesSearch =
       repo.name.toLowerCase().includes(q) ||
-      (repo.description || "").toLowerCase().includes(q);
-
-    let matchesLanguage = lang ? repo.language === lang : true;
-
-    let matchesHealth = health ? repo.health === health : true;
-
+      (repo.description || "").toLowerCase().includes(q) ||
+      (repo.topics || []).some(t => t.toLowerCase().includes(q));
+    const matchesLanguage = lang ? repo.language === lang : true;
+    const matchesHealth = health ? repo.health === health : true;
     return matchesSearch && matchesLanguage && matchesHealth;
   });
 
@@ -79,69 +118,82 @@ function applyFilters() {
 
 function applySorting() {
   const val = sortBy.value;
-
   filteredRepos.sort((a, b) => {
     switch (val) {
-      case "updated_desc":
-        return new Date(b.updated_at) - new Date(a.updated_at);
-      case "updated_asc":
-        return new Date(a.updated_at) - new Date(b.updated_at);
-      case "name_asc":
-        return a.name.localeCompare(b.name);
-      case "name_desc":
-        return b.name.localeCompare(a.name);
-      case "issues_desc":
-        return (b.open_issues || 0) - (a.open_issues || 0);
-      default:
-        return 0;
+      case "updated_desc": return new Date(b.updated_at) - new Date(a.updated_at);
+      case "updated_asc":  return new Date(a.updated_at) - new Date(b.updated_at);
+      case "name_asc":     return a.name.localeCompare(b.name);
+      case "name_desc":    return b.name.localeCompare(a.name);
+      case "issues_desc":  return (b.open_issues || 0) - (a.open_issues || 0);
+      case "stars_desc":   return (b.stars || 0) - (a.stars || 0);
+      default: return 0;
     }
   });
 }
 
-// Render each repo card with your neon cosmic style
+function escapeText(str) {
+  const d = document.createElement("div");
+  d.appendChild(document.createTextNode(str || ""));
+  return d.innerHTML;
+}
+
 function renderRepos() {
   repoList.innerHTML = "";
 
   if (!filteredRepos.length) {
-    repoList.innerHTML = `<p style="color:var(--text-muted); padding:10px;">No repositories found.</p>`;
+    const p = document.createElement("p");
+    p.style.cssText = "color:var(--text-muted);padding:10px;";
+    p.textContent = "No repositories found.";
+    repoList.appendChild(p);
     return;
   }
 
   filteredRepos.forEach(repo => {
     const updated = new Date(repo.updated_at).toLocaleDateString();
     const issues = repo.open_issues || 0;
+    const stars = repo.stars || 0;
+    const forks = repo.forks || 0;
+    const topics = (repo.topics || []).slice(0, 5);
+
+    const issuesBadge = issues > 0
+      ? `<a href="${escapeText(repo.url)}/issues" target="_blank" class="badge badge-issues">${issues} issue${issues !== 1 ? "s" : ""}</a>`
+      : "";
+
+    const langBadge = repo.language
+      ? `<span class="badge badge-language">${escapeText(repo.language)}</span>`
+      : "";
+
+    const topicsHtml = topics.length
+      ? `<div class="repo-topics">${topics.map(t => `<span class="badge badge-topic">${escapeText(t)}</span>`).join("")}</div>`
+      : "";
+
+    const starsForks = (stars > 0 || forks > 0)
+      ? `<span class="meta-stars">★ ${stars}</span><span class="meta-forks">⑂ ${forks}</span>`
+      : "";
 
     const card = `
       <div class="repo-card">
         <div class="repo-header">
           <div class="repo-name">
-            <a href="${repo.url}" target="_blank">${repo.name}</a>
+            <a href="${escapeText(repo.url)}" target="_blank">${escapeText(repo.name)}</a>
           </div>
-
           <div class="repo-badges">
             <span class="badge badge-health-${repo.health}">
               <span class="badge-dot"></span>${repo.health.toUpperCase()}
             </span>
-
-            ${repo.language ? `
-            <span class="badge badge-language">
-              ${repo.language}
-            </span>` : ""}
-
-            ${issues > 0 ? `
-            <span class="badge badge-issues">
-              ${issues} issues
-            </span>` : ""}
+            ${langBadge}
+            ${issuesBadge}
           </div>
         </div>
 
-        <p class="repo-description">
-          ${repo.description || "No description."}
-        </p>
+        <p class="repo-description">${escapeText(repo.description || "No description.")}</p>
+
+        ${topicsHtml}
 
         <div class="repo-meta">
           <span>Updated: ${updated}</span>
-          <span>Branch: ${repo.default_branch || "main"}</span>
+          <span>Branch: ${escapeText(repo.default_branch || "main")}</span>
+          ${starsForks}
         </div>
       </div>
     `;
@@ -153,11 +205,13 @@ function renderRepos() {
 // Event listeners
 searchInput.addEventListener("input", applyFilters);
 languageFilter.addEventListener("change", applyFilters);
-healthFilter.addEventListener("change", applyFilters);
+healthFilter.addEventListener("change", () => {
+  updateActivePill();
+  applyFilters();
+});
 sortBy.addEventListener("change", () => {
   applySorting();
   renderRepos();
 });
 
-// Bootload
 loadRepos();

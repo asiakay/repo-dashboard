@@ -154,13 +154,18 @@ jobs:
             full_name: r.full_name,
             url: r.html_url,
             description: r.description,
+            created_at: r.created_at,
             updated_at: r.updated_at,
             language: r.language,
             open_issues: r.open_issues_count,
+            stars: r.stargazers_count,
+            forks: r.forks_count,
+            topics: r.topics || [],
             health: health(r)
           }));
 
-          fs.writeFileSync('public/data/repos.json', JSON.stringify(cleaned, null, 2));
+          const output = { generated_at: new Date().toISOString(), repos: cleaned };
+          fs.writeFileSync('public/data/repos.json', JSON.stringify(output, null, 2));
           console.log("Wrote repos.json with", cleaned.length, "repos.");
           EOF
 

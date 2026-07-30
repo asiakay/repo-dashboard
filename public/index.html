@@ -37,52 +37,130 @@
     </div>
   </header>
 
+  <!-- Tab navigation -->
+  <nav class="tab-nav" aria-label="Dashboard views">
+    <div class="tab-nav-inner">
+      <button class="tab-btn active" data-tab="repos">Repos</button>
+      <button class="tab-btn" data-tab="active-work">Active Work</button>
+      <button class="tab-btn" data-tab="agent-tasks">Agent Tasks</button>
+    </div>
+  </nav>
+
   <main class="page">
-    <!-- Controls -->
-    <section class="controls">
-      <div class="controls-row">
-        <div class="control">
-          <label for="search">Search</label>
-          <input id="search" type="search" placeholder="Search by name or description..." />
+
+    <!-- ========== VIEW: REPOS ========== -->
+    <section id="view-repos" class="view">
+      <section class="controls">
+        <div class="controls-row">
+          <div class="control">
+            <label for="search">Search</label>
+            <input id="search" type="search" placeholder="Search by name or description..." />
+          </div>
+          <div class="control">
+            <label for="language-filter">Language</label>
+            <select id="language-filter">
+              <option value="">All languages</option>
+            </select>
+          </div>
+          <div class="control">
+            <label for="health-filter">Health</label>
+            <select id="health-filter">
+              <option value="">All</option>
+              <option value="green">Healthy</option>
+              <option value="yellow">Needs attention</option>
+              <option value="red">Stale</option>
+            </select>
+          </div>
+          <div class="control">
+            <label for="sort-by">Sort by</label>
+            <select id="sort-by">
+              <option value="updated_desc">Last updated (newest)</option>
+              <option value="updated_asc">Last updated (oldest)</option>
+              <option value="name_asc">Name (A–Z)</option>
+              <option value="name_desc">Name (Z–A)</option>
+              <option value="issues_desc">Open issues (high → low)</option>
+              <option value="stars_desc">Stars (high → low)</option>
+            </select>
+          </div>
         </div>
-        <div class="control">
-          <label for="language-filter">Language</label>
-          <select id="language-filter">
-            <option value="">All languages</option>
-          </select>
+      </section>
+
+      <section class="summary">
+        <p id="summary-text">Loading repositories…</p>
+      </section>
+
+      <section class="repo-list" id="repo-list">
+        <!-- Cards injected by JS -->
+      </section>
+    </section>
+
+    <!-- ========== VIEW: ACTIVE WORK ========== -->
+    <section id="view-active-work" class="view hidden">
+      <div class="view-header">
+        <div>
+          <h2 class="view-title">Active Work</h2>
+          <p class="view-subtitle">Everything not yet done — check this before starting or handing off anything.</p>
         </div>
-        <div class="control">
-          <label for="health-filter">Health</label>
-          <select id="health-filter">
-            <option value="">All</option>
-            <option value="green">Healthy</option>
-            <option value="yellow">Needs attention</option>
-            <option value="red">Stale</option>
-          </select>
+        <button class="btn-primary" id="btn-add-work-item">+ Add work item</button>
+      </div>
+
+      <!-- Inline add form (hidden by default) -->
+      <div id="add-work-item-form" class="work-form hidden">
+        <div class="work-form-grid">
+          <div class="control">
+            <label for="wf-repo">Repo name</label>
+            <input id="wf-repo" type="text" placeholder="e.g. hemp-pilot-ops-dashboard" />
+          </div>
+          <div class="control">
+            <label for="wf-task">Task description</label>
+            <input id="wf-task" type="text" placeholder="What needs to happen?" />
+          </div>
+          <div class="control">
+            <label for="wf-status">Status</label>
+            <select id="wf-status">
+              <option value="not_started">Not started</option>
+              <option value="in_progress">In progress</option>
+              <option value="blocked">Blocked</option>
+              <option value="done">Done</option>
+            </select>
+          </div>
+          <div class="control">
+            <label for="wf-assigned">Assigned to</label>
+            <select id="wf-assigned">
+              <option value="agent">Agent</option>
+              <option value="asia">Asia</option>
+            </select>
+          </div>
+          <div class="control">
+            <label for="wf-depends">Depends on repo (optional)</label>
+            <input id="wf-depends" type="text" placeholder="e.g. front-porch-economics" />
+          </div>
+          <div class="control">
+            <label for="wf-notes">Notes (optional)</label>
+            <input id="wf-notes" type="text" placeholder="Any notes..." />
+          </div>
         </div>
-        <div class="control">
-          <label for="sort-by">Sort by</label>
-          <select id="sort-by">
-            <option value="updated_desc">Last updated (newest)</option>
-            <option value="updated_asc">Last updated (oldest)</option>
-            <option value="name_asc">Name (A–Z)</option>
-            <option value="name_desc">Name (Z–A)</option>
-            <option value="issues_desc">Open issues (high → low)</option>
-            <option value="stars_desc">Stars (high → low)</option>
-          </select>
+        <div class="work-form-actions">
+          <button class="btn-primary" id="btn-save-work-item">Save</button>
+          <button class="btn-ghost" id="btn-cancel-work-item">Cancel</button>
         </div>
       </div>
+
+      <!-- Grouped work items, injected by JS -->
+      <div id="active-work-list"></div>
     </section>
 
-    <!-- Results summary -->
-    <section class="summary">
-      <p id="summary-text">Loading repositories…</p>
+    <!-- ========== VIEW: AGENT TASKS ========== -->
+    <section id="view-agent-tasks" class="view hidden">
+      <div class="view-header">
+        <div>
+          <h2 class="view-title">Agent Tasks</h2>
+          <p class="view-subtitle">Running record of what was handed off, when, and what came back.</p>
+        </div>
+      </div>
+      <div id="agent-tasks-list"></div>
     </section>
 
-    <!-- Repo list -->
-    <section class="repo-list" id="repo-list">
-      <!-- Cards injected by JS -->
-    </section>
   </main>
 
   <footer class="footer">

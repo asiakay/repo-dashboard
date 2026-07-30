@@ -68,11 +68,18 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
 // ============================================================
 async function loadRepos() {
   try {
-    const res = await fetch("/data/repos.json");
-    const data = await res.json();
+    // Prefer the live API (all repos, paginated). Fall back to the committed static file.
+    let data;
+    try {
+      const res = await fetch("/api/repos");
+      data = await res.json();
+    } catch {
+      const res = await fetch("/data/repos.json");
+      data = await res.json();
+    }
 
     if (data && data.error) {
-      summaryText.textContent = `⚠ Dashboard data unavailable: ${data.message || "workflow error"}`;
+      summaryText.textContent = `⚠ Dashboard data unavailable: ${data.message || "GitHub API error"}`;
       return;
     }
 
@@ -82,13 +89,14 @@ async function loadRepos() {
       allRepos = data.repos;
       if (data.generated_at) showFreshness(data.generated_at);
     } else {
-      summaryText.textContent = "⚠ No repo data found. The workflow may not have run yet.";
+      summaryText.textContent = "⚠ No repo data found.";
       return;
     }
 
     filteredRepos = [...allRepos];
     populateLanguageFilter();
     updateStats();
+    applySorting();
     renderRepos();
     summaryText.textContent = `Showing ${filteredRepos.length} repositories`;
 

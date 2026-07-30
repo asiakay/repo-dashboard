@@ -26,13 +26,15 @@ const pillMeta = [
 ];
 
 pillMeta.forEach(({ pill, health }) => {
-  pill.addEventListener("click", () => {
+  const activate = () => {
     switchTab("repos");
     const current = healthFilter.value;
     healthFilter.value = current === health ? "" : health;
     updateActivePill();
     applyFilters();
-  });
+  };
+  pill.addEventListener("click", activate);
+  pill.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); activate(); } });
 });
 
 function updateActivePill() {
@@ -53,7 +55,9 @@ function switchTab(tabId) {
     if (view) view.classList.toggle("hidden", id !== tabId);
   });
   document.querySelectorAll(".tab-btn").forEach(btn => {
-    btn.classList.toggle("active", btn.dataset.tab === tabId);
+    const isActive = btn.dataset.tab === tabId;
+    btn.classList.toggle("active", isActive);
+    btn.setAttribute("aria-selected", isActive ? "true" : "false");
   });
   if (tabId === "active-work") renderActiveWork();
   if (tabId === "agent-tasks") renderAgentTasks();
@@ -215,11 +219,15 @@ function renderRepos() {
     const topics = (repo.topics || []).slice(0, 5);
 
     const issuesBadge = issues > 0
-      ? `<a href="${escapeText(repo.url)}/issues" target="_blank" class="badge badge-issues">${issues} issue${issues !== 1 ? "s" : ""}</a>`
+      ? `<a href="${escapeText(repo.url)}/issues" target="_blank" rel="noopener noreferrer" class="badge badge-issues">${issues} issue${issues !== 1 ? "s" : ""}</a>`
       : "";
 
     const langBadge = repo.language
       ? `<span class="badge badge-language">${escapeText(repo.language)}</span>`
+      : "";
+
+    const homepageBadge = repo.homepage
+      ? `<a href="${escapeText(repo.homepage)}" target="_blank" rel="noopener noreferrer" class="badge badge-homepage" aria-label="Visit live site for ${escapeText(repo.name)}">↗ site</a>`
       : "";
 
     const topicsHtml = topics.length
@@ -227,7 +235,7 @@ function renderRepos() {
       : "";
 
     const starsForks = (stars > 0 || forks > 0)
-      ? `<span class="meta-stars">★ ${stars}</span><span class="meta-forks">⑂ ${forks}</span>`
+      ? `<span class="meta-stars" aria-label="${stars} stars">★ ${stars}</span><span class="meta-forks" aria-label="${forks} forks">⑂ ${forks}</span>`
       : "";
 
     // Work status badge — find the most relevant open work item for this repo
@@ -240,13 +248,14 @@ function renderRepos() {
       <div class="repo-card">
         <div class="repo-header">
           <div class="repo-name">
-            <a href="${escapeText(repo.url)}" target="_blank">${escapeText(repo.name)}</a>
+            <a href="${escapeText(repo.url)}" target="_blank" rel="noopener noreferrer">${escapeText(repo.name)}</a>
           </div>
           <div class="repo-badges">
             <span class="badge badge-health-${repo.health}">
-              <span class="badge-dot"></span>${repo.health.toUpperCase()}
+              <span class="badge-dot" aria-hidden="true"></span>${repo.health.toUpperCase()}
             </span>
             ${workBadge}
+            ${homepageBadge}
             ${langBadge}
             ${issuesBadge}
           </div>

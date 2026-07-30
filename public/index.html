@@ -7,29 +7,31 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
   <header class="topbar">
     <div class="topbar-inner">
       <div class="brand">
-        <span class="brand-mark">●</span>
+        <span class="brand-mark" aria-hidden="true">●</span>
         <div class="brand-text">
           <h1>Repo Dashboard</h1>
           <p>Live view of <span id="owner-name">asiakay</span> GitHub repos</p>
         </div>
       </div>
-      <div class="top-stats">
-        <div class="stat-pill" id="pill-total" title="Show all">
+      <div class="top-stats" role="group" aria-label="Repository health summary">
+        <div class="stat-pill" id="pill-total" title="Show all" role="button" tabindex="0">
           <span class="stat-label">Total</span>
           <span class="stat-value" id="stat-total">0</span>
         </div>
-        <div class="stat-pill stat-green" id="pill-green" title="Filter: Healthy">
+        <div class="stat-pill stat-green" id="pill-green" title="Filter: Healthy" role="button" tabindex="0">
           <span class="stat-label">Healthy</span>
           <span class="stat-value" id="stat-green">0</span>
         </div>
-        <div class="stat-pill stat-yellow" id="pill-yellow" title="Filter: Needs attention">
+        <div class="stat-pill stat-yellow" id="pill-yellow" title="Filter: Needs attention" role="button" tabindex="0">
           <span class="stat-label">Needs attention</span>
           <span class="stat-value" id="stat-yellow">0</span>
         </div>
-        <div class="stat-pill stat-red" id="pill-red" title="Filter: Stale">
+        <div class="stat-pill stat-red" id="pill-red" title="Filter: Stale" role="button" tabindex="0">
           <span class="stat-label">Stale</span>
           <span class="stat-value" id="stat-red">0</span>
         </div>
@@ -39,17 +41,17 @@
 
   <!-- Tab navigation -->
   <nav class="tab-nav" aria-label="Dashboard views">
-    <div class="tab-nav-inner">
-      <button class="tab-btn active" data-tab="repos">Repos</button>
-      <button class="tab-btn" data-tab="active-work">Active Work</button>
-      <button class="tab-btn" data-tab="agent-tasks">Agent Tasks</button>
+    <div class="tab-nav-inner" role="tablist">
+      <button class="tab-btn active" data-tab="repos" id="tab-repos" role="tab" aria-selected="true" aria-controls="view-repos">Repos</button>
+      <button class="tab-btn" data-tab="active-work" id="tab-active-work" role="tab" aria-selected="false" aria-controls="view-active-work">Active Work</button>
+      <button class="tab-btn" data-tab="agent-tasks" id="tab-agent-tasks" role="tab" aria-selected="false" aria-controls="view-agent-tasks">Agent Tasks</button>
     </div>
   </nav>
 
-  <main class="page">
+  <main class="page" id="main-content">
 
     <!-- ========== VIEW: REPOS ========== -->
-    <section id="view-repos" class="view">
+    <section id="view-repos" class="view" role="tabpanel" aria-labelledby="tab-repos">
       <section class="controls">
         <div class="controls-row">
           <div class="control">
@@ -89,13 +91,13 @@
         <p id="summary-text">Loading repositories…</p>
       </section>
 
-      <section class="repo-list" id="repo-list">
+      <section class="repo-list" id="repo-list" aria-label="Repository list">
         <!-- Cards injected by JS -->
       </section>
     </section>
 
     <!-- ========== VIEW: ACTIVE WORK ========== -->
-    <section id="view-active-work" class="view hidden">
+    <section id="view-active-work" class="view hidden" role="tabpanel" aria-labelledby="tab-active-work">
       <div class="view-header">
         <div>
           <h2 class="view-title">Active Work</h2>
@@ -105,7 +107,7 @@
       </div>
 
       <!-- Inline add form (hidden by default) -->
-      <div id="add-work-item-form" class="work-form hidden">
+      <div id="add-work-item-form" class="work-form hidden" aria-label="Add work item form">
         <div class="work-form-grid">
           <div class="control">
             <label for="wf-repo">Repo name</label>
@@ -151,7 +153,7 @@
     </section>
 
     <!-- ========== VIEW: AGENT TASKS ========== -->
-    <section id="view-agent-tasks" class="view hidden">
+    <section id="view-agent-tasks" class="view hidden" role="tabpanel" aria-labelledby="tab-agent-tasks">
       <div class="view-header">
         <div>
           <h2 class="view-title">Agent Tasks</h2>
@@ -165,7 +167,7 @@
 
   <footer class="footer">
     <p>
-      Data from <a href="https://github.com/asiakay" target="_blank">github.com/asiakay</a>.
+      Data from <a href="https://github.com/asiakay" target="_blank" rel="noopener noreferrer">github.com/asiakay</a>.
       Updated automatically by GitHub Actions.
       <span id="data-freshness"></span>
     </p>

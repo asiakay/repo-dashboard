@@ -1,7 +1,8 @@
 let allRepos = [];
 let filteredRepos = [];
+let workItems = [];
 
-// DOM refs
+// DOM refs — repos view
 const searchInput = document.getElementById("search");
 const languageFilter = document.getElementById("language-filter");
 const healthFilter = document.getElementById("health-filter");
@@ -25,12 +26,15 @@ const pillMeta = [
 ];
 
 pillMeta.forEach(({ pill, health }) => {
-  pill.addEventListener("click", () => {
+  const activate = () => {
+    switchTab("repos");
     const current = healthFilter.value;
     healthFilter.value = current === health ? "" : health;
     updateActivePill();
     applyFilters();
-  });
+  };
+  pill.addEventListener("click", activate);
+  pill.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); activate(); } });
 });
 
 function updateActivePill() {
@@ -40,31 +44,80 @@ function updateActivePill() {
   });
 }
 
+// ============================================================
+// Tab switching
+// ============================================================
+const TABS = ["repos", "active-work", "agent-tasks"];
+
+function switchTab(tabId) {
+  TABS.forEach(id => {
+    const view = document.getElementById(`view-${id}`);
+    if (view) view.classList.toggle("hidden", id !== tabId);
+  });
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    const isActive = btn.dataset.tab === tabId;
+    btn.classList.toggle("active", isActive);
+    btn.setAttribute("aria-selected", isActive ? "true" : "false");
+  });
+  if (tabId === "active-work") renderActiveWork();
+  if (tabId === "agent-tasks") renderAgentTasks();
+}
+
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+});
+
+// ============================================================
+// Data loading
+// ============================================================
 async function loadRepos() {
   try {
-    const res = await fetch("/data/repos.json");
-    const data = await res.json();
+    // Prefer the live API (all repos, paginated). Fall back to the committed static file.
+    let data;
+    try {
+      const res = await fetch("/api/repos");
+      data = await res.json();
+    } catch {
+      const res = await fetch("/data/repos.json");
+      data = await res.json();
+    }
 
-    // Handle both the new envelope { generated_at, repos } and bare arrays
+    if (data && data.error) {
+      summaryText.textContent = `⚠ Dashboard data unavailable: ${data.message || "GitHub API error"}`;
+      return;
+    }
+
     if (Array.isArray(data)) {
       allRepos = data;
+    } else if (data && Array.isArray(data.repos)) {
+      allRepos = data.repos;
+      if (data.generated_at) showFreshness(data.generated_at);
     } else {
-      allRepos = data.repos || [];
-      if (data.generated_at) {
-        showFreshness(data.generated_at);
-      }
+      summaryText.textContent = "⚠ No repo data found.";
+      return;
     }
 
     filteredRepos = [...allRepos];
-
     populateLanguageFilter();
     updateStats();
+    applySorting();
     renderRepos();
     summaryText.textContent = `Showing ${filteredRepos.length} repositories`;
 
   } catch (err) {
     console.error("Error loading repos:", err);
     summaryText.textContent = "Failed to load repositories.";
+  }
+}
+
+async function loadWorkItems() {
+  try {
+    const res = await fetch("/api/work-items");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    workItems = await res.json();
+  } catch (err) {
+    console.warn("Could not load work items:", err);
+    workItems = [];
   }
 }
 
@@ -78,6 +131,9 @@ function showFreshness(isoString) {
   dataFreshness.textContent = " · " + label;
 }
 
+// ============================================================
+// Repos view
+// ============================================================
 function populateLanguageFilter() {
   const languages = [...new Set(allRepos.map(r => r.language).filter(Boolean))];
   languages.sort();
@@ -137,6 +193,13 @@ function escapeText(str) {
   return d.innerHTML;
 }
 
+const WORK_STATUS_LABELS = {
+  not_started: "Not started",
+  in_progress:  "In progress",
+  blocked:      "Blocked",
+  done:         "Done",
+};
+
 function renderRepos() {
   repoList.innerHTML = "";
 
@@ -156,11 +219,15 @@ function renderRepos() {
     const topics = (repo.topics || []).slice(0, 5);
 
     const issuesBadge = issues > 0
-      ? `<a href="${escapeText(repo.url)}/issues" target="_blank" class="badge badge-issues">${issues} issue${issues !== 1 ? "s" : ""}</a>`
+      ? `<a href="${escapeText(repo.url)}/issues" target="_blank" rel="noopener noreferrer" class="badge badge-issues">${issues} issue${issues !== 1 ? "s" : ""}</a>`
       : "";
 
     const langBadge = repo.language
       ? `<span class="badge badge-language">${escapeText(repo.language)}</span>`
+      : "";
+
+    const homepageBadge = repo.homepage
+      ? `<a href="${escapeText(repo.homepage)}" target="_blank" rel="noopener noreferrer" class="badge badge-homepage" aria-label="Visit live site for ${escapeText(repo.name)}">↗ site</a>`
       : "";
 
     const topicsHtml = topics.length
@@ -168,19 +235,27 @@ function renderRepos() {
       : "";
 
     const starsForks = (stars > 0 || forks > 0)
-      ? `<span class="meta-stars">★ ${stars}</span><span class="meta-forks">⑂ ${forks}</span>`
+      ? `<span class="meta-stars" aria-label="${stars} stars">★ ${stars}</span><span class="meta-forks" aria-label="${forks} forks">⑂ ${forks}</span>`
+      : "";
+
+    // Work status badge — find the most relevant open work item for this repo
+    const wi = workItems.find(w => w.repo_name === repo.name && w.status !== "done");
+    const workBadge = wi
+      ? `<span class="badge badge-work badge-work-${wi.status}" title="${escapeText(wi.task_description)}">${escapeText(WORK_STATUS_LABELS[wi.status] || wi.status)}</span>`
       : "";
 
     const card = `
       <div class="repo-card">
         <div class="repo-header">
           <div class="repo-name">
-            <a href="${escapeText(repo.url)}" target="_blank">${escapeText(repo.name)}</a>
+            <a href="${escapeText(repo.url)}" target="_blank" rel="noopener noreferrer">${escapeText(repo.name)}</a>
           </div>
           <div class="repo-badges">
             <span class="badge badge-health-${repo.health}">
-              <span class="badge-dot"></span>${repo.health.toUpperCase()}
+              <span class="badge-dot" aria-hidden="true"></span>${repo.health.toUpperCase()}
             </span>
+            ${workBadge}
+            ${homepageBadge}
             ${langBadge}
             ${issuesBadge}
           </div>
@@ -202,7 +277,240 @@ function renderRepos() {
   });
 }
 
-// Event listeners
+// ============================================================
+// Active Work view
+// ============================================================
+const STATUS_ORDER = ["in_progress", "blocked", "not_started"];
+const STATUS_SECTION_LABELS = {
+  in_progress: "In Progress",
+  blocked:     "Blocked",
+  not_started: "Not Started",
+};
+
+function depHasOpenWork(dependsOnRepo) {
+  return workItems.some(w => w.repo_name === dependsOnRepo && w.status !== "done");
+}
+
+function renderActiveWork() {
+  const container = document.getElementById("active-work-list");
+  const openItems = workItems.filter(w => w.status !== "done");
+
+  if (!openItems.length) {
+    container.innerHTML = `<p class="empty-state">Nothing active right now. All clear!</p>`;
+    return;
+  }
+
+  let html = "";
+  STATUS_ORDER.forEach(status => {
+    const items = openItems.filter(w => w.status === status);
+    if (!items.length) return;
+
+    html += `<div class="work-group">
+      <h3 class="work-group-label">${STATUS_SECTION_LABELS[status]} <span class="work-group-count">${items.length}</span></h3>`;
+
+    items.forEach(item => {
+      const depWarning = item.depends_on_repo && depHasOpenWork(item.depends_on_repo)
+        ? `<div class="dep-warning">⚠ <strong>${escapeText(item.repo_name)}</strong> depends on <strong>${escapeText(item.depends_on_repo)}</strong>, which has unfinished work. Starting this now may require rework.</div>`
+        : "";
+
+      html += `
+        <div class="work-row" data-id="${item.id}">
+          ${depWarning}
+          <div class="work-row-main">
+            <span class="badge badge-work badge-work-${item.status}">${escapeText(WORK_STATUS_LABELS[item.status] || item.status)}</span>
+            <span class="work-repo">${escapeText(item.repo_name)}</span>
+            <span class="work-task">${escapeText(item.task_description)}</span>
+            <span class="work-assigned badge-assigned-${item.assigned_to}">${escapeText(item.assigned_to)}</span>
+            ${item.depends_on_repo ? `<span class="work-dep">→ needs ${escapeText(item.depends_on_repo)}</span>` : ""}
+            <button class="btn-ghost btn-sm" onclick="openEditForm(${item.id})">Edit</button>
+          </div>
+          <div id="edit-form-${item.id}" class="work-form work-inline-form hidden"></div>
+        </div>`;
+    });
+
+    html += `</div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+function openEditForm(id) {
+  const item = workItems.find(w => w.id === id);
+  if (!item) return;
+
+  // Close any other open forms
+  document.querySelectorAll(".work-inline-form").forEach(f => {
+    if (f.id !== `edit-form-${id}`) f.classList.add("hidden");
+  });
+
+  const formEl = document.getElementById(`edit-form-${id}`);
+  if (!formEl.classList.contains("hidden")) {
+    formEl.classList.add("hidden");
+    return;
+  }
+
+  formEl.innerHTML = `
+    <div class="work-form-grid">
+      <div class="control">
+        <label>Status</label>
+        <select id="ef-status-${id}">
+          <option value="not_started" ${item.status === "not_started" ? "selected" : ""}>Not started</option>
+          <option value="in_progress" ${item.status === "in_progress" ? "selected" : ""}>In progress</option>
+          <option value="blocked" ${item.status === "blocked" ? "selected" : ""}>Blocked</option>
+          <option value="done" ${item.status === "done" ? "selected" : ""}>Done</option>
+        </select>
+      </div>
+      <div class="control">
+        <label>Assigned to</label>
+        <select id="ef-assigned-${id}">
+          <option value="agent" ${item.assigned_to === "agent" ? "selected" : ""}>Agent</option>
+          <option value="asia" ${item.assigned_to === "asia" ? "selected" : ""}>Asia</option>
+        </select>
+      </div>
+      <div class="control">
+        <label>Notes</label>
+        <input id="ef-notes-${id}" type="text" value="${escapeText(item.notes || "")}" placeholder="One-line summary..." />
+      </div>
+    </div>
+    <div class="work-form-actions">
+      <button class="btn-primary" onclick="saveEdit(${id})">Save</button>
+      <button class="btn-ghost" onclick="document.getElementById('edit-form-${id}').classList.add('hidden')">Cancel</button>
+    </div>`;
+
+  formEl.classList.remove("hidden");
+}
+
+async function saveEdit(id) {
+  const status = document.getElementById(`ef-status-${id}`).value;
+  const assigned_to = document.getElementById(`ef-assigned-${id}`).value;
+  const notes = document.getElementById(`ef-notes-${id}`).value;
+
+  const started_at = status === "in_progress" && !workItems.find(w => w.id === id)?.started_at
+    ? new Date().toISOString()
+    : undefined;
+  const completed_at = status === "done"
+    ? new Date().toISOString()
+    : undefined;
+
+  const body = { status, assigned_to, notes };
+  if (started_at !== undefined) body.started_at = started_at;
+  if (completed_at !== undefined) body.completed_at = completed_at;
+
+  try {
+    const res = await fetch(`/api/work-items/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const updated = await res.json();
+    const idx = workItems.findIndex(w => w.id === id);
+    if (idx !== -1) workItems[idx] = updated;
+    renderActiveWork();
+    renderRepos();
+  } catch (err) {
+    alert("Failed to save: " + err.message);
+  }
+}
+
+// ============================================================
+// Agent Tasks view
+// ============================================================
+function renderAgentTasks() {
+  const container = document.getElementById("agent-tasks-list");
+  const agentItems = workItems
+    .filter(w => w.assigned_to === "agent")
+    .sort((a, b) => {
+      if (a.started_at && b.started_at) return new Date(b.started_at) - new Date(a.started_at);
+      if (a.started_at) return -1;
+      if (b.started_at) return 1;
+      return 0;
+    });
+
+  if (!agentItems.length) {
+    container.innerHTML = `<p class="empty-state">No agent tasks found.</p>`;
+    return;
+  }
+
+  const rows = agentItems.map(item => `
+    <tr>
+      <td><a href="https://github.com/asiakay/${escapeText(item.repo_name)}" target="_blank">${escapeText(item.repo_name)}</a></td>
+      <td>${escapeText(item.task_description)}</td>
+      <td><span class="badge badge-work badge-work-${item.status}">${escapeText(WORK_STATUS_LABELS[item.status] || item.status)}</span></td>
+      <td>${item.started_at ? new Date(item.started_at).toLocaleDateString() : "—"}</td>
+      <td>${item.completed_at ? new Date(item.completed_at).toLocaleDateString() : "—"}</td>
+      <td class="notes-cell">${escapeText(item.notes || "")}</td>
+    </tr>`).join("");
+
+  container.innerHTML = `
+    <div class="table-scroll">
+      <table class="work-table">
+        <thead>
+          <tr>
+            <th>Repo</th>
+            <th>Task</th>
+            <th>Status</th>
+            <th>Started</th>
+            <th>Completed</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+// ============================================================
+// Add work item form
+// ============================================================
+document.getElementById("btn-add-work-item").addEventListener("click", () => {
+  document.getElementById("add-work-item-form").classList.toggle("hidden");
+});
+
+document.getElementById("btn-cancel-work-item").addEventListener("click", () => {
+  document.getElementById("add-work-item-form").classList.add("hidden");
+});
+
+document.getElementById("btn-save-work-item").addEventListener("click", async () => {
+  const repo_name = document.getElementById("wf-repo").value.trim();
+  const task_description = document.getElementById("wf-task").value.trim();
+  const status = document.getElementById("wf-status").value;
+  const assigned_to = document.getElementById("wf-assigned").value;
+  const depends_on_repo = document.getElementById("wf-depends").value.trim() || null;
+  const notes = document.getElementById("wf-notes").value.trim() || null;
+
+  if (!repo_name || !task_description) {
+    alert("Repo name and task description are required.");
+    return;
+  }
+
+  const body = { repo_name, task_description, status, assigned_to, depends_on_repo, notes };
+  if (status === "in_progress") body.started_at = new Date().toISOString();
+
+  try {
+    const res = await fetch("/api/work-items", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const newItem = await res.json();
+    workItems.push(newItem);
+
+    // Reset form
+    ["wf-repo", "wf-task", "wf-depends", "wf-notes"].forEach(id => { document.getElementById(id).value = ""; });
+    document.getElementById("add-work-item-form").classList.add("hidden");
+
+    renderActiveWork();
+    renderRepos();
+  } catch (err) {
+    alert("Failed to add work item: " + err.message);
+  }
+});
+
+// ============================================================
+// Event listeners — repos view
+// ============================================================
 searchInput.addEventListener("input", applyFilters);
 languageFilter.addEventListener("change", applyFilters);
 healthFilter.addEventListener("change", () => {
@@ -214,4 +522,12 @@ sortBy.addEventListener("change", () => {
   renderRepos();
 });
 
-loadRepos();
+// ============================================================
+// Init
+// ============================================================
+async function init() {
+  await Promise.all([loadRepos(), loadWorkItems()]);
+  renderRepos(); // re-render repos with work items overlaid
+}
+
+init();

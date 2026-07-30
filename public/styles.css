@@ -472,30 +472,72 @@ body { min-height: 100vh; }
   margin-bottom: 8px;
 }
 
-.work-row-main {
+.work-card-top {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.work-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 .work-repo {
   font-size: 14px;
   font-weight: 600;
   color: var(--accent-strong);
+  text-decoration: none;
 }
+
+.work-repo:hover { text-decoration: underline; }
 
 .work-task {
   font-size: 13px;
   color: var(--text-main);
   flex: 1;
-  min-width: 200px;
+  min-width: 180px;
 }
 
 .work-dep {
   font-size: 11px;
   color: var(--text-muted);
   font-style: italic;
+}
+
+.work-time {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.work-notes-inline {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  border-left: 2px solid var(--border-subtle);
+  padding-left: 8px;
+  line-height: 1.5;
+}
+
+.work-toggle-row {
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
 }
 
 .work-assigned {
@@ -582,8 +624,59 @@ body { min-height: 100vh; }
 .btn-sm { padding: 4px 10px; font-size: 11px; }
 
 /* ============================================================
-   Agent tasks table
+   Agent tasks table + mobile cards
    ============================================================ */
+.agent-table-wrap { display: block; }
+.agent-cards { display: none; flex-direction: column; gap: 10px; }
+
+.agent-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: radial-gradient(circle at top left, #181d33 0, #0b0f20 70%);
+  padding: 12px 14px;
+}
+
+.agent-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.agent-card-header a {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-strong);
+  text-decoration: none;
+}
+
+.agent-card-header a:hover { text-decoration: underline; }
+
+.agent-card-task {
+  font-size: 13px;
+  color: var(--text-main);
+  margin: 0 0 6px;
+}
+
+.agent-card-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.agent-card-notes {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 6px 0 0;
+  border-left: 2px solid var(--border-subtle);
+  padding-left: 8px;
+  line-height: 1.5;
+}
+
 .table-scroll { overflow-x: auto; }
 
 .work-table {
@@ -649,6 +742,8 @@ body { min-height: 100vh; }
 @media (max-width: 640px) {
   .controls-row { grid-template-columns: minmax(0, 1fr); }
   .work-form-grid { grid-template-columns: 1fr; }
-  .work-row-main { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .work-card-top { flex-direction: column; align-items: flex-start; gap: 4px; }
   .tab-btn { padding: 10px 12px; font-size: 13px; }
+  .agent-table-wrap { display: none; }
+  .agent-cards { display: flex; }
 }

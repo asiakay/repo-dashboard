@@ -67,6 +67,16 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
   btn.addEventListener("click", () => switchTab(btn.dataset.tab));
 });
 
+document.querySelector(".tab-nav-inner").addEventListener("keydown", e => {
+  const tabs = [...document.querySelectorAll(".tab-btn")];
+  const idx = tabs.indexOf(document.activeElement);
+  if (idx === -1) return;
+  if (e.key === "ArrowRight") { tabs[(idx + 1) % tabs.length].focus(); e.preventDefault(); }
+  if (e.key === "ArrowLeft")  { tabs[(idx - 1 + tabs.length) % tabs.length].focus(); e.preventDefault(); }
+  if (e.key === "Home") { tabs[0].focus(); e.preventDefault(); }
+  if (e.key === "End")  { tabs[tabs.length - 1].focus(); e.preventDefault(); }
+});
+
 // ============================================================
 // Data loading
 // ============================================================
@@ -129,6 +139,18 @@ function showFreshness(isoString) {
     ? `Refreshed ${mins}m ago`
     : `Refreshed ${Math.round(mins / 60)}h ago`;
   dataFreshness.textContent = " · " + label;
+}
+
+function timeAgo(dateStr) {
+  if (!dateStr) return null;
+  const diff = Date.now() - new Date(dateStr);
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  return `${d}d ago`;
 }
 
 // ============================================================
@@ -293,37 +315,72 @@ function depHasOpenWork(dependsOnRepo) {
 
 function renderActiveWork() {
   const container = document.getElementById("active-work-list");
-  const openItems = workItems.filter(w => w.status !== "done");
+  const showDone = document.getElementById("toggle-show-done")?.checked;
+  const visibleItems = showDone ? workItems : workItems.filter(w => w.status !== "done");
 
-  if (!openItems.length) {
-    container.innerHTML = `<p class="empty-state">Nothing active right now. All clear!</p>`;
+  if (!visibleItems.length) {
+    container.innerHTML = `
+      <div class="work-toggle-row">
+        <label class="toggle-label">
+          <input type="checkbox" id="toggle-show-done" ${showDone ? "checked" : ""} />
+          Show completed
+        </label>
+      </div>
+      <p class="empty-state">Nothing active right now. All clear!</p>`;
+    document.getElementById("toggle-show-done").addEventListener("change", renderActiveWork);
     return;
   }
 
-  let html = "";
-  STATUS_ORDER.forEach(status => {
-    const items = openItems.filter(w => w.status === status);
+  let html = `
+    <div class="work-toggle-row">
+      <label class="toggle-label">
+        <input type="checkbox" id="toggle-show-done" ${showDone ? "checked" : ""} />
+        Show completed
+      </label>
+    </div>`;
+
+  const allStatuses = showDone ? [...STATUS_ORDER, "done"] : STATUS_ORDER;
+  allStatuses.forEach(status => {
+    const items = visibleItems.filter(w => w.status === status);
     if (!items.length) return;
 
+    const sectionLabel = STATUS_SECTION_LABELS[status] || WORK_STATUS_LABELS[status] || status;
     html += `<div class="work-group">
-      <h3 class="work-group-label">${STATUS_SECTION_LABELS[status]} <span class="work-group-count">${items.length}</span></h3>`;
+      <h3 class="work-group-label">${sectionLabel} <span class="work-group-count">${items.length}</span></h3>`;
 
     items.forEach(item => {
       const depWarning = item.depends_on_repo && depHasOpenWork(item.depends_on_repo)
-        ? `<div class="dep-warning">⚠ <strong>${escapeText(item.repo_name)}</strong> depends on <strong>${escapeText(item.depends_on_repo)}</strong>, which has unfinished work. Starting this now may require rework.</div>`
+        ? `<div class="dep-warning">⚠ <strong>${escapeText(item.repo_name)}</strong> depends on <strong>${escapeText(item.depends_on_repo)}</strong>, which has unfinished work.</div>`
+        : "";
+
+      const startedAgo = timeAgo(item.started_at);
+      const timeSpan = startedAgo
+        ? `<span class="work-time" title="${escapeText(item.started_at)}">Started ${startedAgo}</span>`
+        : "";
+
+      const depSpan = item.depends_on_repo
+        ? `<span class="work-dep">→ needs ${escapeText(item.depends_on_repo)}</span>`
+        : "";
+
+      const notesDiv = item.notes
+        ? `<div class="work-notes-inline">${escapeText(item.notes)}</div>`
         : "";
 
       html += `
         <div class="work-row" data-id="${item.id}">
           ${depWarning}
-          <div class="work-row-main">
+          <div class="work-card-top">
             <span class="badge badge-work badge-work-${item.status}">${escapeText(WORK_STATUS_LABELS[item.status] || item.status)}</span>
-            <span class="work-repo">${escapeText(item.repo_name)}</span>
+            <a href="https://github.com/asiakay/${escapeText(item.repo_name)}" target="_blank" rel="noopener noreferrer" class="work-repo">${escapeText(item.repo_name)}</a>
             <span class="work-task">${escapeText(item.task_description)}</span>
+          </div>
+          <div class="work-card-meta">
             <span class="work-assigned badge-assigned-${item.assigned_to}">${escapeText(item.assigned_to)}</span>
-            ${item.depends_on_repo ? `<span class="work-dep">→ needs ${escapeText(item.depends_on_repo)}</span>` : ""}
+            ${depSpan}
+            ${timeSpan}
             <button class="btn-ghost btn-sm" onclick="openEditForm(${item.id})">Edit</button>
           </div>
+          ${notesDiv}
           <div id="edit-form-${item.id}" class="work-form work-inline-form hidden"></div>
         </div>`;
     });
@@ -332,6 +389,7 @@ function renderActiveWork() {
   });
 
   container.innerHTML = html;
+  document.getElementById("toggle-show-done").addEventListener("change", renderActiveWork);
 }
 
 function openEditForm(id) {
@@ -432,32 +490,65 @@ function renderAgentTasks() {
     return;
   }
 
-  const rows = agentItems.map(item => `
+  // Table (desktop)
+  const rows = agentItems.map(item => {
+    const startedAgo = timeAgo(item.started_at);
+    const completedAgo = timeAgo(item.completed_at);
+    const startedFull = item.started_at ? new Date(item.started_at).toLocaleDateString() : null;
+    const completedFull = item.completed_at ? new Date(item.completed_at).toLocaleDateString() : null;
+    return `
     <tr>
-      <td><a href="https://github.com/asiakay/${escapeText(item.repo_name)}" target="_blank">${escapeText(item.repo_name)}</a></td>
+      <td><a href="https://github.com/asiakay/${escapeText(item.repo_name)}" target="_blank" rel="noopener noreferrer">${escapeText(item.repo_name)}</a></td>
       <td>${escapeText(item.task_description)}</td>
       <td><span class="badge badge-work badge-work-${item.status}">${escapeText(WORK_STATUS_LABELS[item.status] || item.status)}</span></td>
-      <td>${item.started_at ? new Date(item.started_at).toLocaleDateString() : "—"}</td>
-      <td>${item.completed_at ? new Date(item.completed_at).toLocaleDateString() : "—"}</td>
+      <td ${startedFull ? `title="${escapeText(startedFull)}"` : ""}>${startedAgo || "—"}</td>
+      <td ${completedFull ? `title="${escapeText(completedFull)}"` : ""}>${completedAgo || "—"}</td>
       <td class="notes-cell">${escapeText(item.notes || "")}</td>
-    </tr>`).join("");
+    </tr>`;
+  }).join("");
+
+  // Cards (mobile)
+  const cards = agentItems.map(item => {
+    const startedAgo = timeAgo(item.started_at);
+    const completedAgo = timeAgo(item.completed_at);
+    const notesHtml = item.notes
+      ? `<p class="agent-card-notes">${escapeText(item.notes)}</p>`
+      : "";
+    const metaParts = [
+      startedAgo ? `Started ${startedAgo}` : null,
+      completedAgo ? `Done ${completedAgo}` : null,
+    ].filter(Boolean);
+    return `
+    <div class="agent-card">
+      <div class="agent-card-header">
+        <a href="https://github.com/asiakay/${escapeText(item.repo_name)}" target="_blank" rel="noopener noreferrer">${escapeText(item.repo_name)}</a>
+        <span class="badge badge-work badge-work-${item.status}">${escapeText(WORK_STATUS_LABELS[item.status] || item.status)}</span>
+      </div>
+      <p class="agent-card-task">${escapeText(item.task_description)}</p>
+      ${metaParts.length ? `<div class="agent-card-meta">${metaParts.map(p => `<span>${p}</span>`).join("")}</div>` : ""}
+      ${notesHtml}
+    </div>`;
+  }).join("");
 
   container.innerHTML = `
-    <div class="table-scroll">
-      <table class="work-table">
-        <thead>
-          <tr>
-            <th>Repo</th>
-            <th>Task</th>
-            <th>Status</th>
-            <th>Started</th>
-            <th>Completed</th>
-            <th>Notes</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>`;
+    <div class="agent-table-wrap">
+      <div class="table-scroll">
+        <table class="work-table">
+          <thead>
+            <tr>
+              <th>Repo</th>
+              <th>Task</th>
+              <th>Status</th>
+              <th>Started</th>
+              <th>Completed</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>
+    <div class="agent-cards">${cards}</div>`;
 }
 
 // ============================================================

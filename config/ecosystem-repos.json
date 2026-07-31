@@ -1,0 +1,15 @@
+[
+  {
+    "name": "legalaide",
+    "owner": "asiakay",
+    "sync": "api",
+    "api_url": "PLACEHOLDER_UPDATE_WITH_LEGALAIDE_DEPLOYED_URL/api/deadline-signals",
+    "_note": "Update api_url once LegalAide's /api/deadline-signals endpoint is deployed. Requires LEGALAIDE_SYNC_TOKEN secret on repo-dashboard."
+  },
+  { "name": "front-porch-economics", "owner": "asiakay", "sync": "file" },
+  { "name": "solar-roots", "owner": "asiakay", "sync": "file" },
+  { "name": "grantmatch", "owner": "asiakay", "sync": "file" },
+  { "name": "pwse", "owner": "asiakay", "sync": "file" },
+  { "name": "hemp-pilot-ops-dashboard", "owner": "asiakay", "sync": "file" },
+  { "name": "one-hour-service-library", "owner": "asiakay", "sync": "file" }
+]

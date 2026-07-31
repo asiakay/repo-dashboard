@@ -717,6 +717,222 @@ body { min-height: 100vh; }
   font-size: 14px;
 }
 
+/* ============================================================
+   Tier badges (Priority tab)
+   ============================================================ */
+.badge-tier {
+  font-size: 12px;
+  font-weight: 700;
+  min-width: 28px;
+  text-align: center;
+}
+
+.badge-tier-1 {
+  background: rgba(245, 101, 101, 0.15);
+  border-color: rgba(245, 101, 101, 0.6);
+  color: #fc8181;
+}
+
+.badge-tier-2 {
+  background: rgba(236, 201, 75, 0.12);
+  border-color: rgba(236, 201, 75, 0.5);
+  color: #f6e05e;
+}
+
+.badge-tier-3 {
+  background: rgba(66, 153, 225, 0.14);
+  border-color: rgba(66, 153, 225, 0.5);
+  color: #63b3ed;
+}
+
+.badge-tier-4 {
+  background: rgba(160, 174, 192, 0.08);
+  border-color: rgba(160, 174, 192, 0.3);
+  color: #a0aec0;
+}
+
+/* Domain label chips */
+.badge-domain {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-subtle);
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text-muted);
+  vertical-align: middle;
+  margin-left: 2px;
+}
+
+.badge-domain-legal {
+  border-color: rgba(245, 101, 101, 0.4);
+  background: rgba(245, 101, 101, 0.1);
+  color: #fc8181;
+}
+
+.badge-domain-grant {
+  border-color: rgba(79, 209, 197, 0.4);
+  background: rgba(79, 209, 197, 0.1);
+  color: var(--accent);
+}
+
+/* ============================================================
+   Bottlenecks panel
+   ============================================================ */
+.bottleneck-panel {
+  border: 1px solid rgba(245, 101, 101, 0.45);
+  background: rgba(245, 101, 101, 0.07);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.bottleneck-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  margin-bottom: 12px;
+  color: #fc8181;
+}
+
+.bottleneck-count {
+  background: rgba(245, 101, 101, 0.2);
+  border-radius: var(--radius-pill);
+  padding: 1px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-left: auto;
+}
+
+.bottleneck-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bottleneck-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.bottleneck-title {
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.bottleneck-meta {
+  color: var(--text-muted);
+}
+
+.bottleneck-meta a {
+  color: var(--accent-strong);
+  text-decoration: none;
+}
+
+.bottleneck-meta a:hover { text-decoration: underline; }
+
+.bottleneck-repos {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+  width: 100%;
+}
+
+.text-urgent {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+/* ============================================================
+   Priority table & cards
+   ============================================================ */
+.priority-table .score-cell { text-align: center; }
+
+.impact-score {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.impact-max {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: 1px;
+}
+
+.signal-title {
+  font-size: 13px;
+  color: var(--text-main);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.signal-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
+.signal-meta a {
+  color: var(--accent-strong);
+  text-decoration: none;
+}
+
+.signal-meta a:hover { text-decoration: underline; }
+
+.no-signal-note {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.override-input {
+  width: 54px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  background: rgba(10, 13, 32, 0.95);
+  color: var(--text-main);
+  font-size: 13px;
+  text-align: center;
+  font-family: var(--font-main);
+}
+
+.override-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(79, 209, 197, 0.4);
+  outline: none;
+}
+
+/* Hide spinner on number input for cleaner look */
+.override-input::-webkit-inner-spin-button,
+.override-input::-webkit-outer-spin-button { opacity: 0.4; }
+
+.priority-table-wrap { display: block; }
+.priority-cards { display: none; flex-direction: column; gap: 8px; }
+
+.priority-card-meta {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: baseline;
+}
+
+@media (max-width: 640px) {
+  .priority-table-wrap { display: none; }
+  .priority-cards { display: flex; }
+}
+
 /* Footer */
 .footer {
   max-width: 1120px;

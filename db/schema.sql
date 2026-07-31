@@ -7,8 +7,25 @@ CREATE TABLE IF NOT EXISTS work_items (
   depends_on_repo TEXT,
   started_at TEXT,
   completed_at TEXT,
-  notes TEXT
+  notes TEXT,
+  manual_consequence_override INTEGER CHECK(manual_consequence_override BETWEEN 1 AND 5)
 );
+
+-- For existing D1 instances, run this migration once:
+-- ALTER TABLE work_items ADD COLUMN manual_consequence_override INTEGER CHECK(manual_consequence_override BETWEEN 1 AND 5);
+
+CREATE TABLE IF NOT EXISTS deadline_signals (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  due_date TEXT NOT NULL,
+  consequence_severity INTEGER NOT NULL CHECK(consequence_severity BETWEEN 1 AND 5),
+  affects_repos TEXT NOT NULL,   -- JSON array as text, e.g. '["front-porch-economics"]'
+  source_repo TEXT NOT NULL,
+  domain TEXT NOT NULL DEFAULT 'default',  -- 'legal', 'grant', or 'default'
+  notes TEXT,
+  last_synced TEXT NOT NULL
+);
+-- This table is replaced wholesale on each sync run — never edit directly from the UI.
 
 -- Seed data
 INSERT INTO work_items (repo_name, task_description, status, assigned_to, depends_on_repo) VALUES

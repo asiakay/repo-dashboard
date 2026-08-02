@@ -1,6 +1,7 @@
 let allRepos = [];
 let filteredRepos = [];
 let workItems = [];
+let priorityData = { items: [], bottlenecks: [] };
 
 // DOM refs — repos view
 const searchInput = document.getElementById("search");
@@ -47,7 +48,7 @@ function updateActivePill() {
 // ============================================================
 // Tab switching
 // ============================================================
-const TABS = ["repos", "active-work", "agent-tasks"];
+const TABS = ["repos", "active-work", "agent-tasks", "priority"];
 
 function switchTab(tabId) {
   TABS.forEach(id => {
@@ -61,6 +62,7 @@ function switchTab(tabId) {
   });
   if (tabId === "active-work") renderActiveWork();
   if (tabId === "agent-tasks") renderAgentTasks();
+  if (tabId === "priority") renderPriority();
 }
 
 document.querySelectorAll(".tab-btn").forEach(btn => {
@@ -128,6 +130,17 @@ async function loadWorkItems() {
   } catch (err) {
     console.warn("Could not load work items:", err);
     workItems = [];
+  }
+}
+
+async function loadPriorityData() {
+  try {
+    const res = await fetch("/api/priority");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    priorityData = await res.json();
+  } catch (err) {
+    console.warn("Could not load priority data:", err);
+    priorityData = { items: [], bottlenecks: [] };
   }
 }
 
@@ -569,6 +582,153 @@ function renderAgentTasks() {
 }
 
 // ============================================================
+// Priority view
+// ============================================================
+function renderPriority() {
+  const container = document.getElementById("priority-list");
+  const { items, bottlenecks } = priorityData;
+
+  let html = "";
+
+  // Bottlenecks panel — signals due within 7 days with no in-progress work in affected repos
+  if (bottlenecks && bottlenecks.length > 0) {
+    html += `<div class="bottleneck-panel" role="alert" aria-label="Priority bottlenecks">
+      <div class="bottleneck-header">
+        <span aria-hidden="true">⚠</span>
+        <strong>Bottlenecks — Urgent deadlines with no in-progress work</strong>
+        <span class="bottleneck-count">${bottlenecks.length}</span>
+      </div>
+      <ul class="bottleneck-list">`;
+
+    for (const b of bottlenecks) {
+      const daysLabel = b.days_remaining <= 0
+        ? `<strong class="text-urgent">OVERDUE</strong>`
+        : `<strong class="${b.days_remaining <= 3 ? "text-urgent" : ""}">${b.days_remaining}d remaining</strong>`;
+      html += `<li class="bottleneck-item">
+        <span class="bottleneck-title">${escapeText(b.title)}</span>
+        <span class="bottleneck-meta">
+          · due ${escapeText(b.due_date)} · ${daysLabel}
+          · from <a href="https://github.com/asiakay/${escapeText(b.source_repo)}" target="_blank" rel="noopener noreferrer">${escapeText(b.source_repo)}</a>
+        </span>
+        <span class="bottleneck-repos">affects: ${b.affects_repos.map(r => escapeText(r)).join(", ")}</span>
+      </li>`;
+    }
+    html += `</ul></div>`;
+  }
+
+  if (!items || !items.length) {
+    html += `<p class="empty-state">No active work items. All done!</p>`;
+    container.innerHTML = html;
+    return;
+  }
+
+  // Table (desktop)
+  const rows = items.map(item => {
+    const tierClass = `badge-tier-${item.tier_num}`;
+    let drivingHtml;
+    if (item.driving_signal) {
+      const d = item.driving_signal;
+      const daysLabel = d.days_remaining <= 0
+        ? `<span class="text-urgent">OVERDUE</span>`
+        : `${d.days_remaining}d`;
+      drivingHtml = `<div class="signal-title">${escapeText(d.title)}</div>
+        <div class="signal-meta">
+          ${escapeText(d.due_date)} · ${daysLabel} ·
+          <a href="https://github.com/asiakay/${escapeText(d.source_repo)}" target="_blank" rel="noopener noreferrer">${escapeText(d.source_repo)}</a>
+          <span class="badge-domain badge-domain-${escapeText(d.domain)}">${escapeText(d.domain)}</span>
+        </div>`;
+    } else {
+      drivingHtml = `<span class="no-signal-note">No external deadline pressure — manual priority only</span>`;
+    }
+
+    const overrideVal = item.manual_consequence_override != null ? String(item.manual_consequence_override) : "";
+    return `<tr data-id="${item.id}">
+      <td><span class="badge badge-tier ${tierClass}" title="${escapeText(item.tier_label)}">${item.tier_num}</span></td>
+      <td><a href="https://github.com/asiakay/${escapeText(item.repo_name)}" target="_blank" rel="noopener noreferrer">${escapeText(item.repo_name)}</a></td>
+      <td>${escapeText(item.task_description)}</td>
+      <td class="score-cell"><span class="impact-score">${item.impact_score}</span><span class="impact-max">/25</span></td>
+      <td>${drivingHtml}</td>
+      <td>
+        <input type="number" class="override-input" min="1" max="5" value="${escapeText(overrideVal)}"
+          placeholder="1–5" title="Override consequence severity (1–5). Clears when a deadline signal is linked."
+          data-id="${item.id}" />
+      </td>
+    </tr>`;
+  }).join("");
+
+  // Mobile cards
+  const cards = items.map(item => {
+    let drivingHtml;
+    if (item.driving_signal) {
+      const d = item.driving_signal;
+      const daysLabel = d.days_remaining <= 0 ? "OVERDUE" : `${d.days_remaining}d`;
+      drivingHtml = `<div class="signal-title">${escapeText(d.title)}</div>
+        <div class="signal-meta">${escapeText(d.due_date)} · ${daysLabel}</div>`;
+    } else {
+      drivingHtml = `<span class="no-signal-note">No deadline pressure</span>`;
+    }
+    return `<div class="work-row">
+      <div class="work-card-top">
+        <span class="badge badge-tier badge-tier-${item.tier_num}" title="${escapeText(item.tier_label)}">${item.tier_num}</span>
+        <a href="https://github.com/asiakay/${escapeText(item.repo_name)}" target="_blank" rel="noopener noreferrer" class="work-repo">${escapeText(item.repo_name)}</a>
+        <span class="work-task">${escapeText(item.task_description)}</span>
+      </div>
+      <div class="priority-card-meta">
+        <span>Score: <strong>${item.impact_score}</strong>/25</span>
+        ${drivingHtml}
+      </div>
+    </div>`;
+  }).join("");
+
+  html += `
+    <div class="priority-table-wrap">
+      <div class="table-scroll">
+        <table class="work-table priority-table">
+          <thead>
+            <tr>
+              <th>Tier</th>
+              <th>Repo</th>
+              <th>Task</th>
+              <th>Score</th>
+              <th>Driving Deadline</th>
+              <th title="Override consequence severity (1–5) when auto-detected value needs adjustment">Override</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>
+    <div class="priority-cards">${cards}</div>`;
+
+  container.innerHTML = html;
+
+  // Wire up override inputs after DOM is written
+  container.querySelectorAll(".override-input").forEach(input => {
+    input.addEventListener("change", () => {
+      saveOverride(parseInt(input.dataset.id, 10), input.value);
+    });
+  });
+}
+
+async function saveOverride(id, value) {
+  const parsed = parseInt(value, 10);
+  const override = (parsed >= 1 && parsed <= 5) ? parsed : null;
+
+  try {
+    const res = await fetch(`/api/work-items/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ manual_consequence_override: override }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    await loadPriorityData();
+    renderPriority();
+  } catch (err) {
+    console.error("Failed to save override:", err);
+  }
+}
+
+// ============================================================
 // Add work item form
 // ============================================================
 document.getElementById("btn-add-work-item").addEventListener("click", () => {
@@ -634,7 +794,7 @@ sortBy.addEventListener("change", () => {
 // Init
 // ============================================================
 async function init() {
-  await Promise.all([loadRepos(), loadWorkItems()]);
+  await Promise.all([loadRepos(), loadWorkItems(), loadPriorityData()]);
   renderRepos(); // re-render repos with work items overlaid
 }
 

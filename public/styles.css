@@ -415,6 +415,40 @@ body { min-height: 100vh; }
   color: var(--success);
 }
 
+.badge-source-auto {
+  border-color: rgba(159, 122, 234, 0.5);
+  background: rgba(159, 122, 234, 0.1);
+  color: #b794f4;
+  font-size: 10px;
+}
+
+.badge-source-manual {
+  border-color: rgba(160, 174, 192, 0.3);
+  background: rgba(160, 174, 192, 0.06);
+  color: #718096;
+  font-size: 10px;
+}
+
+.badge-issue-link {
+  border-color: rgba(99, 179, 237, 0.5);
+  background: rgba(99, 179, 237, 0.1);
+  color: #63b3ed;
+  font-size: 10px;
+  text-decoration: none;
+}
+
+.badge-issue-link:hover {
+  background: rgba(99, 179, 237, 0.2);
+  color: #90cdf4;
+}
+
+.agent-card-badges {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
 /* ============================================================
    Dependency warning banner
    ============================================================ */

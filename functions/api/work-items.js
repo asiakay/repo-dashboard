@@ -27,15 +27,51 @@ export async function onRequest(context) {
       return new Response(JSON.stringify({ error: "Invalid JSON" }), { status: 400, headers: CORS });
     }
 
-    const { repo_name, task_description, status, assigned_to, depends_on_repo, started_at, completed_at, notes } = body;
+    const {
+      repo_name, task_description, status, assigned_to,
+      depends_on_repo, started_at, completed_at, notes,
+      source_type, source_url, github_issue_number,
+    } = body;
 
     if (!repo_name || !task_description || !status || !assigned_to) {
       return new Response(JSON.stringify({ error: "Missing required fields: repo_name, task_description, status, assigned_to" }), { status: 400, headers: CORS });
     }
 
+    // If github_issue_number is present, upsert by (repo_name, github_issue_number).
+    // Never downgrade a task that's already 'done' — the sync respects manual completions.
+    if (github_issue_number != null) {
+      const result = await env.DB.prepare(`
+        INSERT INTO work_items
+          (repo_name, task_description, status, assigned_to, depends_on_repo,
+           started_at, completed_at, notes, source_type, source_url, github_issue_number)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(repo_name, github_issue_number) DO UPDATE SET
+          task_description = excluded.task_description,
+          source_url       = excluded.source_url,
+          notes            = CASE WHEN work_items.notes IS NULL OR work_items.source_type = 'github_issue'
+                                  THEN excluded.notes ELSE work_items.notes END,
+          status           = CASE WHEN work_items.status = 'done' THEN 'done' ELSE excluded.status END
+        RETURNING *
+      `).bind(
+        repo_name, task_description, status, assigned_to, depends_on_repo || null,
+        started_at || null, completed_at || null, notes || null,
+        source_type || 'github_issue', source_url || null, github_issue_number
+      ).first();
+
+      return new Response(JSON.stringify(result), { status: 201, headers: CORS });
+    }
+
+    // Regular manual insert
     const result = await env.DB.prepare(
-      "INSERT INTO work_items (repo_name, task_description, status, assigned_to, depends_on_repo, started_at, completed_at, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *"
-    ).bind(repo_name, task_description, status, assigned_to, depends_on_repo || null, started_at || null, completed_at || null, notes || null).first();
+      `INSERT INTO work_items
+         (repo_name, task_description, status, assigned_to, depends_on_repo,
+          started_at, completed_at, notes, source_type, source_url, github_issue_number)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`
+    ).bind(
+      repo_name, task_description, status, assigned_to, depends_on_repo || null,
+      started_at || null, completed_at || null, notes || null,
+      source_type || 'manual', source_url || null, null
+    ).first();
 
     return new Response(JSON.stringify(result), { status: 201, headers: CORS });
   }

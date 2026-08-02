@@ -7,8 +7,15 @@ CREATE TABLE IF NOT EXISTS work_items (
   depends_on_repo TEXT,
   started_at TEXT,
   completed_at TEXT,
-  notes TEXT
+  notes TEXT,
+  source_type TEXT DEFAULT 'manual' CHECK(source_type IN ('manual','github_issue','github_pr')),
+  source_url TEXT,
+  github_issue_number INTEGER
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_work_items_issue
+  ON work_items(repo_name, github_issue_number)
+  WHERE github_issue_number IS NOT NULL;
 
 -- Seed data
 INSERT INTO work_items (repo_name, task_description, status, assigned_to, depends_on_repo) VALUES

@@ -496,11 +496,18 @@ function renderAgentTasks() {
     const completedAgo = timeAgo(item.completed_at);
     const startedFull = item.started_at ? new Date(item.started_at).toLocaleDateString() : null;
     const completedFull = item.completed_at ? new Date(item.completed_at).toLocaleDateString() : null;
+    const sourceBadge = item.source_type === "github_issue"
+      ? `<span class="badge badge-source-auto">auto</span>`
+      : `<span class="badge badge-source-manual">manual</span>`;
+    const issueLink = item.source_url
+      ? `<a href="${escapeText(item.source_url)}" target="_blank" rel="noopener noreferrer" class="badge badge-issue-link" title="View GitHub issue">↗ issue</a>`
+      : "";
     return `
     <tr>
       <td><a href="https://github.com/asiakay/${escapeText(item.repo_name)}" target="_blank" rel="noopener noreferrer">${escapeText(item.repo_name)}</a></td>
       <td>${escapeText(item.task_description)}</td>
       <td><span class="badge badge-work badge-work-${item.status}">${escapeText(WORK_STATUS_LABELS[item.status] || item.status)}</span></td>
+      <td>${sourceBadge}${issueLink}</td>
       <td ${startedFull ? `title="${escapeText(startedFull)}"` : ""}>${startedAgo || "—"}</td>
       <td ${completedFull ? `title="${escapeText(completedFull)}"` : ""}>${completedAgo || "—"}</td>
       <td class="notes-cell">${escapeText(item.notes || "")}</td>
@@ -518,11 +525,20 @@ function renderAgentTasks() {
       startedAgo ? `Started ${startedAgo}` : null,
       completedAgo ? `Done ${completedAgo}` : null,
     ].filter(Boolean);
+    const sourceBadge = item.source_type === "github_issue"
+      ? `<span class="badge badge-source-auto">auto</span>`
+      : `<span class="badge badge-source-manual">manual</span>`;
+    const issueLink = item.source_url
+      ? `<a href="${escapeText(item.source_url)}" target="_blank" rel="noopener noreferrer" class="badge badge-issue-link">↗ issue</a>`
+      : "";
     return `
     <div class="agent-card">
       <div class="agent-card-header">
         <a href="https://github.com/asiakay/${escapeText(item.repo_name)}" target="_blank" rel="noopener noreferrer">${escapeText(item.repo_name)}</a>
-        <span class="badge badge-work badge-work-${item.status}">${escapeText(WORK_STATUS_LABELS[item.status] || item.status)}</span>
+        <div class="agent-card-badges">
+          <span class="badge badge-work badge-work-${item.status}">${escapeText(WORK_STATUS_LABELS[item.status] || item.status)}</span>
+          ${sourceBadge}${issueLink}
+        </div>
       </div>
       <p class="agent-card-task">${escapeText(item.task_description)}</p>
       ${metaParts.length ? `<div class="agent-card-meta">${metaParts.map(p => `<span>${p}</span>`).join("")}</div>` : ""}
@@ -539,6 +555,7 @@ function renderAgentTasks() {
               <th>Repo</th>
               <th>Task</th>
               <th>Status</th>
+              <th>Source</th>
               <th>Started</th>
               <th>Completed</th>
               <th>Notes</th>

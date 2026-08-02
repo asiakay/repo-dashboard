@@ -170,7 +170,102 @@ jobs:
           EOF
 
       # ============================================================
-      # 6. AUTO-COMMIT CHANGES
+      # 6. SYNC GITHUB ISSUES LABELED "claude" → D1 WORK ITEMS
+      # ============================================================
+      - name: Sync claude-labeled issues to D1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
+        run: |
+          node << 'EOF'
+          const token = process.env.GITHUB_TOKEN;
+          const dashUrl = (process.env.DASHBOARD_URL || '').replace(/\/$/, '');
+
+          if (!dashUrl) {
+            console.log('DASHBOARD_URL not set — skipping issue sync. Add it to repo secrets to enable.');
+            process.exit(0);
+          }
+
+          const fs = require('fs');
+          let reposData;
+          try {
+            reposData = JSON.parse(fs.readFileSync('public/data/repos.json', 'utf8'));
+          } catch (e) {
+            console.log('Could not read repos.json — skipping issue sync.');
+            process.exit(0);
+          }
+
+          const repos = Array.isArray(reposData) ? reposData : (reposData.repos || []);
+          const twoDaysAgo = Date.now() - 2 * 24 * 60 * 60 * 1000;
+
+          async function ghFetch(path) {
+            const res = await fetch(`https://api.github.com${path}`, {
+              headers: { Authorization: `token ${token}`, 'User-Agent': 'repo-dashboard/1.0' }
+            });
+            if (!res.ok) return null;
+            return res.json();
+          }
+
+          async function postItem(body) {
+            const res = await fetch(`${dashUrl}/api/work-items`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body),
+            });
+            if (!res.ok) {
+              const text = await res.text();
+              console.error(`  POST failed (${res.status}):`, text.slice(0, 200));
+            }
+          }
+
+          async function closeIssue(repo_name, github_issue_number) {
+            const res = await fetch(`${dashUrl}/api/work-items/close-issue`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ repo_name, github_issue_number }),
+            });
+            if (!res.ok) console.error(`  close-issue failed (${res.status})`);
+          }
+
+          for (const repo of repos) {
+            const name = repo.name;
+
+            // Upsert open issues labeled 'claude'
+            const open = await ghFetch(`/repos/asiakay/${name}/issues?state=open&labels=claude&per_page=50`);
+            if (Array.isArray(open)) {
+              for (const issue of open) {
+                if (issue.pull_request) continue;
+                console.log(`  Upserting ${name}#${issue.number}: ${issue.title}`);
+                await postItem({
+                  repo_name: name,
+                  task_description: issue.title,
+                  status: 'not_started',
+                  assigned_to: 'agent',
+                  source_type: 'github_issue',
+                  source_url: issue.html_url,
+                  github_issue_number: issue.number,
+                  notes: issue.body ? issue.body.slice(0, 500) : null,
+                });
+              }
+            }
+
+            // Mark recently-closed labeled issues as done
+            const closed = await ghFetch(`/repos/asiakay/${name}/issues?state=closed&labels=claude&per_page=20&sort=updated`);
+            if (Array.isArray(closed)) {
+              for (const issue of closed) {
+                if (issue.pull_request) continue;
+                if (new Date(issue.updated_at).getTime() < twoDaysAgo) continue;
+                console.log(`  Closing ${name}#${issue.number}`);
+                await closeIssue(name, issue.number);
+              }
+            }
+          }
+
+          console.log('Issue sync complete.');
+          EOF
+
+      # ============================================================
+      # 7. AUTO-COMMIT CHANGES
       # ============================================================
       - name: Commit updated data
         uses: stefanzweifel/git-auto-commit-action@v5

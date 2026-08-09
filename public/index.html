@@ -45,6 +45,7 @@
       <button class="tab-btn active" data-tab="repos" id="tab-repos" role="tab" aria-selected="true" aria-controls="view-repos">Repos</button>
       <button class="tab-btn" data-tab="active-work" id="tab-active-work" role="tab" aria-selected="false" aria-controls="view-active-work">Active Work</button>
       <button class="tab-btn" data-tab="agent-tasks" id="tab-agent-tasks" role="tab" aria-selected="false" aria-controls="view-agent-tasks">Agent Tasks</button>
+      <button class="tab-btn" data-tab="priority" id="tab-priority" role="tab" aria-selected="false" aria-controls="view-priority">Priority</button>
     </div>
   </nav>
 
@@ -161,6 +162,19 @@
         </div>
       </div>
       <div id="agent-tasks-list"></div>
+    </section>
+
+    <!-- ========== VIEW: PRIORITY ========== -->
+    <section id="view-priority" class="view hidden" role="tabpanel" aria-labelledby="tab-priority">
+      <div class="view-header">
+        <div>
+          <h2 class="view-title">Priority</h2>
+          <p class="view-subtitle">Auto-computed ranking across all repos, driven by real deadline pressure. Score = Consequence × Lead Time (max 25).</p>
+        </div>
+      </div>
+
+      <!-- Bottlenecks panel + priority table injected by JS -->
+      <div id="priority-list"></div>
     </section>
 
   </main>

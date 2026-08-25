@@ -28,6 +28,9 @@ let allRepos = [];
 let filteredRepos = [];
 let workItems = [];
 let priorityData = { items: [], bottlenecks: [] };
+let workItemsError = null;
+let priorityError = null;
+let reposError = null;
 
 // DOM refs — repos view
 const searchInput = document.getElementById("search");
@@ -110,7 +113,6 @@ document.querySelector(".tab-nav-inner").addEventListener("keydown", e => {
 // ============================================================
 async function loadRepos() {
   try {
-    // Prefer the live API (all repos, paginated). Fall back to the committed static file.
     let data;
     try {
       const res = await fetch("/api/repos");
@@ -121,7 +123,9 @@ async function loadRepos() {
     }
 
     if (data && data.error) {
-      summaryText.textContent = `⚠ Dashboard data unavailable: ${data.message || "GitHub API error"}`;
+      reposError = data.message || "GitHub API error";
+      summaryText.textContent = "";
+      renderRepos();
       return;
     }
 
@@ -131,10 +135,13 @@ async function loadRepos() {
       allRepos = data.repos;
       if (data.generated_at) showFreshness(data.generated_at);
     } else {
-      summaryText.textContent = "⚠ No repo data found.";
+      reposError = "No repo data found";
+      summaryText.textContent = "";
+      renderRepos();
       return;
     }
 
+    reposError = null;
     filteredRepos = [...allRepos];
     populateLanguageFilter();
     updateStats();
@@ -144,7 +151,9 @@ async function loadRepos() {
 
   } catch (err) {
     console.error("Error loading repos:", err);
-    summaryText.textContent = "Failed to load repositories.";
+    reposError = err.message;
+    summaryText.textContent = "";
+    renderRepos();
   }
 }
 
@@ -153,9 +162,11 @@ async function loadWorkItems() {
     const res = await fetch("/api/work-items");
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     workItems = await res.json();
+    workItemsError = null;
   } catch (err) {
     console.warn("Could not load work items:", err);
     workItems = [];
+    workItemsError = err.message;
   }
 }
 
@@ -164,10 +175,34 @@ async function loadPriorityData() {
     const res = await fetch("/api/priority");
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     priorityData = await res.json();
+    priorityError = null;
   } catch (err) {
     console.warn("Could not load priority data:", err);
     priorityData = { items: [], bottlenecks: [] };
+    priorityError = err.message;
   }
+}
+
+async function retryRepos() {
+  reposError = null;
+  summaryText.textContent = "Loading…";
+  repoList.innerHTML = "";
+  await loadRepos();
+  renderRepos();
+}
+
+async function retryWorkItems() {
+  workItemsError = null;
+  await loadWorkItems();
+  renderActiveWork();
+  renderAgentTasks();
+  renderRepos();
+}
+
+async function retryPriority() {
+  priorityError = null;
+  await loadPriorityData();
+  renderPriority();
 }
 
 function showFreshness(isoString) {
@@ -261,8 +296,20 @@ const WORK_STATUS_LABELS = {
   done:         "Done",
 };
 
+function errorBanner(message, retryFn) {
+  return `<div class="load-error" role="alert">
+    <span class="load-error-msg">⚠ ${escapeText(message)}</span>
+    <button class="btn-ghost btn-sm" onclick="${escapeText(retryFn)}()">Retry</button>
+  </div>`;
+}
+
 function renderRepos() {
   repoList.innerHTML = "";
+
+  if (reposError) {
+    repoList.insertAdjacentHTML("beforeend", errorBanner(`Failed to load repositories — ${reposError}`, "retryRepos"));
+    return;
+  }
 
   if (!filteredRepos.length) {
     const p = document.createElement("p");
@@ -354,6 +401,12 @@ function depHasOpenWork(dependsOnRepo) {
 
 function renderActiveWork() {
   const container = document.getElementById("active-work-list");
+
+  if (workItemsError) {
+    container.innerHTML = errorBanner(`Failed to load work items — ${workItemsError}`, "retryWorkItems");
+    return;
+  }
+
   const showDone = document.getElementById("toggle-show-done")?.checked;
   const visibleItems = showDone ? workItems : workItems.filter(w => w.status !== "done");
 
@@ -518,6 +571,12 @@ async function saveEdit(id) {
 // ============================================================
 function renderAgentTasks() {
   const container = document.getElementById("agent-tasks-list");
+
+  if (workItemsError) {
+    container.innerHTML = errorBanner(`Failed to load agent tasks — ${workItemsError}`, "retryWorkItems");
+    return;
+  }
+
   const agentItems = workItems
     .filter(w => w.assigned_to === "agent")
     .sort((a, b) => {
@@ -615,6 +674,12 @@ function renderAgentTasks() {
 // ============================================================
 function renderPriority() {
   const container = document.getElementById("priority-list");
+
+  if (priorityError) {
+    container.innerHTML = errorBanner(`Failed to load priority data — ${priorityError}`, "retryPriority");
+    return;
+  }
+
   const { items, bottlenecks } = priorityData;
 
   let html = "";

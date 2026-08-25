@@ -1,8 +1,10 @@
+import { requireWriteAuth } from "../../_shared/auth.js";
+
 const CORS = {
   "Content-Type": "application/json",
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
 export async function onRequest(context) {
@@ -14,6 +16,9 @@ export async function onRequest(context) {
   }
 
   if (request.method === "PUT") {
+    const authError = requireWriteAuth(request, env);
+    if (authError) return authError;
+
     let body;
     try {
       body = await request.json();

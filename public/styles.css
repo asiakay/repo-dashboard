@@ -450,6 +450,25 @@ body { min-height: 100vh; }
 }
 
 /* ============================================================
+   Load-error banner
+   ============================================================ */
+.load-error {
+  border-left: 3px solid var(--danger);
+  background: rgba(245, 101, 101, 0.08);
+  padding: 10px 14px;
+  border-radius: 0 8px 8px 0;
+  font-size: 13px;
+  color: #fc8181;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  line-height: 1.5;
+}
+
+.load-error-msg { flex: 1; }
+
+/* ============================================================
    Dependency warning banner
    ============================================================ */
 .dep-warning {

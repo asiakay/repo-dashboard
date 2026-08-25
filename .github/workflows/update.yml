@@ -176,11 +176,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
+          WRITE_TOKEN: ${{ secrets.WRITE_TOKEN }}
         run: |
           node << 'EOF'
           (async () => {
             const token = process.env.GITHUB_TOKEN;
             const dashUrl = (process.env.DASHBOARD_URL || '').replace(/\/$/, '');
+            const writeToken = process.env.WRITE_TOKEN || '';
 
             if (!dashUrl) {
               console.log('DASHBOARD_URL not set — skipping issue sync. Add it to repo secrets to enable.');
@@ -208,9 +210,11 @@ jobs:
             }
 
             async function postItem(body) {
+              const headers = { 'Content-Type': 'application/json' };
+              if (writeToken) headers['Authorization'] = `Bearer ${writeToken}`;
               const res = await fetch(`${dashUrl}/api/work-items`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify(body),
               });
               if (!res.ok) {
@@ -220,9 +224,11 @@ jobs:
             }
 
             async function closeIssue(repo_name, github_issue_number) {
+              const headers = { 'Content-Type': 'application/json' };
+              if (writeToken) headers['Authorization'] = `Bearer ${writeToken}`;
               const res = await fetch(`${dashUrl}/api/work-items/close-issue`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({ repo_name, github_issue_number }),
               });
               if (!res.ok) console.error(`  close-issue failed (${res.status})`);

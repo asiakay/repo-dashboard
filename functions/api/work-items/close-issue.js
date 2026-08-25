@@ -1,8 +1,10 @@
+import { requireWriteAuth } from "../../_shared/auth.js";
+
 const CORS = {
   "Content-Type": "application/json",
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
 // Called by the GitHub Actions sync when a labeled issue is closed.
@@ -17,6 +19,9 @@ export async function onRequest(context) {
   if (request.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405, headers: CORS });
   }
+
+  const authError = requireWriteAuth(request, env);
+  if (authError) return authError;
 
   let body;
   try {

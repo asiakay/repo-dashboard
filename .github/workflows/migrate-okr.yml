@@ -42,13 +42,17 @@ jobs:
 
       # ── Step 2: Push MCP_SECRET_TOKEN to Cloudflare Pages (optional) ──────
       # Skipped silently when the MCP_SECRET_TOKEN GitHub secret is not set.
+      # (secrets context is not available in `if:` expressions — check inside run.)
       - name: Push MCP_SECRET_TOKEN to Cloudflare Pages
-        if: ${{ secrets.MCP_SECRET_TOKEN != '' }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           MCP_SECRET_TOKEN: ${{ secrets.MCP_SECRET_TOKEN }}
         run: |
+          if [ -z "$MCP_SECRET_TOKEN" ]; then
+            echo "MCP_SECRET_TOKEN not set — skipping Pages secret push."
+            exit 0
+          fi
           echo "$MCP_SECRET_TOKEN" | \
             npx wrangler@latest pages secret put MCP_SECRET_TOKEN \
               --project-name repo-dashboard

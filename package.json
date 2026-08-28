@@ -3,7 +3,12 @@
   "type": "module",
   "scripts": {
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "dev": "wrangler pages dev ./public --d1 DB=repo-dashboard-work-items",
+    "dev:remote": "wrangler pages dev ./public --d1 DB=repo-dashboard-work-items --remote",
+    "seed": "wrangler d1 execute repo-dashboard-work-items --local --file=db/schema.sql",
+    "seed:data": "wrangler d1 execute repo-dashboard-work-items --local --file=db/seed-dev.sql",
+    "seed:remote": "wrangler d1 execute repo-dashboard-work-items --remote --file=db/schema.sql"
   },
   "devDependencies": {
     "vitest": "^2.0.0"

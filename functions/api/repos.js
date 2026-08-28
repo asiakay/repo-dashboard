@@ -8,13 +8,15 @@ function health(repo) {
   return score < 2 ? "green" : score < 4 ? "yellow" : "red";
 }
 
-async function fetchAllRepos() {
+async function fetchAllRepos(token) {
   const all = [];
   let page = 1;
+  const headers = { "User-Agent": "repo-dashboard/1.0" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
   while (true) {
     const res = await fetch(
       `https://api.github.com/users/asiakay/repos?per_page=100&page=${page}&sort=updated&direction=desc`,
-      { headers: { "User-Agent": "repo-dashboard/1.0" } }
+      { headers }
     );
     if (!res.ok) break;
     const batch = await res.json();
@@ -27,9 +29,33 @@ async function fetchAllRepos() {
 }
 
 export async function onRequest(context) {
-  const raw = await fetchAllRepos();
+  const raw = await fetchAllRepos(context.env.GITHUB_TOKEN);
 
   if (!raw.length) {
+    // GitHub rate-limited or unreachable — serve the committed static snapshot
+    try {
+      const assetReq = new Request(new URL("/data/repos.json", context.request.url));
+      const assetRes = await context.env.ASSETS.fetch(assetReq);
+      if (assetRes.ok) {
+        const cached = await assetRes.json();
+        const repos = Array.isArray(cached) ? cached : (cached.repos || []);
+        if (repos.length) {
+          return new Response(JSON.stringify({
+            count: repos.length,
+            generated_at: cached.generated_at || null,
+            stale: true,
+            repos,
+          }), {
+            headers: {
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
+              "Cache-Control": "public, max-age=60",
+            },
+          });
+        }
+      }
+    } catch {}
+
     return new Response(JSON.stringify({ error: true, message: "GitHub API returned no repos" }), {
       status: 502,
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },

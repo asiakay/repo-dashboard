@@ -1151,3 +1151,47 @@ body { min-height: 100vh; }
 @media (max-width: 640px) {
   .okr-grid { grid-template-columns: 1fr; }
 }
+
+/* ============================================================
+   Repo card — task activity (from OKR tracker)
+   ============================================================ */
+.badge-tasks {
+  background: rgba(79, 209, 197, 0.12);
+  color: var(--accent);
+  border: 1px solid rgba(79, 209, 197, 0.3);
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+.repo-task-activity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 4px;
+}
+
+.repo-task-bar-track {
+  flex: 0 0 80px;
+  height: 4px;
+  background: var(--border-subtle);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  display: inline-block;
+}
+
+.repo-task-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: var(--radius-pill);
+  transition: width 0.4s ease;
+  display: block;
+}
+
+.repo-task-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}

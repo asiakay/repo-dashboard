@@ -938,6 +938,18 @@ function renderOkrProgress() {
     return;
   }
 
+  if (okrStats.migration_pending) {
+    container.innerHTML = `
+      <div class="load-error" role="alert">
+        <span class="load-error-msg">OKR tables not found in the database.</span>
+        <span class="load-error-msg" style="margin-top:6px">
+          Go to <strong>GitHub → Actions → "Initialize OKR &amp; Task Tracker schema"</strong>
+          and click <strong>Run workflow</strong>, then refresh this page.
+        </span>
+      </div>`;
+    return;
+  }
+
   const { okrs, today } = okrStats;
 
   if (!okrs || !okrs.length) {

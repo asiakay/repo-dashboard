@@ -626,4 +626,46 @@ describe("okr-stats", () => {
     const res = await okrStatsHandler({ request: req("POST"), env: { DB: makeOkrStatsDB() } });
     expect(res.status).toBe(405);
   });
+
+  it("self-migrates on first request: exec succeeds then returns seeded OKR data", async () => {
+    const seeded = [
+      { id: "KR-1.1", objective: "Anchor Funding", key_result: "Grant App",
+        target_date: "2026-10-15", status: "In Progress", total_tasks: 0, done_tasks: 0, completion_pct: 0 },
+    ];
+    let callCount = 0;
+    const db = {
+      exec() { return Promise.resolve({ count: 4, duration: 1 }); },
+      prepare() {
+        return {
+          bind() { return this; },
+          all() {
+            callCount++;
+            // First two calls (initial try) reject; subsequent calls (post-exec retry) resolve.
+            if (callCount <= 2) return Promise.reject(new Error("no such table: okrs"));
+            if (callCount === 3) return Promise.resolve({ results: seeded });
+            return Promise.resolve({ results: [] });
+          },
+        };
+      },
+    };
+    const res = await okrStatsHandler({ request: req("GET"), env: { DB: db } });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.migration_pending).toBeUndefined();
+    expect(body.okrs).toHaveLength(1);
+  });
+
+  it("returns migration_pending:true when exec() also fails", async () => {
+    const db = {
+      exec() { return Promise.reject(new Error("D1 exec error")); },
+      prepare() {
+        return { bind() { return this; }, all() { return Promise.reject(new Error("no such table: okrs")); } };
+      },
+    };
+    const res = await okrStatsHandler({ request: req("GET"), env: { DB: db } });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.migration_pending).toBe(true);
+    expect(Array.isArray(body.okrs)).toBe(true);
+  });
 });

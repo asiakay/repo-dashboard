@@ -29,6 +29,7 @@ let filteredRepos = [];
 let workItems = [];
 let priorityData = { items: [], bottlenecks: [] };
 let okrStats = null;
+let repoTaskData = [];
 let workItemsError = null;
 let priorityError = null;
 let reposError = null;
@@ -227,6 +228,16 @@ async function retryOkrStats() {
   renderOkrProgress();
 }
 
+async function loadRepoTaskData() {
+  try {
+    const res = await fetch("/api/repo-task-summary");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    repoTaskData = await res.json();
+  } catch {
+    repoTaskData = [];
+  }
+}
+
 function showFreshness(isoString) {
   const mins = Math.round((Date.now() - new Date(isoString)) / 60000);
   const label = mins < 2
@@ -374,6 +385,20 @@ function renderRepos() {
       ? `<span class="badge badge-work badge-work-${wi.status}" title="${escapeText(wi.task_description)}">${escapeText(WORK_STATUS_LABELS[wi.status] || wi.status)}</span>`
       : "";
 
+    // Task activity from OKR tracker
+    const rt = repoTaskData.find(r => r.repo_name === repo.name);
+    const taskBadge = rt && rt.total_tasks > 0
+      ? `<span class="badge badge-tasks" title="${rt.done_tasks}/${rt.total_tasks} tasks done">${rt.total_tasks} task${rt.total_tasks !== 1 ? "s" : ""}</span>`
+      : "";
+    const taskMeta = rt && rt.total_tasks > 0
+      ? `<span class="repo-task-activity">
+           <span class="repo-task-bar-track" role="progressbar" aria-valuenow="${Math.round(rt.done_tasks * 100 / rt.total_tasks)}" aria-valuemin="0" aria-valuemax="100">
+             <span class="repo-task-bar-fill" style="width:${Math.round(rt.done_tasks * 100 / rt.total_tasks)}%"></span>
+           </span>
+           <span class="repo-task-label">${rt.done_tasks}/${rt.total_tasks} tasks done${rt.linked_okrs ? " · " + escapeText(rt.linked_okrs) : ""}</span>
+         </span>`
+      : "";
+
     const card = `
       <div class="repo-card">
         <div class="repo-header">
@@ -385,6 +410,7 @@ function renderRepos() {
               <span class="badge-dot" aria-hidden="true"></span>${repo.health.toUpperCase()}
             </span>
             ${workBadge}
+            ${taskBadge}
             ${homepageBadge}
             ${langBadge}
             ${issuesBadge}
@@ -394,6 +420,7 @@ function renderRepos() {
         <p class="repo-description">${escapeText(repo.description || "No description.")}</p>
 
         ${topicsHtml}
+        ${taskMeta}
 
         <div class="repo-meta">
           <span>Updated: ${updated}</span>
@@ -1050,6 +1077,11 @@ function renderOkrProgress() {
             <input id="tf-time" type="text" placeholder="e.g. 1.5h, 45m" />
           </div>
           <div class="control">
+            <label for="tf-repo">Repo (optional)</label>
+            <input id="tf-repo" type="text" list="tf-repo-list" placeholder="e.g. repo-dashboard" />
+            <datalist id="tf-repo-list">${allRepos.map(r => `<option value="${escapeText(r.name)}"></option>`).join("")}</datalist>
+          </div>
+          <div class="control">
             <label for="tf-notes">Notes (optional)</label>
             <input id="tf-notes" type="text" placeholder="Any context…" />
           </div>
@@ -1076,6 +1108,7 @@ async function saveNewTask() {
   const description = document.getElementById("tf-desc").value.trim();
   const status = document.getElementById("tf-status").value;
   const time_spent = document.getElementById("tf-time").value.trim() || null;
+  const repo_name = document.getElementById("tf-repo").value.trim() || null;
   const notes = document.getElementById("tf-notes").value.trim() || null;
 
   if (!okr_id || !description) {
@@ -1083,7 +1116,7 @@ async function saveNewTask() {
     return;
   }
 
-  const body = JSON.stringify({ okr_id, description, status, time_spent, notes });
+  const body = JSON.stringify({ okr_id, description, status, time_spent, repo_name, notes });
   const doSave = async () => {
     const res = await fetch("/api/tasks", { method: "POST", headers: writeHeaders(), body });
     return handleWriteResponse(res, doSave);
@@ -1094,9 +1127,11 @@ async function saveNewTask() {
     document.getElementById("log-task-form").classList.add("hidden");
     document.getElementById("tf-desc").value = "";
     document.getElementById("tf-time").value = "";
+    document.getElementById("tf-repo").value = "";
     document.getElementById("tf-notes").value = "";
-    await loadOkrStats();
+    await Promise.all([loadOkrStats(), loadRepoTaskData()]);
     renderOkrProgress();
+    renderRepos();
   } catch (err) {
     alert("Failed to save task: " + err.message);
   }
@@ -1106,7 +1141,7 @@ async function saveNewTask() {
 // Init
 // ============================================================
 async function init() {
-  await Promise.all([loadRepos(), loadWorkItems(), loadPriorityData(), loadOkrStats()]);
+  await Promise.all([loadRepos(), loadWorkItems(), loadPriorityData(), loadOkrStats(), loadRepoTaskData()]);
   renderRepos(); // re-render repos with work items overlaid
 }
 

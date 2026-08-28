@@ -7,6 +7,7 @@ import { onRequest as closeIssueHandler } from "../functions/api/work-items/clos
 import { onRequest as mcpHandler } from "../functions/api/mcp.js";
 import { onRequest as okrStatsHandler } from "../functions/api/okr-stats.js";
 import { onRequest as tasksHandler } from "../functions/api/tasks.js";
+import { onRequest as repoTaskSummaryHandler } from "../functions/api/repo-task-summary.js";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -680,6 +681,7 @@ describe("tasks", () => {
       time_spent: "1h", status: "Done", notes: null, created_at: "2026-08-28 10:00:00",
     };
     return {
+      exec() { return Promise.resolve({ count: 1, duration: 0 }); },
       prepare(sql) {
         const stmt = {
           bind() { return stmt; },
@@ -748,5 +750,67 @@ describe("tasks", () => {
       env: { DB: makeTasksDB(), WRITE_TOKEN: "correct-token" },
     });
     expect(res.status).toBe(401);
+  });
+
+  it("POST with repo_name stores it in task", async () => {
+    const taskWithRepo = { id: 2, description: "Fix nav", okr_id: "KR-3.1", repo_name: "repo-dashboard", status: "Done" };
+    const res = await tasksHandler({
+      request: req("POST", { body: { description: "Fix nav", okr_id: "KR-3.1", repo_name: "repo-dashboard" } }),
+      env: { DB: makeTasksDB({ insertedTask: taskWithRepo }) },
+    });
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.repo_name).toBe("repo-dashboard");
+  });
+});
+
+// ─── repo-task-summary ─────────────────────────────────────────────────────
+
+describe("repo-task-summary", () => {
+  function makeRTSDB({ taskRows = [], workItemRows = [] } = {}) {
+    return {
+      exec() { return Promise.resolve({ count: 1, duration: 0 }); },
+      prepare(sql) {
+        const stmt = {
+          bind() { return stmt; },
+          all() {
+            if (sql.includes("GROUP_CONCAT")) return Promise.resolve({ results: taskRows });
+            return Promise.resolve({ results: workItemRows });
+          },
+        };
+        return stmt;
+      },
+    };
+  }
+
+  it("GET returns 200 with merged array", async () => {
+    const taskRows = [{ repo_name: "repo-dashboard", total_tasks: 3, done_tasks: 2, linked_okrs: "KR-1.1,KR-3.1" }];
+    const workItemRows = [{ repo_name: "repo-dashboard", work_items: 1, open_work_items: 1 }];
+    const res = await repoTaskSummaryHandler({ request: req("GET"), env: { DB: makeRTSDB({ taskRows, workItemRows }) } });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(Array.isArray(body)).toBe(true);
+    expect(body[0].repo_name).toBe("repo-dashboard");
+    expect(body[0].total_tasks).toBe(3);
+    expect(body[0].done_tasks).toBe(2);
+    expect(body[0].work_items).toBe(1);
+  });
+
+  it("GET returns empty array when no data", async () => {
+    const res = await repoTaskSummaryHandler({ request: req("GET"), env: { DB: makeRTSDB() } });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(Array.isArray(body)).toBe(true);
+    expect(body).toHaveLength(0);
+  });
+
+  it("OPTIONS returns 204", async () => {
+    const res = await repoTaskSummaryHandler({ request: req("OPTIONS"), env: { DB: makeRTSDB() } });
+    expect(res.status).toBe(204);
+  });
+
+  it("POST returns 405", async () => {
+    const res = await repoTaskSummaryHandler({ request: req("POST"), env: { DB: makeRTSDB() } });
+    expect(res.status).toBe(405);
   });
 });

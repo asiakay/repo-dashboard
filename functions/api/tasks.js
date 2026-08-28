@@ -1,5 +1,18 @@
 import { requireWriteAuth } from "../_shared/auth.js";
 
+async function insertTask(env, { description, okr_id, time_spent, status, notes, repo_name }) {
+  const sql = "INSERT INTO tasks (description,okr_id,time_spent,status,notes,repo_name) VALUES (?,?,?,?,?,?) RETURNING *";
+  const binds = [description, okr_id, time_spent || null, status, notes || null, repo_name || null];
+  try {
+    return await env.DB.prepare(sql).bind(...binds).first();
+  } catch (err) {
+    if (!String(err).includes("no such column")) throw err;
+    // repo_name column not yet added — migrate then retry.
+    await env.DB.exec(`ALTER TABLE tasks ADD COLUMN repo_name TEXT`);
+    return env.DB.prepare(sql).bind(...binds).first();
+  }
+}
+
 const CORS = {
   "Content-Type": "application/json",
   "Access-Control-Allow-Origin": "*",
@@ -26,7 +39,7 @@ export async function onRequest({ request, env }) {
     return new Response(JSON.stringify({ error: "Invalid JSON" }), { status: 400, headers: CORS });
   }
 
-  const { description, okr_id, time_spent, status = "Done", notes } = body;
+  const { description, okr_id, time_spent, status = "Done", notes, repo_name } = body;
 
   if (!description || !okr_id) {
     return new Response(
@@ -43,9 +56,6 @@ export async function onRequest({ request, env }) {
     );
   }
 
-  const task = await env.DB.prepare(
-    "INSERT INTO tasks (description,okr_id,time_spent,status,notes) VALUES (?,?,?,?,?) RETURNING *"
-  ).bind(description, okr_id, time_spent || null, status, notes || null).first();
-
+  const task = await insertTask(env, { description, okr_id, time_spent, status, notes, repo_name });
   return new Response(JSON.stringify(task), { status: 201, headers: CORS });
 }

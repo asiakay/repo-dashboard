@@ -69,6 +69,7 @@ export async function onRequest(context) {
           time_spent TEXT,
           status TEXT CHECK(status IN ('To Do','In Progress','Done')) DEFAULT 'Done',
           notes TEXT,
+          repo_name TEXT,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
         CREATE INDEX IF NOT EXISTS idx_tasks_okr_id ON tasks(okr_id);

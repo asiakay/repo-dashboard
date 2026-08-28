@@ -1016,3 +1016,138 @@ body { min-height: 100vh; }
   .agent-table-wrap { display: none; }
   .agent-cards { display: flex; }
 }
+
+/* ============================================================
+   OKR Progress tab
+   ============================================================ */
+.okr-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.okr-card {
+  background: var(--card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.okr-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.okr-card-title { display: flex; align-items: center; gap: 8px; }
+
+.okr-id {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  font-family: monospace;
+}
+
+.okr-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.okr-task-chip {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--card-alt);
+  color: var(--text-muted);
+}
+
+.okr-task-chip-empty { opacity: 0.6; }
+
+.okr-target-date { font-size: 12px; color: var(--text-muted); }
+
+.okr-objective { font-size: 14px; font-weight: 600; color: var(--text-main); }
+
+.okr-key-result { font-size: 13px; color: var(--text-muted); }
+
+.okr-bar-wrap { display: flex; align-items: center; gap: 10px; }
+
+.okr-bar-track {
+  flex: 1;
+  background: var(--border-subtle);
+  border-radius: var(--radius-pill);
+  height: 8px;
+  overflow: hidden;
+}
+
+.okr-bar-fill {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  transition: width 0.4s ease;
+  min-width: 0;
+}
+
+.okr-bar-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  min-width: 36px;
+  text-align: right;
+}
+
+.okr-today-section { margin-top: 8px; }
+
+.okr-today-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.okr-today-list { display: flex; flex-direction: column; gap: 8px; }
+
+.okr-today-row {
+  background: var(--card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.okr-today-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.okr-today-okr-id {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  font-family: monospace;
+}
+
+.okr-today-desc { font-size: 14px; color: var(--text-main); }
+
+.okr-today-notes { font-size: 12px; color: var(--text-muted); }
+
+.okr-task-time {
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--card-alt);
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+}
+
+@media (max-width: 640px) {
+  .okr-grid { grid-template-columns: 1fr; }
+}

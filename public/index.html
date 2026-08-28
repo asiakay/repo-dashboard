@@ -46,6 +46,7 @@
       <button class="tab-btn" data-tab="active-work" id="tab-active-work" role="tab" aria-selected="false" aria-controls="view-active-work">Active Work</button>
       <button class="tab-btn" data-tab="agent-tasks" id="tab-agent-tasks" role="tab" aria-selected="false" aria-controls="view-agent-tasks">Agent Tasks</button>
       <button class="tab-btn" data-tab="priority" id="tab-priority" role="tab" aria-selected="false" aria-controls="view-priority">Priority</button>
+      <button class="tab-btn" data-tab="okr-progress" id="tab-okr-progress" role="tab" aria-selected="false" aria-controls="view-okr-progress">OKR Progress</button>
     </div>
   </nav>
 
@@ -175,6 +176,17 @@
 
       <!-- Bottlenecks panel + priority table injected by JS -->
       <div id="priority-list"></div>
+    </section>
+
+    <!-- ========== VIEW: OKR PROGRESS ========== -->
+    <section id="view-okr-progress" class="view hidden" role="tabpanel" aria-labelledby="tab-okr-progress">
+      <div class="view-header">
+        <div>
+          <h2 class="view-title">OKR Progress</h2>
+          <p class="view-subtitle">Key results and today's task log. Log tasks via Claude Desktop, Cursor, or Claude Code using the MCP tools.</p>
+        </div>
+      </div>
+      <div id="okr-progress-list"></div>
     </section>
 
   </main>

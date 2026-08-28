@@ -626,4 +626,18 @@ describe("okr-stats", () => {
     const res = await okrStatsHandler({ request: req("POST"), env: { DB: makeOkrStatsDB() } });
     expect(res.status).toBe(405);
   });
+
+  it("returns migration_pending:true when DB throws (tables missing)", async () => {
+    const db = {
+      prepare() {
+        return { bind() { return this; }, all() { return Promise.reject(new Error("no such table: okrs")); } };
+      },
+    };
+    const res = await okrStatsHandler({ request: req("GET"), env: { DB: db } });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.migration_pending).toBe(true);
+    expect(Array.isArray(body.okrs)).toBe(true);
+    expect(body.okrs).toHaveLength(0);
+  });
 });

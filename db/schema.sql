@@ -34,6 +34,29 @@ CREATE TABLE IF NOT EXISTS deadline_signals (
 );
 -- This table is replaced wholesale on each sync run — never edit directly from the UI.
 
+-- ── OKR & Task Tracker ──────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS okrs (
+    id TEXT PRIMARY KEY,
+    objective TEXT NOT NULL,
+    key_result TEXT NOT NULL,
+    target_date TEXT,
+    status TEXT CHECK(status IN ('Planned', 'In Progress', 'In Review', 'Completed')) DEFAULT 'In Progress'
+);
+
+CREATE TABLE IF NOT EXISTS tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL DEFAULT (DATE('now')),
+    description TEXT NOT NULL,
+    okr_id TEXT NOT NULL REFERENCES okrs(id) ON DELETE CASCADE,
+    time_spent TEXT,
+    status TEXT CHECK(status IN ('To Do', 'In Progress', 'Done')) DEFAULT 'Done',
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_tasks_okr_id ON tasks(okr_id);
+
 -- Seed data
 INSERT INTO work_items (repo_name, task_description, status, assigned_to, depends_on_repo) VALUES
   ('hemp-pilot-ops-dashboard', 'Fix /deal-room 404', 'not_started', 'agent', NULL),

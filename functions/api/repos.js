@@ -8,13 +8,15 @@ function health(repo) {
   return score < 2 ? "green" : score < 4 ? "yellow" : "red";
 }
 
-async function fetchAllRepos() {
+async function fetchAllRepos(token) {
   const all = [];
   let page = 1;
+  const headers = { "User-Agent": "repo-dashboard/1.0" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
   while (true) {
     const res = await fetch(
       `https://api.github.com/users/asiakay/repos?per_page=100&page=${page}&sort=updated&direction=desc`,
-      { headers: { "User-Agent": "repo-dashboard/1.0" } }
+      { headers }
     );
     if (!res.ok) break;
     const batch = await res.json();
@@ -27,7 +29,7 @@ async function fetchAllRepos() {
 }
 
 export async function onRequest(context) {
-  const raw = await fetchAllRepos();
+  const raw = await fetchAllRepos(context.env.GITHUB_TOKEN);
 
   if (!raw.length) {
     // GitHub rate-limited or unreachable — serve the committed static snapshot

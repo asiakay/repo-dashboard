@@ -5,6 +5,7 @@ import { onRequest as workItemsHandler } from "../functions/api/work-items.js";
 import { onRequest as workItemByIdHandler } from "../functions/api/work-items/[id].js";
 import { onRequest as closeIssueHandler } from "../functions/api/work-items/close-issue.js";
 import { onRequest as mcpHandler } from "../functions/api/mcp.js";
+import { onRequest as okrStatsHandler } from "../functions/api/okr-stats.js";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -567,5 +568,62 @@ describe("MCP handler", () => {
     const res = await mcpHandler(mcpCtx({ jsonrpc: "1.0", id: 1, method: "tools/list" }));
     const body = await res.json();
     expect(body.error.code).toBe(-32600);
+  });
+});
+
+// ─── okr-stats ─────────────────────────────────────────────────────────────
+
+describe("okr-stats", () => {
+  function makeOkrStatsDB({ okrs = [], todayTasks = [] } = {}) {
+    return {
+      prepare(sql) {
+        const stmt = {
+          bind() { return stmt; },
+          all() {
+            if (sql.includes("GROUP BY")) return Promise.resolve({ results: okrs });
+            return Promise.resolve({ results: todayTasks });
+          },
+        };
+        return stmt;
+      },
+    };
+  }
+
+  it("GET returns 200 with okrs array and today object", async () => {
+    const okrs = [
+      { id: "KR-1.1", objective: "Anchor Funding", key_result: "Secure one grant",
+        target_date: "2026-10-15", status: "In Progress",
+        total_tasks: 5, done_tasks: 3, completion_pct: 60.0 },
+    ];
+    const res = await okrStatsHandler({ request: req("GET"), env: { DB: makeOkrStatsDB({ okrs }) } });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(Array.isArray(body.okrs)).toBe(true);
+    expect(body.okrs).toHaveLength(1);
+    expect(body.okrs[0].completion_pct).toBe(60.0);
+    expect(body.today).toBeDefined();
+    expect(body.today.date).toBeDefined();
+    expect(Array.isArray(body.today.tasks)).toBe(true);
+  });
+
+  it("returns today tasks when present", async () => {
+    const todayTasks = [
+      { id: 1, description: "Drafted grant section", okr_id: "KR-1.1",
+        time_spent: "1.5h", status: "Done", notes: null },
+    ];
+    const res = await okrStatsHandler({ request: req("GET"), env: { DB: makeOkrStatsDB({ todayTasks }) } });
+    const body = await res.json();
+    expect(body.today.tasks).toHaveLength(1);
+    expect(body.today.tasks[0].status).toBe("Done");
+  });
+
+  it("OPTIONS returns 204", async () => {
+    const res = await okrStatsHandler({ request: req("OPTIONS"), env: { DB: makeOkrStatsDB() } });
+    expect(res.status).toBe(204);
+  });
+
+  it("POST returns 405", async () => {
+    const res = await okrStatsHandler({ request: req("POST"), env: { DB: makeOkrStatsDB() } });
+    expect(res.status).toBe(405);
   });
 });

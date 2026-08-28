@@ -28,9 +28,11 @@ let allRepos = [];
 let filteredRepos = [];
 let workItems = [];
 let priorityData = { items: [], bottlenecks: [] };
+let okrStats = null;
 let workItemsError = null;
 let priorityError = null;
 let reposError = null;
+let okrStatsError = null;
 
 // DOM refs — repos view
 const searchInput = document.getElementById("search");
@@ -77,7 +79,7 @@ function updateActivePill() {
 // ============================================================
 // Tab switching
 // ============================================================
-const TABS = ["repos", "active-work", "agent-tasks", "priority"];
+const TABS = ["repos", "active-work", "agent-tasks", "priority", "okr-progress"];
 
 function switchTab(tabId) {
   TABS.forEach(id => {
@@ -92,6 +94,7 @@ function switchTab(tabId) {
   if (tabId === "active-work") renderActiveWork();
   if (tabId === "agent-tasks") renderAgentTasks();
   if (tabId === "priority") renderPriority();
+  if (tabId === "okr-progress") renderOkrProgress();
 }
 
 document.querySelectorAll(".tab-btn").forEach(btn => {
@@ -203,6 +206,25 @@ async function retryPriority() {
   priorityError = null;
   await loadPriorityData();
   renderPriority();
+}
+
+async function loadOkrStats() {
+  try {
+    const res = await fetch("/api/okr-stats");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    okrStats = await res.json();
+    okrStatsError = null;
+  } catch (err) {
+    console.warn("Could not load OKR stats:", err);
+    okrStats = null;
+    okrStatsError = err.message;
+  }
+}
+
+async function retryOkrStats() {
+  okrStatsError = null;
+  await loadOkrStats();
+  renderOkrProgress();
 }
 
 function showFreshness(isoString) {
@@ -894,10 +916,107 @@ sortBy.addEventListener("change", () => {
 });
 
 // ============================================================
+// OKR Progress view
+// ============================================================
+const OKR_STATUS_BADGE = {
+  "In Progress": "badge-work-in_progress",
+  "Planned": "badge-work-not_started",
+  "In Review": "badge-work-blocked",
+  "Completed": "badge-work-done",
+};
+
+function renderOkrProgress() {
+  const container = document.getElementById("okr-progress-list");
+
+  if (okrStatsError) {
+    container.innerHTML = errorBanner(`Failed to load OKR data — ${okrStatsError}`, "retryOkrStats");
+    return;
+  }
+
+  if (!okrStats) {
+    container.innerHTML = `<p class="empty-state">Loading OKR data…</p>`;
+    return;
+  }
+
+  const { okrs, today } = okrStats;
+
+  if (!okrs || !okrs.length) {
+    container.innerHTML = `<p class="empty-state">No OKRs found. Register OKRs using the MCP tools.</p>`;
+    return;
+  }
+
+  const okrCards = okrs.map(okr => {
+    const pct = okr.completion_pct || 0;
+    const barColor = pct >= 80 ? "var(--success)" : pct >= 40 ? "var(--accent)" : "var(--danger)";
+    const badgeClass = OKR_STATUS_BADGE[okr.status] || "badge-work-not_started";
+    const targetDate = okr.target_date
+      ? `<span class="okr-target-date">${escapeText(okr.target_date)}</span>`
+      : "";
+    const taskChips = okr.total_tasks > 0
+      ? `<span class="okr-task-chip">${okr.done_tasks}/${okr.total_tasks} tasks done</span>`
+      : `<span class="okr-task-chip okr-task-chip-empty">No tasks yet</span>`;
+
+    return `
+      <div class="okr-card">
+        <div class="okr-card-header">
+          <div class="okr-card-title">
+            <span class="okr-id">${escapeText(okr.id)}</span>
+            <span class="badge badge-work ${badgeClass}">${escapeText(okr.status || "Planned")}</span>
+          </div>
+          <div class="okr-card-meta">
+            ${taskChips}
+            ${targetDate}
+          </div>
+        </div>
+        <div class="okr-objective">${escapeText(okr.objective)}</div>
+        <div class="okr-key-result">${escapeText(okr.key_result)}</div>
+        <div class="okr-bar-wrap">
+          <div class="okr-bar-track" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="${pct}% complete">
+            <div class="okr-bar-fill" style="width:${pct}%;background:${barColor}"></div>
+          </div>
+          <span class="okr-bar-label">${pct}%</span>
+        </div>
+      </div>`;
+  }).join("");
+
+  const taskStatusClass = s => s === "Done" ? "done" : s === "In Progress" ? "in_progress" : "not_started";
+
+  const todayTasks = today && today.tasks && today.tasks.length
+    ? today.tasks.map(t => {
+        const statusBadge = t.status
+          ? `<span class="badge badge-work badge-work-${taskStatusClass(t.status)}">${escapeText(t.status)}</span>`
+          : "";
+        const timeSpent = t.time_spent
+          ? `<span class="okr-task-time">${escapeText(t.time_spent)}</span>`
+          : "";
+        return `
+          <div class="okr-today-row">
+            <div class="okr-today-meta">
+              <span class="okr-today-okr-id">${escapeText(t.okr_id)}</span>
+              ${statusBadge}
+              ${timeSpent}
+            </div>
+            <div class="okr-today-desc">${escapeText(t.description)}</div>
+            ${t.notes ? `<div class="okr-today-notes">${escapeText(t.notes)}</div>` : ""}
+          </div>`;
+      }).join("")
+    : `<p class="empty-state">No tasks logged today. Use <code>log_task</code> via MCP to add one.</p>`;
+
+  const taskCount = (today && today.tasks) ? today.tasks.length : 0;
+
+  container.innerHTML = `
+    <div class="okr-grid">${okrCards}</div>
+    <section class="okr-today-section">
+      <h3 class="okr-today-title">Today's Log <span class="work-group-count">${taskCount}</span></h3>
+      <div class="okr-today-list">${todayTasks}</div>
+    </section>`;
+}
+
+// ============================================================
 // Init
 // ============================================================
 async function init() {
-  await Promise.all([loadRepos(), loadWorkItems(), loadPriorityData()]);
+  await Promise.all([loadRepos(), loadWorkItems(), loadPriorityData(), loadOkrStats()]);
   renderRepos(); // re-render repos with work items overlaid
 }
 

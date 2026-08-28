@@ -138,6 +138,7 @@ async function loadRepos() {
     } else if (data && Array.isArray(data.repos)) {
       allRepos = data.repos;
       if (data.generated_at) showFreshness(data.generated_at);
+      if (data.stale) dataFreshness.textContent += " · using cached data";
     } else {
       reposError = "No repo data found";
       summaryText.textContent = "";

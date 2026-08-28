@@ -30,6 +30,30 @@ export async function onRequest(context) {
   const raw = await fetchAllRepos();
 
   if (!raw.length) {
+    // GitHub rate-limited or unreachable — serve the committed static snapshot
+    try {
+      const assetReq = new Request(new URL("/data/repos.json", context.request.url));
+      const assetRes = await context.env.ASSETS.fetch(assetReq);
+      if (assetRes.ok) {
+        const cached = await assetRes.json();
+        const repos = Array.isArray(cached) ? cached : (cached.repos || []);
+        if (repos.length) {
+          return new Response(JSON.stringify({
+            count: repos.length,
+            generated_at: cached.generated_at || null,
+            stale: true,
+            repos,
+          }), {
+            headers: {
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
+              "Cache-Control": "public, max-age=60",
+            },
+          });
+        }
+      }
+    } catch {}
+
     return new Response(JSON.stringify({ error: true, message: "GitHub API returned no repos" }), {
       status: 502,
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },

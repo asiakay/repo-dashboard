@@ -6,6 +6,7 @@ import { onRequest as workItemByIdHandler } from "../functions/api/work-items/[i
 import { onRequest as closeIssueHandler } from "../functions/api/work-items/close-issue.js";
 import { onRequest as mcpHandler } from "../functions/api/mcp.js";
 import { onRequest as okrStatsHandler } from "../functions/api/okr-stats.js";
+import { onRequest as tasksHandler } from "../functions/api/tasks.js";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -667,5 +668,85 @@ describe("okr-stats", () => {
     const body = await res.json();
     expect(body.migration_pending).toBe(true);
     expect(Array.isArray(body.okrs)).toBe(true);
+  });
+});
+
+// ─── tasks ─────────────────────────────────────────────────────────────────
+
+describe("tasks", () => {
+  function makeTasksDB({ okrExists = true, insertedTask = null } = {}) {
+    const defaultTask = {
+      id: 1, date: "2026-08-28", description: "Test task", okr_id: "KR-1.1",
+      time_spent: "1h", status: "Done", notes: null, created_at: "2026-08-28 10:00:00",
+    };
+    return {
+      prepare(sql) {
+        const stmt = {
+          bind() { return stmt; },
+          first() {
+            if (sql.includes("SELECT id FROM okrs")) {
+              return okrExists ? Promise.resolve({ id: "KR-1.1" }) : Promise.resolve(null);
+            }
+            return Promise.resolve(insertedTask || defaultTask);
+          },
+          run() { return Promise.resolve({ meta: { changes: 1 } }); },
+        };
+        return stmt;
+      },
+    };
+  }
+
+  it("POST valid body returns 201 with task object", async () => {
+    const res = await tasksHandler({
+      request: req("POST", { body: { description: "Drafted grant section", okr_id: "KR-1.1", time_spent: "1h" } }),
+      env: { DB: makeTasksDB() },
+    });
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.id).toBe(1);
+    expect(body.description).toBe("Test task");
+  });
+
+  it("POST missing description returns 400", async () => {
+    const res = await tasksHandler({
+      request: req("POST", { body: { okr_id: "KR-1.1" } }),
+      env: { DB: makeTasksDB() },
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/description/);
+  });
+
+  it("POST missing okr_id returns 400", async () => {
+    const res = await tasksHandler({
+      request: req("POST", { body: { description: "Some task" } }),
+      env: { DB: makeTasksDB() },
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/okr_id/);
+  });
+
+  it("POST unknown okr_id returns 400", async () => {
+    const res = await tasksHandler({
+      request: req("POST", { body: { description: "Task", okr_id: "KR-99" } }),
+      env: { DB: makeTasksDB({ okrExists: false }) },
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/not found/);
+  });
+
+  it("GET returns 405", async () => {
+    const res = await tasksHandler({ request: req("GET"), env: { DB: makeTasksDB() } });
+    expect(res.status).toBe(405);
+  });
+
+  it("wrong WRITE_TOKEN returns 401", async () => {
+    const res = await tasksHandler({
+      request: req("POST", { headers: { Authorization: "Bearer wrong" }, body: { description: "T", okr_id: "KR-1.1" } }),
+      env: { DB: makeTasksDB(), WRITE_TOKEN: "correct-token" },
+    });
+    expect(res.status).toBe(401);
   });
 });

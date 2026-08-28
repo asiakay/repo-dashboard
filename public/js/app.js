@@ -1016,12 +1016,90 @@ function renderOkrProgress() {
 
   const taskCount = (today && today.tasks) ? today.tasks.length : 0;
 
+  const okrOptions = okrs.map(o =>
+    `<option value="${escapeText(o.id)}">${escapeText(o.id)} — ${escapeText(o.key_result)}</option>`
+  ).join("");
+
   container.innerHTML = `
     <div class="okr-grid">${okrCards}</div>
     <section class="okr-today-section">
-      <h3 class="okr-today-title">Today's Log <span class="work-group-count">${taskCount}</span></h3>
+      <h3 class="okr-today-title">
+        Today's Log <span class="work-group-count">${taskCount}</span>
+        <button class="btn-primary btn-sm" id="btn-log-task" style="margin-left:auto">+ Log task</button>
+      </h3>
+      <div id="log-task-form" class="work-form hidden" style="margin-bottom:12px">
+        <div class="work-form-grid">
+          <div class="control">
+            <label for="tf-okr">OKR</label>
+            <select id="tf-okr">${okrOptions}</select>
+          </div>
+          <div class="control">
+            <label for="tf-desc">Description</label>
+            <input id="tf-desc" type="text" placeholder="What did you work on?" />
+          </div>
+          <div class="control">
+            <label for="tf-status">Status</label>
+            <select id="tf-status">
+              <option value="Done" selected>Done</option>
+              <option value="In Progress">In Progress</option>
+              <option value="To Do">To Do</option>
+            </select>
+          </div>
+          <div class="control">
+            <label for="tf-time">Time spent</label>
+            <input id="tf-time" type="text" placeholder="e.g. 1.5h, 45m" />
+          </div>
+          <div class="control">
+            <label for="tf-notes">Notes (optional)</label>
+            <input id="tf-notes" type="text" placeholder="Any context…" />
+          </div>
+        </div>
+        <div class="work-form-actions">
+          <button class="btn-primary" id="btn-save-task">Save</button>
+          <button class="btn-ghost" id="btn-cancel-task">Cancel</button>
+        </div>
+      </div>
       <div class="okr-today-list">${todayTasks}</div>
     </section>`;
+
+  document.getElementById("btn-log-task").addEventListener("click", () => {
+    document.getElementById("log-task-form").classList.toggle("hidden");
+  });
+  document.getElementById("btn-cancel-task").addEventListener("click", () => {
+    document.getElementById("log-task-form").classList.add("hidden");
+  });
+  document.getElementById("btn-save-task").addEventListener("click", saveNewTask);
+}
+
+async function saveNewTask() {
+  const okr_id = document.getElementById("tf-okr").value;
+  const description = document.getElementById("tf-desc").value.trim();
+  const status = document.getElementById("tf-status").value;
+  const time_spent = document.getElementById("tf-time").value.trim() || null;
+  const notes = document.getElementById("tf-notes").value.trim() || null;
+
+  if (!okr_id || !description) {
+    alert("OKR and description are required.");
+    return;
+  }
+
+  const body = JSON.stringify({ okr_id, description, status, time_spent, notes });
+  const doSave = async () => {
+    const res = await fetch("/api/tasks", { method: "POST", headers: writeHeaders(), body });
+    return handleWriteResponse(res, doSave);
+  };
+
+  try {
+    await doSave();
+    document.getElementById("log-task-form").classList.add("hidden");
+    document.getElementById("tf-desc").value = "";
+    document.getElementById("tf-time").value = "";
+    document.getElementById("tf-notes").value = "";
+    await loadOkrStats();
+    renderOkrProgress();
+  } catch (err) {
+    alert("Failed to save task: " + err.message);
+  }
 }
 
 // ============================================================

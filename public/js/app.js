@@ -148,6 +148,7 @@ async function loadRepos() {
     reposError = null;
     filteredRepos = [...allRepos];
     populateLanguageFilter();
+    populateRepoDatalist();
     updateStats();
     applySorting();
     renderRepos();
@@ -271,6 +272,14 @@ function populateLanguageFilter() {
     opt.value = lang;
     opt.textContent = lang;
     languageFilter.appendChild(opt);
+  });
+}
+
+function populateRepoDatalist() {
+  const opts = allRepos.map(r => `<option value="${escapeText(r.name)}"></option>`).join('');
+  ['wf-repo-list', 'wf-depends-list'].forEach(id => {
+    const dl = document.getElementById(id);
+    if (dl) dl.innerHTML = opts;
   });
 }
 

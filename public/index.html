@@ -113,7 +113,8 @@
         <div class="work-form-grid">
           <div class="control">
             <label for="wf-repo">Repo name</label>
-            <input id="wf-repo" type="text" placeholder="e.g. hemp-pilot-ops-dashboard" />
+            <input id="wf-repo" type="text" list="wf-repo-list" placeholder="e.g. hemp-pilot-ops-dashboard" />
+            <datalist id="wf-repo-list"></datalist>
           </div>
           <div class="control">
             <label for="wf-task">Task description</label>
@@ -137,7 +138,8 @@
           </div>
           <div class="control">
             <label for="wf-depends">Depends on repo (optional)</label>
-            <input id="wf-depends" type="text" placeholder="e.g. front-porch-economics" />
+            <input id="wf-depends" type="text" list="wf-depends-list" placeholder="e.g. front-porch-economics" />
+            <datalist id="wf-depends-list"></datalist>
           </div>
           <div class="control">
             <label for="wf-notes">Notes (optional)</label>

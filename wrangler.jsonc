@@ -8,5 +8,15 @@
       "database_name": "repo-dashboard-work-items",
       "database_id": "321045e5-1e2c-4a29-a837-f5e9ff1b6502"
     }
-  ]
+  ],
+  // Local dev secrets: copy .dev.vars.example → .dev.vars and fill in values.
+  // wrangler pages dev picks up .dev.vars automatically.
+  // Production secrets are set via: wrangler secret put <NAME>
+  // or Cloudflare Pages dashboard → Settings → Environment variables.
+  //
+  // Variables consumed by the functions:
+  //   GITHUB_TOKEN     – raises GitHub API rate limit from 60 → 5000 req/hr
+  //   WRITE_TOKEN      – guards POST/PUT on /api/work-items (opt-in; open when unset)
+  //   MCP_SECRET_TOKEN – guards POST on /api/mcp (opt-in; open when unset)
+  "vars": {}
 }

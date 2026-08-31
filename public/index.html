@@ -61,6 +61,17 @@
             <input id="search" type="search" placeholder="Search by name or description..." />
           </div>
           <div class="control">
+            <label for="sort-by">Sort by</label>
+            <select id="sort-by">
+              <option value="updated_desc">Last updated (newest)</option>
+              <option value="updated_asc">Last updated (oldest)</option>
+              <option value="name_asc">Name (A–Z)</option>
+              <option value="name_desc">Name (Z–A)</option>
+              <option value="issues_desc">Open issues (high → low)</option>
+              <option value="stars_desc">Stars (high → low)</option>
+            </select>
+          </div>
+          <div class="control">
             <label for="language-filter">Language</label>
             <select id="language-filter">
               <option value="">All languages</option>
@@ -73,17 +84,6 @@
               <option value="green">Healthy</option>
               <option value="yellow">Needs attention</option>
               <option value="red">Stale</option>
-            </select>
-          </div>
-          <div class="control">
-            <label for="sort-by">Sort by</label>
-            <select id="sort-by">
-              <option value="updated_desc">Last updated (newest)</option>
-              <option value="updated_asc">Last updated (oldest)</option>
-              <option value="name_asc">Name (A–Z)</option>
-              <option value="name_desc">Name (Z–A)</option>
-              <option value="issues_desc">Open issues (high → low)</option>
-              <option value="stars_desc">Stars (high → low)</option>
             </select>
           </div>
         </div>

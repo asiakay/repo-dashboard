@@ -86,8 +86,8 @@ jobs:
             echo "---- Fetching page $PAGE ----"
 
             curl -s \
-              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              "https://api.github.com/users/asiakay/repos?per_page=$PER_PAGE&page=$PAGE" \
+              -H "Authorization: token ${{ secrets.REPOS_PAT }}" \
+              "https://api.github.com/user/repos?type=all&per_page=$PER_PAGE&page=$PAGE" \
               -o page.json
 
             COUNT=$(jq '. | length' page.json)
@@ -174,7 +174,7 @@ jobs:
       # ============================================================
       - name: Sync claude-labeled issues to D1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.REPOS_PAT }}
           DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
           WRITE_TOKEN: ${{ secrets.WRITE_TOKEN }}
         run: |

@@ -33,6 +33,27 @@ export async function onRequest(context) {
       return new Response(JSON.stringify({ error: "No valid fields to update" }), { status: 400, headers: CORS });
     }
 
+    // Server-side auto-stamp: inject timestamps based on status transition
+    // unless the client explicitly sent a value for that field.
+    if (body.status && !fields.includes("started_at") && !fields.includes("completed_at")) {
+      if (body.status === "in_progress") {
+        // Preserve existing started_at; only stamp on first in_progress transition.
+        // Resolved via COALESCE in the SET clause (needs a sub-select to read current value).
+        // Simpler: fetch current row first, then stamp only if null.
+        const current = await env.DB.prepare("SELECT started_at FROM work_items WHERE id = ?").bind(id).first();
+        if (current && !current.started_at) {
+          fields.push("started_at");
+          body.started_at = new Date().toISOString();
+        }
+      } else if (body.status === "done") {
+        fields.push("completed_at");
+        body.completed_at = new Date().toISOString();
+      } else if (body.status === "not_started" || body.status === "blocked") {
+        fields.push("completed_at");
+        body.completed_at = null;
+      }
+    }
+
     const setClauses = fields.map(f => `${f} = ?`).join(", ");
     const values = fields.map(f => body[f] ?? null);
 

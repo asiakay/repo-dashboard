@@ -12,7 +12,8 @@ Static Cloudflare Pages site — no build step, no package.json, vanilla HTML/CS
 
 - `public/data/repos.json` — repo health data, committed hourly by a GitHub Actions workflow; fetched directly by the frontend (not via an API function).
 - `functions/api/repos.js` — a Cloudflare Pages Function; exists but is not currently used by the frontend for repo data (frontend reads the static JSON directly instead).
-- `functions/api/work-items.js` / `functions/api/work-items/[id].js` — API for the D1-backed work-items tracker (GET/POST list+create, PUT update by id).
+- `functions/api/work-items.js` / `functions/api/work-items/[id].js` — API for the D1-backed work-items tracker (GET/POST list+create, PUT update by id). The PUT handler auto-stamps `started_at`/`completed_at` based on status transitions (server-side).
+- `functions/api/me.js` — GET `/api/me`; returns `{ email, authenticated }` from the `Cf-Access-Authenticated-User-Email` header injected by Cloudflare Access.
 - `wrangler.jsonc` — config; includes a `d1_databases` binding named `DB` pointing at the `repo-dashboard-work-items` database.
 - `db/schema.sql` — the `work_items` table definition + seed data.
 - `public/js/app.js` — all frontend logic: tab switching, repo rendering, work-item rendering, dependency-warning logic, inline edit forms.
@@ -205,5 +206,6 @@ curl -s -X POST "$BASE" \
 ## What's NOT built yet (as of last update)
 
 - Open PR/branch data is not surfaced on repo cards — only manually-logged `work_items` rows.
-- No auth on the work-items API — anyone with the URL can read/write. Fine for personal use, worth revisiting if this is ever shared beyond Asia.
+- Write auth uses `WRITE_TOKEN` (local dev) and Cloudflare Access (production). `functions/_shared/auth.js` checks the `Cf-Access-Authenticated-User-Email` header first; if present, the user is considered authenticated. If absent (local dev), it falls back to `WRITE_TOKEN` bearer-token check. Read endpoints remain open.
+- Apply migration `db/migrations/0003_task_timestamps.sql` to add `started_at`/`completed_at` to the `tasks` table before deploying the MCP auto-stamp changes.
 - The OKR/tasks data is not yet surfaced in the dashboard frontend — it's API + MCP only at this stage.

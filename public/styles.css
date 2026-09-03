@@ -103,6 +103,59 @@ body { min-height: 100vh; }
 .brand-text h1 { font-size: 18px; margin: 0; }
 .brand-text p { margin: 2px 0 0; font-size: 13px; color: var(--text-muted); }
 
+/* Identity chip — shows authenticated user email when CF Access is in front */
+.identity-chip {
+  font-size: 12px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid rgba(79, 209, 197, 0.3);
+  border-radius: var(--radius-pill);
+  padding: 4px 10px;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+
+/* Session-expired / auth error banner */
+.auth-expired-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 10px 20px;
+  background: rgba(245, 101, 101, 0.15);
+  border-bottom: 1px solid rgba(245, 101, 101, 0.4);
+  color: var(--text-main);
+  font-size: 14px;
+  backdrop-filter: blur(8px);
+}
+
+.auth-refresh-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: inherit;
+  font-weight: 600;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.auth-dismiss-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 4px;
+  margin-left: auto;
+}
+
 .top-stats {
   display: flex;
   flex-wrap: wrap;

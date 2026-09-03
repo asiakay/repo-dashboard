@@ -110,11 +110,21 @@ async function handleToolCall(name, args, db) {
       };
     }
 
+    const now = new Date().toISOString();
+    let taskStartedAt = null;
+    let taskCompletedAt = null;
+    if (status === "In Progress") {
+      taskStartedAt = now;
+    } else if (status === "Done") {
+      taskStartedAt = now;
+      taskCompletedAt = now;
+    }
+
     const task = await db
       .prepare(
-        "INSERT INTO tasks (description, okr_id, time_spent, status, notes) VALUES (?, ?, ?, ?, ?) RETURNING *"
+        "INSERT INTO tasks (description, okr_id, time_spent, status, notes, started_at, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *"
       )
-      .bind(description, okr_id, time_spent, status, notes)
+      .bind(description, okr_id, time_spent, status, notes, taskStartedAt, taskCompletedAt)
       .first();
 
     return { content: [{ type: "text", text: JSON.stringify(task) }] };

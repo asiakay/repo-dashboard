@@ -1,5 +1,5 @@
 // ============================================================
-// Write auth — token stored in localStorage, prompted on 401
+// Write auth — CF Access (production) or WRITE_TOKEN (local dev)
 // ============================================================
 function writeHeaders() {
   const token = localStorage.getItem("writeToken");
@@ -8,20 +8,58 @@ function writeHeaders() {
   return headers;
 }
 
+function showSessionExpiredBanner() {
+  let banner = document.getElementById("auth-expired-banner");
+  if (banner) return;
+  banner = document.createElement("div");
+  banner.id = "auth-expired-banner";
+  banner.className = "auth-expired-banner";
+  banner.setAttribute("role", "alert");
+  banner.innerHTML = `
+    <span>Session expired — please <button class="auth-refresh-btn" onclick="location.reload()">refresh</button> to re-authenticate.</span>
+    <button class="auth-dismiss-btn" aria-label="Dismiss" onclick="this.closest('#auth-expired-banner').remove()">✕</button>
+  `;
+  document.body.prepend(banner);
+}
+
 async function handleWriteResponse(res, retryFn) {
   if (res.status === 401) {
-    const token = prompt(
-      "A write token is required.\n" +
-      "Enter your WRITE_TOKEN (it will be saved in this browser):"
-    );
-    if (token) {
-      localStorage.setItem("writeToken", token.trim());
-      return retryFn();
+    // In production, CF Access is the gate — a 401 means the session expired.
+    // In local dev, try the stored WRITE_TOKEN; if missing, prompt once and retry.
+    const existingToken = localStorage.getItem("writeToken");
+    if (!existingToken) {
+      const token = prompt(
+        "Local dev: enter your WRITE_TOKEN (saved in this browser):"
+      );
+      if (token) {
+        localStorage.setItem("writeToken", token.trim());
+        return retryFn();
+      }
+    } else {
+      // Token was sent but rejected — clear it and show the expiry banner.
+      localStorage.removeItem("writeToken");
     }
-    throw new Error("Write token required — request cancelled.");
+    showSessionExpiredBanner();
+    throw new Error("Not authenticated — request cancelled.");
   }
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
+}
+
+// Load and display the authenticated user identity from /api/me.
+async function loadIdentity() {
+  try {
+    const res = await fetch("/api/me");
+    if (!res.ok) return;
+    const { email, authenticated } = await res.json();
+    if (authenticated && email) {
+      const chip = document.getElementById("identity-chip");
+      chip.textContent = `● ${email}`;
+      chip.hidden = false;
+    }
+  } catch {
+    // Identity display is best-effort; silently skip on error.
+  }
 }
 
 let allRepos = [];
@@ -1151,7 +1189,7 @@ async function saveNewTask() {
 // Init
 // ============================================================
 async function init() {
-  await Promise.all([loadRepos(), loadWorkItems(), loadPriorityData(), loadOkrStats(), loadRepoTaskData()]);
+  await Promise.all([loadRepos(), loadWorkItems(), loadPriorityData(), loadOkrStats(), loadRepoTaskData(), loadIdentity()]);
   renderRepos(); // re-render repos with work items overlaid
 }
 

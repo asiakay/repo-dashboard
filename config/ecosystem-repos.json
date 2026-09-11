@@ -11,5 +11,20 @@
   { "name": "grantmatch", "owner": "asiakay", "sync": "file" },
   { "name": "pwse", "owner": "asiakay", "sync": "file" },
   { "name": "hemp-pilot-ops-dashboard", "owner": "asiakay", "sync": "file" },
-  { "name": "one-hour-service-library", "owner": "asiakay", "sync": "file" }
+  { "name": "one-hour-service-library", "owner": "asiakay", "sync": "file" },
+  {
+    "name": "masshealth-crm",
+    "owner": "asiakay",
+    "sync": "api",
+    "api_url": "https://masshealth-crm-api.asialakaygrady-6d4.workers.dev/api/deadline-signals",
+    "domain": "legal",
+    "_note": "/api/deadline-signals endpoint not yet implemented on the worker — add it when deadline data is needed in priority scoring. Requires MASSHEALTH_SYNC_TOKEN secret on repo-dashboard matching masshealth-crm WRITE_TOKEN."
+  },
+  {
+    "name": "guardianship-legal-track",
+    "owner": "asiakay",
+    "sync": "manual",
+    "domain": "legal",
+    "_note": "Placeholder — no standalone repo. Deadlines tracked via DAD-* OKRs in repo-dashboard D1."
+  }
 ]

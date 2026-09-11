@@ -72,6 +72,7 @@ let workItemsError = null;
 let priorityError = null;
 let reposError = null;
 let okrStatsError = null;
+let activeWorkView = "active"; // "active" | "completed"
 
 // DOM refs — repos view
 const searchInput = document.getElementById("search");
@@ -138,6 +139,13 @@ function switchTab(tabId) {
 
 document.querySelectorAll(".tab-btn").forEach(btn => {
   btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+});
+
+document.querySelectorAll(".work-toggle-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    activeWorkView = btn.dataset.view;
+    renderActiveWork();
+  });
 });
 
 document.querySelector(".tab-nav-inner").addEventListener("keydown", e => {
@@ -496,48 +504,58 @@ function depHasOpenWork(dependsOnRepo) {
   return workItems.some(w => w.repo_name === dependsOnRepo && w.status !== "done");
 }
 
+function durationLabel(startStr, endStr) {
+  if (!startStr || !endStr) return null;
+  const ms = new Date(endStr) - new Date(startStr);
+  const mins = Math.floor(ms / 60000);
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d`;
+}
+
+function syncWorkToggle() {
+  document.querySelectorAll(".work-toggle-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.view === activeWorkView);
+    btn.setAttribute("aria-pressed", btn.dataset.view === activeWorkView ? "true" : "false");
+  });
+}
+
 function renderActiveWork() {
   const container = document.getElementById("active-work-list");
+  syncWorkToggle();
 
   if (workItemsError) {
     container.innerHTML = errorBanner(`Failed to load work items — ${workItemsError}`, "retryWorkItems");
     return;
   }
 
-  const showDone = document.getElementById("toggle-show-done")?.checked;
-  const visibleItems = showDone ? workItems : workItems.filter(w => w.status !== "done");
+  if (activeWorkView === "completed") {
+    renderCompletedWork(container);
+  } else {
+    renderActiveWorkItems(container);
+  }
+}
 
-  if (!visibleItems.length) {
-    container.innerHTML = `
-      <div class="work-toggle-row">
-        <label class="toggle-label">
-          <input type="checkbox" id="toggle-show-done" ${showDone ? "checked" : ""} />
-          Show completed
-        </label>
-      </div>
-      <p class="empty-state">Nothing active right now. All clear!</p>`;
-    document.getElementById("toggle-show-done").addEventListener("change", renderActiveWork);
+function renderActiveWorkItems(container) {
+  const items = workItems.filter(w => w.status !== "done");
+
+  if (!items.length) {
+    container.innerHTML = `<p class="empty-state">Nothing active right now. All clear! <button class="btn-ghost btn-sm" onclick="activeWorkView='completed';renderActiveWork()">See completed →</button></p>`;
     return;
   }
 
-  let html = `
-    <div class="work-toggle-row">
-      <label class="toggle-label">
-        <input type="checkbox" id="toggle-show-done" ${showDone ? "checked" : ""} />
-        Show completed
-      </label>
-    </div>`;
+  let html = "";
+  STATUS_ORDER.forEach(status => {
+    const group = items.filter(w => w.status === status);
+    if (!group.length) return;
 
-  const allStatuses = showDone ? [...STATUS_ORDER, "done"] : STATUS_ORDER;
-  allStatuses.forEach(status => {
-    const items = visibleItems.filter(w => w.status === status);
-    if (!items.length) return;
-
-    const sectionLabel = STATUS_SECTION_LABELS[status] || WORK_STATUS_LABELS[status] || status;
+    const sectionLabel = STATUS_SECTION_LABELS[status];
     html += `<div class="work-group">
-      <h3 class="work-group-label">${sectionLabel} <span class="work-group-count">${items.length}</span></h3>`;
+      <h3 class="work-group-label">${sectionLabel} <span class="work-group-count">${group.length}</span></h3>`;
 
-    items.forEach(item => {
+    group.forEach(item => {
       const depWarning = item.depends_on_repo && depHasOpenWork(item.depends_on_repo)
         ? `<div class="dep-warning">⚠ <strong>${escapeText(item.repo_name)}</strong> depends on <strong>${escapeText(item.depends_on_repo)}</strong>, which has unfinished work.</div>`
         : "";
@@ -578,7 +596,67 @@ function renderActiveWork() {
   });
 
   container.innerHTML = html;
-  document.getElementById("toggle-show-done").addEventListener("change", renderActiveWork);
+}
+
+function renderCompletedWork(container) {
+  const doneItems = workItems
+    .filter(w => w.status === "done")
+    .sort((a, b) => {
+      const aTime = a.completed_at ? new Date(a.completed_at) : new Date(0);
+      const bTime = b.completed_at ? new Date(b.completed_at) : new Date(0);
+      return bTime - aTime;
+    });
+
+  if (!doneItems.length) {
+    container.innerHTML = `<p class="empty-state">No completed work items yet.</p>`;
+    return;
+  }
+
+  let html = `<div class="work-group">
+    <h3 class="work-group-label">Completed <span class="work-group-count">${doneItems.length}</span></h3>`;
+
+  doneItems.forEach(item => {
+    const completedAgo = timeAgo(item.completed_at);
+    const completedFull = item.completed_at
+      ? new Date(item.completed_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
+      : null;
+    const dur = durationLabel(item.started_at, item.completed_at);
+
+    const completedSpan = completedFull
+      ? `<span class="work-time work-completed-at" title="${escapeText(item.completed_at)}">Completed ${completedAgo}${completedFull ? ` (${completedFull})` : ""}</span>`
+      : "";
+    const durSpan = dur
+      ? `<span class="work-duration">· took ${dur}</span>`
+      : "";
+
+    const notesDiv = item.notes
+      ? `<div class="work-notes-inline">${escapeText(item.notes)}</div>`
+      : "";
+
+    html += `
+      <div class="work-row work-row-done" data-id="${item.id}">
+        <div class="work-card-top">
+          <span class="badge badge-work badge-work-done">Done</span>
+          <a href="https://github.com/asiakay/${escapeText(item.repo_name)}" target="_blank" rel="noopener noreferrer" class="work-repo">${escapeText(item.repo_name)}</a>
+          <span class="work-task">${escapeText(item.task_description)}</span>
+        </div>
+        <div class="work-card-meta">
+          <span class="work-assigned badge-assigned-${item.assigned_to}">${escapeText(item.assigned_to)}</span>
+          ${completedSpan}
+          ${durSpan}
+          <button class="btn-ghost btn-sm" onclick="openEditForm(${item.id})">Edit</button>
+        </div>
+        ${notesDiv}
+        <div class="work-okr-nudge">
+          <span class="okr-nudge-icon" aria-hidden="true">✓</span>
+          This work is done — <button class="btn-link" onclick="switchTab('okr-progress')">log it against an OKR →</button>
+        </div>
+        <div id="edit-form-${item.id}" class="work-form work-inline-form hidden"></div>
+      </div>`;
+  });
+
+  html += `</div>`;
+  container.innerHTML = html;
 }
 
 function openEditForm(id) {

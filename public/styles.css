@@ -640,6 +640,7 @@ body { min-height: 100vh; }
   line-height: 1.5;
 }
 
+/* Legacy checkbox toggle — kept for any remaining references */
 .work-toggle-row {
   margin-bottom: 16px;
   font-size: 13px;
@@ -652,6 +653,87 @@ body { min-height: 100vh; }
   gap: 6px;
   cursor: pointer;
   user-select: none;
+}
+
+/* Segmented toggle: Active | Completed */
+.work-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  background: var(--card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  padding: 3px;
+  margin-bottom: 20px;
+  gap: 2px;
+}
+
+.work-toggle-btn {
+  padding: 6px 20px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  line-height: 1;
+}
+
+.work-toggle-btn:hover {
+  color: var(--text-main);
+}
+
+.work-toggle-btn.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* Completed work item row */
+.work-row-done {
+  opacity: 0.82;
+  border-left: 3px solid var(--success);
+}
+
+.work-row-done:hover {
+  opacity: 1;
+}
+
+.work-completed-at {
+  color: var(--success);
+}
+
+.work-duration {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* OKR nudge on completed items */
+.work-okr-nudge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.okr-nudge-icon {
+  color: var(--success);
+  font-weight: bold;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .work-assigned {

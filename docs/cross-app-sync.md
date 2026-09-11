@@ -2,66 +2,96 @@
 
 ## Problem
 
-Checking a repatriation stage in masshealth-crm and logging a task against the matching DAD-N OKR in repo-dashboard are currently two disconnected manual steps. This note describes the smallest mechanism to wire them together.
+Checking a repatriation stage in masshealth-crm and logging a task against the matching DAD-N OKR in repo-dashboard are currently two disconnected manual steps. This note describes the correct mechanism to wire them together.
 
-## Proposed mechanism (not yet built)
+## Architecture: worker-proxied, not client-side
 
-When the user checks a stage checkbox in masshealth-crm, in addition to the existing `saveState()` call, fire a `log_task` call to repo-dashboard's `/api/mcp` endpoint:
+**The MCP bearer token must never appear in client-side JavaScript globals.** A value set as `window.REPODASH_MCP_TOKEN` in `index.html` reaches every visitor's browser, is extractable from DevTools, and authorizes `log_task` / `register_okr` on a CORS-open endpoint from anywhere. That is a P1 exposure.
+
+The correct flow routes through the masshealth-crm worker — a trusted server environment where env secrets are safe:
+
+```
+Browser (masshealth-crm frontend)
+  └─ POST /api/repodash/log-stage   (authenticated with WRITE_TOKEN)
+       ↓
+  masshealth-crm Worker (Cloudflare Worker)
+       └─ POST /api/mcp             (authenticated with REPODASH_MCP_TOKEN env secret)
+            ↓
+  repo-dashboard Pages Function
+```
+
+The browser never sees `REPODASH_MCP_TOKEN`. The worker holds it as a `wrangler secret`.
+
+## Worker-side endpoint (to build in masshealth-crm/worker/index.js)
+
+```js
+// POST /api/repodash/log-stage
+// Body: { stage: number, stage_title: string }
+// Auth: WRITE_TOKEN (already required on all write routes)
+// Env: REPODASH_MCP_URL, REPODASH_MCP_TOKEN (wrangler secrets)
+if (path === '/api/repodash/log-stage' && method === 'POST') {
+  const { stage, stage_title } = await request.json();
+  const mcpUrl = (env.REPODASH_MCP_URL || '').trim();
+  if (mcpUrl && stage) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (env.REPODASH_MCP_TOKEN) headers['Authorization'] = `Bearer ${env.REPODASH_MCP_TOKEN}`;
+    try {
+      await fetch(mcpUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: Date.now(),
+          method: 'tools/call',
+          params: {
+            name: 'log_task',
+            arguments: {
+              description: `Repatriation stage ${stage} completed: ${stage_title}`,
+              okr_id: `DAD-${stage}`,
+            },
+          },
+        }),
+      });
+    } catch (e) {
+      // Silent failure — stage save already succeeded; MCP log is best-effort
+      console.warn('[repodash sync]', e.message);
+    }
+  }
+  return json({ ok: true });
+}
+```
+
+## Browser-side call (in masshealth-crm/index.html)
+
+Replace the direct `/api/mcp` fetch with a call through the worker:
 
 ```js
 // Inside the repatriation stage checkbox handler, after saveState():
 async function logStageToRepoDash(stageNumber, stageTitle) {
-  const mcpUrl = (window.REPODASH_MCP_URL || '').trim();
-  const mcpToken = (window.REPODASH_MCP_TOKEN || '').trim();
-  if (!mcpUrl) return; // no-op when not configured
-
-  const headers = { 'Content-Type': 'application/json' };
-  if (mcpToken) headers['Authorization'] = `Bearer ${mcpToken}`;
-
-  try {
-    await fetch(mcpUrl, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: Date.now(),
-        method: 'tools/call',
-        params: {
-          name: 'log_task',
-          arguments: {
-            description: `Repatriation stage ${stageNumber} completed: ${stageTitle}`,
-            okr_id: `DAD-${stageNumber}`,
-          },
-        },
-      }),
-    });
-  } catch (e) {
-    console.warn('[repodash sync]', e.message); // silent failure — stage save already succeeded
-  }
+  // Routes through the worker — MCP token never touches the browser.
+  await d1Fetch('/api/repodash/log-stage', 'POST', {
+    stage: stageNumber,
+    stage_title: stageTitle,
+  });
+  // d1Fetch is already silent on failure.
 }
 ```
 
-## Configuration in index.html
+## Configuration
 
-Add two new globals alongside `MASSHEALTH_WORKER_URL`:
+**masshealth-crm worker env secrets** (set via Cloudflare dashboard or `wrangler secret put`):
 
-```html
-<script>
-  window.MASSHEALTH_WORKER_URL  = 'https://masshealth-crm-api.asialakaygrady-6d4.workers.dev';
-  window.MASSHEALTH_WRITE_TOKEN = ''; // masshealth-crm WRITE_TOKEN
-  window.REPODASH_MCP_URL       = 'https://repo-dashboard.pages.dev/api/mcp';
-  window.REPODASH_MCP_TOKEN     = ''; // repo-dashboard MCP_SECRET_TOKEN (if set)
-</script>
-```
+| Secret | Value |
+|--------|-------|
+| `REPODASH_MCP_URL` | `https://repo-dashboard.pages.dev/api/mcp` |
+| `REPODASH_MCP_TOKEN` | value of repo-dashboard's `MCP_SECRET_TOKEN` (if set) |
 
-## Failure mode
-
-The `fetch` call is fire-and-forget and wrapped in try/catch. If it fails (network, 401, timeout), the stage checkbox save still succeeds — the user's D1 record is never blocked by a cross-app call.
+**Nothing new goes in `index.html`** — no `window.REPODASH_MCP_URL`, no `window.REPODASH_MCP_TOKEN`.
 
 ## OKR mapping
 
-| Stage checkbox | okr_id |
-|---------------|--------|
+| Stage checkbox | okr_id sent to log_task |
+|---------------|------------------------|
 | Stage 1 | DAD-1 |
 | Stage 2 | DAD-2 |
 | Stage 3 | DAD-3 |
@@ -71,14 +101,18 @@ The `fetch` call is fire-and-forget and wrapped in try/catch. If it fails (netwo
 | Stage 7 | DAD-7 |
 | (no checkbox — guardianship track) | DAD-8 — log manually via MCP or OKR Progress tab |
 
+## Failure mode
+
+The worker's fetch to `/api/mcp` is fire-and-forget, wrapped in try/catch. If it fails (network, auth, timeout), `POST /api/repodash/log-stage` still returns `{ ok: true }` — the stage save is never blocked by a cross-app call.
+
 ## What this is NOT
 
-- No webhook, no queue, no polling. One outbound fetch per checkbox interaction.
+- No webhook, no queue, no polling. One server-side fetch per checkbox interaction.
 - No bi-directional sync. repo-dashboard does not write back to masshealth-crm.
 - Not built yet. This note is the design gate before implementation.
 
 ## Next step to build it
 
-1. Add `logStageToRepoDash` as above to the stage checkbox handler in `masshealth-crm/index.html`.
-2. Add `REPODASH_MCP_URL` and `REPODASH_MCP_TOKEN` globals.
-3. If `MCP_SECRET_TOKEN` is not set on repo-dashboard, the endpoint is open and no token is needed.
+1. Add the `POST /api/repodash/log-stage` route to `masshealth-crm/worker/index.js` as sketched above.
+2. Set `REPODASH_MCP_URL` and `REPODASH_MCP_TOKEN` as worker secrets via the Cloudflare dashboard.
+3. Add `logStageToRepoDash(stage, title)` call in `index.html`'s stage checkbox handler (after `saveState()`).

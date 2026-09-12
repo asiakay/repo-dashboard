@@ -8,7 +8,7 @@
 -- 2. resources — lightweight inventory of tools, skills, financial resources, and
 --    network assets; utilization state drives the Capacity view's resource-side signals.
 
-ALTER TABLE okrs ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE okrs ADD COLUMN created_at TEXT DEFAULT NULL;
 
 CREATE TABLE IF NOT EXISTS resources (
   id          INTEGER  PRIMARY KEY AUTOINCREMENT,

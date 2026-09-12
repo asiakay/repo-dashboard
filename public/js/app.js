@@ -401,7 +401,7 @@ function renderToday() {
         </div>
         ${item.notes ? `<div class="today-row-notes">${escapeText(item.notes)}</div>` : ""}
         <div class="today-row-meta">
-          <button class="btn-ghost btn-sm" onclick="openEditForm(${item.id});switchTab('active-work')">Unblock →</button>
+          <button class="btn-ghost btn-sm" onclick="switchTab('active-work');setTimeout(()=>openEditForm(${item.id}),0)">Unblock →</button>
         </div>
       </div>`;
     });
@@ -516,8 +516,27 @@ function renderAllResourcesList() {
       ${r.notes ? `<div class="resource-notes">${escapeText(r.notes)}</div>` : ""}
       <div class="resource-card-actions">
         <button class="btn-ghost btn-sm" onclick="openEditResource(${r.id})">Edit</button>
+        <button class="btn-ghost btn-sm btn-danger-sm" onclick="deleteResource(${r.id})">Delete</button>
       </div>
     </div>`).join("") + `</div>`;
+}
+
+async function deleteResource(id) {
+  if (!confirm("Delete this resource?")) return;
+  const doDelete = async () => {
+    const res = await fetch(`/api/resources/${id}`, {
+      method: "DELETE",
+      headers: writeHeaders(),
+    });
+    return handleWriteResponse(res, doDelete);
+  };
+  try {
+    await doDelete();
+    resources = resources.filter(r => r.id !== id);
+    renderCapacity();
+  } catch (err) {
+    alert("Failed to delete: " + err.message);
+  }
 }
 
 function renderAddResourceForm(containerId) {

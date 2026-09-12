@@ -8,7 +8,8 @@
  *   tools/list   → enumerate available tools
  *   tools/call   → invoke a tool by name
  *
- * Tools: log_task, get_okr_progress, get_daily_summary, register_okr
+ * Tools: log_task, get_okr_progress, get_daily_summary, register_okr,
+ *         list_agent_tasks, start_task, finish_task
  */
 
 const CORS = {
@@ -84,6 +85,48 @@ const TOOLS = [
         },
       },
       required: ["id", "objective", "key_result"],
+    },
+  },
+  // ── Agent work-item tools ─────────────────────────────────────────────────
+  {
+    name: "list_agent_tasks",
+    description: "Returns work_items assigned to agent. Excludes done tasks by default. Use this to read the agent task queue before starting work.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        include_done: {
+          type: "boolean",
+          description: "Set true to include completed tasks (default false)",
+        },
+        repo_name: {
+          type: "string",
+          description: "Optional: filter to a specific repo/project label",
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "start_task",
+    description: "Claim a work_item: transitions status to in_progress and stamps started_at. Safe to call if already in_progress — returns the current row without changes.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id: { type: "number", description: "ID of the work_item to start" },
+      },
+      required: ["task_id"],
+    },
+  },
+  {
+    name: "finish_task",
+    description: "Complete a work_item: transitions status to done and stamps completed_at. Optionally appends notes.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id: { type: "number", description: "ID of the work_item to complete" },
+        notes: { type: "string", description: "Optional notes to record on the completed task" },
+      },
+      required: ["task_id"],
     },
   },
 ];
@@ -197,6 +240,76 @@ async function handleToolCall(name, args, db) {
       .first();
 
     return { content: [{ type: "text", text: JSON.stringify(okr) }] };
+  }
+
+  if (name === "list_agent_tasks") {
+    const includeDone = args && args.include_done === true;
+    const repoFilter = args && args.repo_name ? args.repo_name : null;
+
+    let query = "SELECT * FROM work_items WHERE assigned_to = 'agent'";
+    const bindings = [];
+
+    if (!includeDone) {
+      query += " AND status != 'done'";
+    }
+    if (repoFilter) {
+      query += " AND repo_name = ?";
+      bindings.push(repoFilter);
+    }
+
+    query += " ORDER BY CASE status WHEN 'in_progress' THEN 0 WHEN 'blocked' THEN 1 WHEN 'not_started' THEN 2 ELSE 3 END, repo_name ASC";
+
+    const { results } = await db.prepare(query).bind(...bindings).all();
+    return { content: [{ type: "text", text: JSON.stringify(results) }] };
+  }
+
+  if (name === "start_task") {
+    const { task_id } = args || {};
+    if (!task_id) {
+      return { isError: true, content: [{ type: "text", text: "Missing required field: task_id" }] };
+    }
+
+    const existing = await db.prepare("SELECT * FROM work_items WHERE id = ? AND assigned_to = 'agent'").bind(task_id).first();
+    if (!existing) {
+      return { isError: true, content: [{ type: "text", text: `Task ${task_id} not found or not assigned to agent` }] };
+    }
+
+    if (existing.status === "in_progress") {
+      return { content: [{ type: "text", text: JSON.stringify(existing) }] };
+    }
+
+    const now = new Date().toISOString();
+    const updated = await db
+      .prepare("UPDATE work_items SET status = 'in_progress', started_at = ? WHERE id = ? RETURNING *")
+      .bind(now, task_id)
+      .first();
+
+    return { content: [{ type: "text", text: JSON.stringify(updated) }] };
+  }
+
+  if (name === "finish_task") {
+    const { task_id, notes = null } = args || {};
+    if (!task_id) {
+      return { isError: true, content: [{ type: "text", text: "Missing required field: task_id" }] };
+    }
+
+    const existing = await db.prepare("SELECT * FROM work_items WHERE id = ? AND assigned_to = 'agent'").bind(task_id).first();
+    if (!existing) {
+      return { isError: true, content: [{ type: "text", text: `Task ${task_id} not found or not assigned to agent` }] };
+    }
+
+    const now = new Date().toISOString();
+    const started = existing.started_at || now;
+    const mergedNotes = notes
+      ? (existing.notes ? `${existing.notes}\n${notes}` : notes)
+      : existing.notes;
+
+    const updated = await db
+      .prepare("UPDATE work_items SET status = 'done', started_at = ?, completed_at = ?, notes = ? WHERE id = ? RETURNING *")
+      .bind(started, now, mergedNotes, task_id)
+      .first();
+
+    return { content: [{ type: "text", text: JSON.stringify(updated) }] };
   }
 
   return null; // unknown tool

@@ -279,7 +279,9 @@ jobs:
             return String(v == null ? '' : v).replace(/'/g, "''");
           }
 
-          let sql = 'DELETE FROM deadline_signals;\n';
+          // Preserve rows where last_synced = 'manual' — those are entered directly
+          // in D1 (not via a committed migration file) and must survive the sync cycle.
+          let sql = "DELETE FROM deadline_signals WHERE last_synced != 'manual';\n";
           for (const sig of signals) {
             const repos = JSON.stringify(sig.affects_repos || []).replace(/'/g, "''");
             sql += `INSERT INTO deadline_signals (title, due_date, consequence_severity, affects_repos, source_repo, domain, notes, last_synced) VALUES (`

@@ -1,31 +1,24 @@
--- Migration 0006: deadline_signals for guardianship/placement hard dates
--- Apply: wrangler d1 execute repo-dashboard-work-items --remote --file=db/migrations/0006_fathers_care_deadline_signals.sql
+-- Migration 0006: deadline_signals for guardianship/placement legal deadlines
 --
--- Both signals use domain='legal' so the legal lead-time curve applies.
--- At 17 days (Sept 29) and 21 days (Oct 3) from 2026-09-12, both fall in the
--- ≤30-day bucket (score 4). With consequence_severity 5: impact = 5×4 = 20 → Tier 1 Immediate Focus.
+-- IMPORTANT — per CONTRIBUTING.md:25, specific filing dates must NOT be committed
+-- to git. The two rows this migration describes (ME guardianship hearing and MA
+-- placement/transport target) were inserted directly into production D1 via the
+-- Cloudflare MCP tool and are NOT represented as runnable SQL here.
 --
--- affects_repos is stored as a JSON text array; the priority.js parser handles both
--- string and pre-parsed forms via parseSignal().
-
-INSERT INTO deadline_signals
-  (title, due_date, consequence_severity, affects_repos, source_repo, domain, last_synced)
-VALUES
-  (
-    'ME Permanent Guardianship hearing + MA transfer filing',
-    '2026-09-29',
-    5,
-    '["fathers-care"]',
-    'fathers-care',
-    'legal',
-    '2026-09-12'
-  ),
-  (
-    'MA placement/transport target date',
-    '2026-10-03',
-    5,
-    '["fathers-care","masshealth-crm"]',
-    'fathers-care',
-    'legal',
-    '2026-09-12'
-  );
+-- To add or update these rows, use the Cloudflare D1 MCP or wrangler d1 execute
+-- with an ad-hoc SQL statement entered interactively — do not write the date into
+-- a committed file.
+--
+-- Both rows must be inserted with last_synced = 'manual' so the hourly
+-- sync-deadlines workflow preserves them (it skips DELETE for rows carrying
+-- that sentinel value — see .github/workflows/sync-deadlines.yml and the note
+-- in db/schema.sql about manual deadline_signals rows).
+--
+-- Shape of each row:
+--   title                TEXT   — generic process label, no docket/court/date text
+--   due_date             TEXT   — YYYY-MM-DD; enter directly in D1, do not commit
+--   consequence_severity INT    — 1-5 per the priority scoring table
+--   affects_repos        TEXT   — JSON array, e.g. '["fathers-care","masshealth-crm"]'
+--   source_repo          TEXT   — 'fathers-care' (synthetic label)
+--   domain               TEXT   — 'legal' (triggers legal lead-time curve)
+--   last_synced          TEXT   — 'manual' (sentinel; preserves row through hourly sync)

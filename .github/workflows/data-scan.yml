@@ -19,5 +19,4 @@ jobs:
           fi
         env:
           DATA_SCAN_DENYLIST: ${{ secrets.DATA_SCAN_DENYLIST }}
-      - uses: asiakay/data-scan@main
-        # TODO: change to @v1 once the v1 tag is created on asiakay/data-scan
+      - uses: asiakay/data-scan@v1

@@ -12,6 +12,7 @@
   { "name": "pwse", "owner": "asiakay", "sync": "file" },
   { "name": "hemp-pilot-ops-dashboard", "owner": "asiakay", "sync": "file" },
   { "name": "one-hour-service-library", "owner": "asiakay", "sync": "file" },
+  { "name": "moving-agent-project", "owner": "asiakay", "sync": "file" },
   {
     "name": "masshealth-crm",
     "owner": "asiakay",

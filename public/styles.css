@@ -1712,6 +1712,12 @@ body { min-height: 100vh; }
 
 .btn-link:hover { opacity: 0.75; }
 
+.btn-danger-sm {
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.3);
+}
+.btn-danger-sm:hover { border-color: #f87171; background: rgba(248,113,113,0.08); }
+
 @media (max-width: 600px) {
   .resource-grid {
     grid-template-columns: 1fr;

@@ -119,6 +119,9 @@ JSON-RPC 2.0 transport. All requests must include `Content-Type: application/jso
 | `get_okr_progress` | _(none)_ | Aggregated completion % per OKR |
 | `get_daily_summary` | `date` (optional, defaults to UTC today) | All tasks for a date |
 | `register_okr` | `id`, `objective`, `key_result` | Create or update an OKR |
+| `list_agent_tasks` | _(none)_ | Return the agent work queue (assigned_to=agent, excludes done by default). Optional: `include_done`, `repo_name` filter |
+| `start_task` | `task_id` | Claim a task: set status=in_progress, stamp started_at. Idempotent if already in_progress |
+| `finish_task` | `task_id` | Complete a task: set status=done, stamp completed_at. Optional `notes` appended to existing |
 
 **Error codes:**
 

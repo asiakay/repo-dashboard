@@ -1,0 +1,23 @@
+name: PII/PHI Scan
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Write denylist from secret
+        run: |
+          mkdir -p .data-scan
+          if [ -n "$DATA_SCAN_DENYLIST" ]; then
+            printf '%s' "$DATA_SCAN_DENYLIST" > .data-scan/denylist.txt
+          fi
+        env:
+          DATA_SCAN_DENYLIST: ${{ secrets.DATA_SCAN_DENYLIST }}
+      - uses: asiakay/data-scan@main
+        # TODO: change to @v1 once the v1 tag is created on asiakay/data-scan

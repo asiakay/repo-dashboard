@@ -129,6 +129,44 @@ const TOOLS = [
       required: ["task_id"],
     },
   },
+  // ── OKR micro-task pipeline tools ────────────────────────────────────────
+  {
+    name: "list_okr_tasks",
+    description: "List micro-tasks from the tasks table (linked to OKRs). Excludes Done tasks by default. Filter by OKR or status.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        okr_id:      { type: "string",  description: "Optional: filter to a specific OKR (e.g. DAD-8)" },
+        status:      { type: "string",  enum: ["To Do", "In Progress", "Done"], description: "Optional: filter by status" },
+        include_done:{ type: "boolean", description: "Set true to include Done tasks (default false)" },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "start_okr_task",
+    description: "Advance an OKR micro-task to In Progress and stamp started_at. Idempotent if already In Progress.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id: { type: "number", description: "ID of the task to start" },
+      },
+      required: ["task_id"],
+    },
+  },
+  {
+    name: "finish_okr_task",
+    description: "Mark an OKR micro-task Done, stamp completed_at, and optionally append notes.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id:    { type: "number", description: "ID of the task to complete" },
+        notes:      { type: "string", description: "Optional notes to append" },
+        time_spent: { type: "string", description: "Optional time spent, e.g. '45m' or '1.5h'" },
+      },
+      required: ["task_id"],
+    },
+  },
 ];
 
 // ── Tool handlers ───────────────────────────────────────────────────────────
@@ -309,6 +347,69 @@ async function handleToolCall(name, args, db) {
       .bind(started, now, mergedNotes, task_id)
       .first();
 
+    return { content: [{ type: "text", text: JSON.stringify(updated) }] };
+  }
+
+  if (name === "list_okr_tasks") {
+    const includeDone = args && args.include_done === true;
+    const okrFilter  = args && args.okr_id ? args.okr_id : null;
+    const statusFilter = args && args.status ? args.status : null;
+
+    let query = `
+      SELECT t.*, o.objective, o.key_result
+      FROM tasks t JOIN okrs o ON o.id = t.okr_id
+    `;
+    const binds = [];
+    const conditions = [];
+    if (!includeDone && !statusFilter) conditions.push("t.status != 'Done'");
+    if (statusFilter) { conditions.push("t.status = ?"); binds.push(statusFilter); }
+    if (okrFilter)   { conditions.push("t.okr_id = ?"); binds.push(okrFilter); }
+    if (conditions.length) query += " WHERE " + conditions.join(" AND ");
+    query += " ORDER BY CASE t.status WHEN 'In Progress' THEN 0 WHEN 'To Do' THEN 1 ELSE 2 END, t.okr_id, t.id";
+
+    const { results } = await db.prepare(query).bind(...binds).all();
+    return { content: [{ type: "text", text: JSON.stringify(results) }] };
+  }
+
+  if (name === "start_okr_task") {
+    const { task_id } = args || {};
+    if (!task_id) return { isError: true, content: [{ type: "text", text: "Missing required field: task_id" }] };
+
+    const existing = await db.prepare("SELECT * FROM tasks WHERE id = ?").bind(task_id).first();
+    if (!existing) return { isError: true, content: [{ type: "text", text: `Task ${task_id} not found` }] };
+    if (existing.status === "In Progress") return { content: [{ type: "text", text: JSON.stringify(existing) }] };
+
+    const now = new Date().toISOString();
+    const fields = ["status"];
+    const values = ["In Progress"];
+    if (!existing.started_at) { fields.push("started_at"); values.push(now); }
+
+    const setClauses = fields.map(f => `${f} = ?`).join(", ");
+    const updated = await db.prepare(`UPDATE tasks SET ${setClauses} WHERE id = ? RETURNING *`)
+      .bind(...values, task_id).first();
+    return { content: [{ type: "text", text: JSON.stringify(updated) }] };
+  }
+
+  if (name === "finish_okr_task") {
+    const { task_id, notes = null, time_spent = null } = args || {};
+    if (!task_id) return { isError: true, content: [{ type: "text", text: "Missing required field: task_id" }] };
+
+    const existing = await db.prepare("SELECT * FROM tasks WHERE id = ?").bind(task_id).first();
+    if (!existing) return { isError: true, content: [{ type: "text", text: `Task ${task_id} not found` }] };
+
+    const now = new Date().toISOString();
+    const mergedNotes = notes
+      ? (existing.notes ? `${existing.notes}\n${notes}` : notes)
+      : existing.notes;
+
+    const fields = ["status", "completed_at", "notes"];
+    const values = ["Done", now, mergedNotes];
+    if (!existing.started_at) { fields.push("started_at"); values.push(now); }
+    if (time_spent) { fields.push("time_spent"); values.push(time_spent); }
+
+    const setClauses = fields.map(f => `${f} = ?`).join(", ");
+    const updated = await db.prepare(`UPDATE tasks SET ${setClauses} WHERE id = ? RETURNING *`)
+      .bind(...values, task_id).first();
     return { content: [{ type: "text", text: JSON.stringify(updated) }] };
   }
 

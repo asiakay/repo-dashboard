@@ -48,6 +48,7 @@
       <button class="tab-btn" data-tab="agent-tasks" id="tab-agent-tasks" role="tab" aria-selected="false" aria-controls="view-agent-tasks">Agent Tasks</button>
       <button class="tab-btn" data-tab="priority" id="tab-priority" role="tab" aria-selected="false" aria-controls="view-priority">Priority</button>
       <button class="tab-btn" data-tab="okr-progress" id="tab-okr-progress" role="tab" aria-selected="false" aria-controls="view-okr-progress">OKR Progress</button>
+      <button class="tab-btn" data-tab="pipeline" id="tab-pipeline" role="tab" aria-selected="false" aria-controls="view-pipeline">Pipeline</button>
     </div>
   </nav>
 
@@ -196,6 +197,25 @@
         </div>
       </div>
       <div id="okr-progress-list"></div>
+    </section>
+
+    <!-- ========== VIEW: PIPELINE ========== -->
+    <section id="view-pipeline" class="view hidden" role="tabpanel" aria-labelledby="tab-pipeline">
+      <div class="view-header">
+        <div>
+          <h2 class="view-title">Pipeline</h2>
+          <p class="view-subtitle">Move OKR micro-tasks through To Do → In Progress → Done. Click a card to advance it.</p>
+        </div>
+        <div class="pipeline-filter-row">
+          <label for="pipeline-okr-filter" class="sr-only">Filter by OKR</label>
+          <select id="pipeline-okr-filter">
+            <option value="">All OKRs</option>
+          </select>
+        </div>
+      </div>
+      <div id="pipeline-board" class="pipeline-board">
+        <!-- Kanban columns injected by JS -->
+      </div>
     </section>
 
   </main>

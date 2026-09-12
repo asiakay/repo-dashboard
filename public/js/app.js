@@ -68,6 +68,9 @@ let workItems = [];
 let priorityData = { items: [], bottlenecks: [] };
 let okrStats = null;
 let repoTaskData = [];
+let pipelineTasks = [];
+let pipelineError = null;
+let pipelineOkrFilter = "";
 let workItemsError = null;
 let priorityError = null;
 let reposError = null;
@@ -119,7 +122,7 @@ function updateActivePill() {
 // ============================================================
 // Tab switching
 // ============================================================
-const TABS = ["repos", "active-work", "agent-tasks", "priority", "okr-progress"];
+const TABS = ["repos", "active-work", "agent-tasks", "priority", "okr-progress", "pipeline"];
 
 function switchTab(tabId) {
   TABS.forEach(id => {
@@ -135,6 +138,7 @@ function switchTab(tabId) {
   if (tabId === "agent-tasks") renderAgentTasks();
   if (tabId === "priority") renderPriority();
   if (tabId === "okr-progress") renderOkrProgress();
+  if (tabId === "pipeline") renderPipeline();
 }
 
 document.querySelectorAll(".tab-btn").forEach(btn => {
@@ -274,6 +278,25 @@ async function retryOkrStats() {
   okrStatsError = null;
   await loadOkrStats();
   renderOkrProgress();
+}
+
+async function loadPipelineTasks() {
+  try {
+    const res = await fetch("/api/tasks?include_done=true");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    pipelineTasks = await res.json();
+    pipelineError = null;
+  } catch (err) {
+    console.warn("Could not load pipeline tasks:", err);
+    pipelineTasks = [];
+    pipelineError = err.message;
+  }
+}
+
+async function retryPipeline() {
+  pipelineError = null;
+  await loadPipelineTasks();
+  renderPipeline();
 }
 
 async function loadRepoTaskData() {
@@ -1264,10 +1287,113 @@ async function saveNewTask() {
 }
 
 // ============================================================
+// Pipeline (Kanban) view
+// ============================================================
+const PIPELINE_COLS = [
+  { status: "In Progress", label: "In Progress", cls: "pipeline-col-inprogress" },
+  { status: "To Do",       label: "To Do",       cls: "pipeline-col-todo" },
+  { status: "Done",        label: "Done",         cls: "pipeline-col-done" },
+];
+
+const NEXT_STATUS = { "To Do": "In Progress", "In Progress": "Done", "Done": null };
+
+function renderPipeline() {
+  const board = document.getElementById("pipeline-board");
+  const filterEl = document.getElementById("pipeline-okr-filter");
+
+  if (pipelineError) {
+    board.innerHTML = errorBanner(`Failed to load pipeline — ${pipelineError}`, "retryPipeline");
+    return;
+  }
+
+  // Populate OKR filter dropdown from loaded tasks
+  const okrIds = [...new Set(pipelineTasks.map(t => t.okr_id))].sort();
+  const currentFilter = filterEl.value;
+  filterEl.innerHTML = `<option value="">All OKRs</option>` +
+    okrIds.map(id => `<option value="${escapeText(id)}"${id === currentFilter ? " selected" : ""}>${escapeText(id)}</option>`).join("");
+  pipelineOkrFilter = filterEl.value;
+
+  const tasks = pipelineOkrFilter
+    ? pipelineTasks.filter(t => t.okr_id === pipelineOkrFilter)
+    : pipelineTasks;
+
+  if (!tasks.length) {
+    board.innerHTML = `<p class="empty-state">No tasks found. Use the MCP <code>log_task</code> tool or the OKR Progress tab to add tasks.</p>`;
+    return;
+  }
+
+  const colsHtml = PIPELINE_COLS.map(col => {
+    const colTasks = tasks.filter(t => t.status === col.status);
+    const next = NEXT_STATUS[col.status];
+
+    const cards = colTasks.map(t => {
+      const advanceBtn = next
+        ? `<button class="pipeline-advance-btn" data-task-id="${t.id}" data-next="${escapeText(next)}" aria-label="Advance to ${next}">→ ${escapeText(next)}</button>`
+        : "";
+      const timeChip = t.time_spent ? `<span class="pipeline-chip">${escapeText(t.time_spent)}</span>` : "";
+      const started = t.started_at ? `<span class="pipeline-chip pipeline-chip-muted">Started ${t.started_at.slice(0, 10)}</span>` : "";
+      const completed = t.completed_at ? `<span class="pipeline-chip pipeline-chip-muted">Done ${t.completed_at.slice(0, 10)}</span>` : "";
+      return `
+        <div class="pipeline-card${col.status === "Done" ? " pipeline-card-done" : ""}">
+          <div class="pipeline-card-okr">${escapeText(t.okr_id)}</div>
+          <div class="pipeline-card-desc">${escapeText(t.description)}</div>
+          <div class="pipeline-card-meta">${timeChip}${started}${completed}</div>
+          ${t.notes ? `<div class="pipeline-card-notes">${escapeText(t.notes)}</div>` : ""}
+          <div class="pipeline-card-actions">${advanceBtn}</div>
+        </div>`;
+    }).join("");
+
+    return `
+      <div class="pipeline-col ${col.cls}">
+        <div class="pipeline-col-header">
+          <span class="pipeline-col-label">${col.label}</span>
+          <span class="pipeline-col-count">${colTasks.length}</span>
+        </div>
+        <div class="pipeline-col-cards">${cards || `<p class="pipeline-empty">Nothing here</p>`}</div>
+      </div>`;
+  }).join("");
+
+  board.innerHTML = colsHtml;
+
+  // Advance-button handlers
+  board.querySelectorAll(".pipeline-advance-btn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const taskId = btn.dataset.taskId;
+      const nextStatus = btn.dataset.next;
+      btn.disabled = true;
+      btn.textContent = "Saving…";
+      const doSave = async () => {
+        const res = await fetch(`/api/tasks/${taskId}`, {
+          method: "PUT",
+          headers: writeHeaders(),
+          body: JSON.stringify({ status: nextStatus }),
+        });
+        return handleWriteResponse(res, doSave);
+      };
+      try {
+        await doSave();
+        await loadPipelineTasks();
+        renderPipeline();
+      } catch (err) {
+        alert("Failed to update task: " + err.message);
+        btn.disabled = false;
+        btn.textContent = `→ ${nextStatus}`;
+      }
+    });
+  });
+}
+
+// OKR filter change
+document.getElementById("pipeline-okr-filter").addEventListener("change", e => {
+  pipelineOkrFilter = e.target.value;
+  renderPipeline();
+});
+
+// ============================================================
 // Init
 // ============================================================
 async function init() {
-  await Promise.all([loadRepos(), loadWorkItems(), loadPriorityData(), loadOkrStats(), loadRepoTaskData(), loadIdentity()]);
+  await Promise.all([loadRepos(), loadWorkItems(), loadPriorityData(), loadOkrStats(), loadRepoTaskData(), loadPipelineTasks(), loadIdentity()]);
   renderRepos(); // re-render repos with work items overlaid
 }
 

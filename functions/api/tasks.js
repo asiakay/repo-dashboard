@@ -1,5 +1,12 @@
 import { requireWriteAuth } from "../_shared/auth.js";
 
+const CORS = {
+  "Content-Type": "application/json",
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
+
 async function insertTask(env, { description, okr_id, time_spent, status, notes, repo_name }) {
   const sql = "INSERT INTO tasks (description,okr_id,time_spent,status,notes,repo_name) VALUES (?,?,?,?,?,?) RETURNING *";
   const binds = [description, okr_id, time_spent || null, status, notes || null, repo_name || null];
@@ -13,16 +20,30 @@ async function insertTask(env, { description, okr_id, time_spent, status, notes,
   }
 }
 
-const CORS = {
-  "Content-Type": "application/json",
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-};
-
 export async function onRequest({ request, env }) {
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: CORS });
+  }
+
+  if (request.method === "GET") {
+    const url = new URL(request.url);
+    const filterStatus = url.searchParams.get("status");
+    const filterOkr = url.searchParams.get("okr_id");
+
+    let sql = `
+      SELECT t.*, o.objective, o.key_result, o.status AS okr_status
+      FROM tasks t
+      JOIN okrs o ON o.id = t.okr_id
+    `;
+    const binds = [];
+    const conditions = [];
+    if (filterStatus) { conditions.push("t.status = ?"); binds.push(filterStatus); }
+    if (filterOkr)    { conditions.push("t.okr_id = ?"); binds.push(filterOkr); }
+    if (conditions.length) sql += " WHERE " + conditions.join(" AND ");
+    sql += " ORDER BY CASE t.status WHEN 'In Progress' THEN 0 WHEN 'To Do' THEN 1 ELSE 2 END, t.okr_id, t.id";
+
+    const { results } = await env.DB.prepare(sql).bind(...binds).all();
+    return new Response(JSON.stringify(results), { headers: CORS });
   }
 
   if (request.method !== "POST") {

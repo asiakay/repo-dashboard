@@ -191,6 +191,71 @@ jobs:
           EOF
 
       # ============================================================
+      # 1a. SCAN GENERATED deadline-signals.json FOR PII/PHI
+      # The scan job above checks the current HEAD; it cannot see
+      # content fetched at runtime in this job's workspace.
+      # This step scans the freshly written file before it is committed.
+      # ============================================================
+      - name: Write denylist from secret
+        run: |
+          mkdir -p .data-scan
+          if [ -n "$DATA_SCAN_DENYLIST" ]; then
+            printf '%s' "$DATA_SCAN_DENYLIST" > .data-scan/denylist.txt
+          fi
+        env:
+          DATA_SCAN_DENYLIST: ${{ secrets.DATA_SCAN_DENYLIST }}
+
+      - name: Scan generated deadline-signals.json for PII/PHI
+        run: |
+          node << 'EOF'
+          const fs = require('fs');
+
+          const PATTERNS = [
+            { name: 'SSN',          re: /\b\d{3}-\d{2}-\d{4}\b/ },
+            { name: 'US phone',     re: /\b(?:\+1[-.\s]?)?\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b/ },
+            { name: 'US street',    re: /\b\d+\s+[A-Za-z][A-Za-z\s]{1,30}\s+(?:St(?:reet)?|Ave(?:nue)?|Blvd|Dr(?:ive)?|Rd|Ln|Lane|Ct|Court|Pl(?:ace)?|Way|Pkwy|Terr?(?:ace)?|Cir(?:cle)?|Hwy)\b/i },
+            { name: 'court docket', re: /\b\d{2}[A-Z]\d{5}[A-Z]{2}\d{5}\b/ },
+          ];
+
+          const denylist = [];
+          try {
+            const raw = fs.readFileSync('.data-scan/denylist.txt', 'utf8');
+            for (const line of raw.split('\n')) {
+              const t = line.trim();
+              if (t && !t.startsWith('#')) denylist.push(t.toLowerCase());
+            }
+          } catch {}
+
+          const content = fs.readFileSync('public/data/deadline-signals.json', 'utf8');
+          const lines = content.split('\n');
+
+          let found = false;
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            for (const { name, re } of PATTERNS) {
+              if (re.test(line)) {
+                // Report location only — never echo matched content
+                console.error(`public/data/deadline-signals.json:${i + 1} [${name}]`);
+                found = true;
+              }
+            }
+            const lower = line.toLowerCase();
+            for (const entry of denylist) {
+              if (lower.includes(entry)) {
+                console.error(`public/data/deadline-signals.json:${i + 1} [denylist]`);
+                found = true;
+              }
+            }
+          }
+
+          if (found) {
+            console.error('\nPII/PHI match in generated deadline-signals.json — commit blocked.');
+            process.exit(1);
+          }
+          console.log('deadline-signals.json scan clean.');
+          EOF
+
+      # ============================================================
       # 2. COMMIT public/data/deadline-signals.json
       # ============================================================
       - name: Commit updated deadline-signals.json

@@ -1512,3 +1512,212 @@ body { min-height: 100vh; }
     grid-template-columns: 1fr;
   }
 }
+
+/* ============================================================
+   Tab nav — primary / secondary distinction
+   ============================================================ */
+.tab-btn.tab-primary {
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.tab-btn.tab-primary.active,
+.tab-btn.tab-primary:hover {
+  color: var(--accent);
+}
+
+.tab-divider {
+  display: inline-block;
+  width: 1px;
+  height: 18px;
+  background: var(--border-subtle);
+  margin: 0 4px;
+  vertical-align: middle;
+  align-self: center;
+}
+
+/* ============================================================
+   Today view
+   ============================================================ */
+.today-header {
+  padding: 20px 0 8px;
+}
+
+.today-headline {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0 0 4px;
+}
+
+.today-subline {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.today-section {
+  margin: 20px 0 0;
+}
+
+.today-section-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0 0 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.today-section-urgent .today-section-label { color: #f87171; }
+.today-section-warn   .today-section-label { color: #fbbf24; }
+.today-section-dim    .today-section-label { color: var(--text-muted); opacity: 0.6; }
+.today-section-resource .today-section-label { color: var(--accent); }
+
+.today-section-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 4px 0 8px;
+}
+
+.today-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  background: var(--card);
+  border: 1px solid var(--border-subtle);
+  margin-bottom: 6px;
+}
+
+.today-row-main {
+  font-size: 14px;
+  color: var(--text-main);
+  font-weight: 500;
+}
+
+.today-row-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.today-row-mine { border-left: 3px solid var(--accent); }
+.today-row-blocked { border-left: 3px solid #f87171; }
+.today-row-deadline { border-left: 3px solid #fbbf24; }
+.today-row-behind { border-left: 3px solid #f97316; }
+.today-row-done { opacity: 0.55; }
+
+.today-log-section {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* ============================================================
+   Capacity view
+   ============================================================ */
+.capacity-pace-gap {
+  font-size: 12px;
+  color: #f87171;
+  font-weight: 600;
+}
+
+/* ============================================================
+   Resource grid & cards
+   ============================================================ */
+.resource-manage-section {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.resource-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.resource-card {
+  background: var(--card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.resource-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.resource-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-main);
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.resource-category {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.resource-notes {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.resource-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.resource-badge-abundant { color: #34d399; font-weight: 700; font-size: 12px; }
+.resource-badge-underused { color: #60a5fa; font-weight: 700; font-size: 12px; }
+.resource-badge-active    { color: var(--accent); font-weight: 700; font-size: 12px; }
+.resource-badge-depleted  { color: #f87171; font-weight: 700; font-size: 12px; }
+.resource-badge-unknown   { color: var(--text-muted); font-weight: 700; font-size: 12px; }
+
+/* ============================================================
+   Shared utility
+   ============================================================ */
+.btn-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+  font-family: inherit;
+}
+
+.btn-link:hover { opacity: 0.75; }
+
+@media (max-width: 600px) {
+  .resource-grid {
+    grid-template-columns: 1fr;
+  }
+  .today-row-meta {
+    flex-direction: column;
+    gap: 3px;
+  }
+}

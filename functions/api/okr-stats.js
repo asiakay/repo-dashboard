@@ -27,6 +27,7 @@ export async function onRequest(context) {
                 o.key_result,
                 o.target_date,
                 o.status,
+                o.created_at,
                 COUNT(t.id) AS total_tasks,
                 SUM(CASE WHEN t.status = 'Done' THEN 1 ELSE 0 END) AS done_tasks,
                 ROUND(
@@ -87,6 +88,7 @@ export async function onRequest(context) {
                   o.key_result,
                   o.target_date,
                   o.status,
+                  o.created_at,
                   COUNT(t.id) AS total_tasks,
                   SUM(CASE WHEN t.status = 'Done' THEN 1 ELSE 0 END) AS done_tasks,
                   ROUND(

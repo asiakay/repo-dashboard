@@ -167,6 +167,42 @@ const TOOLS = [
       required: ["task_id"],
     },
   },
+  // ── Resource inventory tools ──────────────────────────────────────────────
+  {
+    name: "list_resources",
+    description: "List all tracked resources (tools, skills, financial, network). Ordered by utilization: abundant first.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        category: {
+          type: "string",
+          enum: ["tool_repo", "skill", "network", "financial", "other"],
+          description: "Optional: filter by category",
+        },
+        utilization: {
+          type: "string",
+          enum: ["abundant", "underused", "active", "depleted", "unknown"],
+          description: "Optional: filter by utilization state",
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "upsert_resource",
+    description: "Create a new resource or update an existing one by id. Used to track tools, skills, financial, or network assets and their current utilization state.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id:          { type: "number",  description: "Resource id to update. Omit to create a new resource." },
+        name:        { type: "string",  description: "Resource name, e.g. 'Grantmatch pipeline', 'Python/data skills', 'AWS credits'" },
+        category:    { type: "string",  enum: ["tool_repo", "skill", "network", "financial", "other"] },
+        utilization: { type: "string",  enum: ["abundant", "underused", "active", "depleted", "unknown"] },
+        notes:       { type: "string",  description: "Optional context about this resource" },
+      },
+      required: ["name", "category", "utilization"],
+    },
+  },
 ];
 
 // ── Tool handlers ───────────────────────────────────────────────────────────
@@ -411,6 +447,46 @@ async function handleToolCall(name, args, db) {
     const updated = await db.prepare(`UPDATE tasks SET ${setClauses} WHERE id = ? RETURNING *`)
       .bind(...values, task_id).first();
     return { content: [{ type: "text", text: JSON.stringify(updated) }] };
+  }
+
+  if (name === "list_resources") {
+    const catFilter  = args && args.category    ? args.category    : null;
+    const utilFilter = args && args.utilization ? args.utilization : null;
+
+    let query = "SELECT * FROM resources";
+    const binds = [];
+    const conditions = [];
+    if (catFilter)  { conditions.push("category = ?");    binds.push(catFilter); }
+    if (utilFilter) { conditions.push("utilization = ?"); binds.push(utilFilter); }
+    if (conditions.length) query += " WHERE " + conditions.join(" AND ");
+    query += " ORDER BY CASE utilization WHEN 'abundant' THEN 0 WHEN 'underused' THEN 1 WHEN 'active' THEN 2 WHEN 'depleted' THEN 3 ELSE 4 END, name ASC";
+
+    const { results } = await db.prepare(query).bind(...binds).all();
+    return { content: [{ type: "text", text: JSON.stringify(results) }] };
+  }
+
+  if (name === "upsert_resource") {
+    const { id = null, name: rname, category, utilization, notes = null } = args || {};
+
+    if (!rname || !category || !utilization) {
+      return { isError: true, content: [{ type: "text", text: "Missing required fields: name, category, utilization" }] };
+    }
+
+    let row;
+    if (id) {
+      row = await db
+        .prepare("UPDATE resources SET name=?, category=?, utilization=?, notes=?, updated_at=CURRENT_TIMESTAMP WHERE id=? RETURNING *")
+        .bind(rname, category, utilization, notes, id)
+        .first();
+      if (!row) return { isError: true, content: [{ type: "text", text: `Resource ${id} not found` }] };
+    } else {
+      row = await db
+        .prepare("INSERT INTO resources (name, category, utilization, notes) VALUES (?, ?, ?, ?) RETURNING *")
+        .bind(rname, category, utilization, notes)
+        .first();
+    }
+
+    return { content: [{ type: "text", text: JSON.stringify(row) }] };
   }
 
   return null; // unknown tool

@@ -69,12 +69,14 @@ let priorityData = { items: [], bottlenecks: [] };
 let okrStats = null;
 let repoTaskData = [];
 let pipelineTasks = [];
+let resources = [];
 let pipelineError = null;
 let pipelineOkrFilter = "";
 let workItemsError = null;
 let priorityError = null;
 let reposError = null;
 let okrStatsError = null;
+let resourcesError = null;
 let activeWorkView = "active"; // "active" | "completed"
 
 // DOM refs — repos view
@@ -122,7 +124,7 @@ function updateActivePill() {
 // ============================================================
 // Tab switching
 // ============================================================
-const TABS = ["repos", "active-work", "agent-tasks", "priority", "okr-progress", "pipeline"];
+const TABS = ["today", "capacity", "repos", "active-work", "agent-tasks", "priority", "okr-progress", "pipeline"];
 
 function switchTab(tabId) {
   TABS.forEach(id => {
@@ -134,6 +136,8 @@ function switchTab(tabId) {
     btn.classList.toggle("active", isActive);
     btn.setAttribute("aria-selected", isActive ? "true" : "false");
   });
+  if (tabId === "today") renderToday();
+  if (tabId === "capacity") renderCapacity();
   if (tabId === "active-work") renderActiveWork();
   if (tabId === "agent-tasks") renderAgentTasks();
   if (tabId === "priority") renderPriority();
@@ -299,6 +303,19 @@ async function retryPipeline() {
   renderPipeline();
 }
 
+async function loadResources() {
+  try {
+    const res = await fetch("/api/resources");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    resources = await res.json();
+    resourcesError = null;
+  } catch (err) {
+    console.warn("Could not load resources:", err);
+    resources = [];
+    resourcesError = err.message;
+  }
+}
+
 async function loadRepoTaskData() {
   try {
     const res = await fetch("/api/repo-task-summary");
@@ -329,6 +346,463 @@ function timeAgo(dateStr) {
   if (h < 24) return `${h}h ago`;
   const d = Math.floor(h / 24);
   return `${d}d ago`;
+}
+
+// ============================================================
+// Today view
+// ============================================================
+function renderToday() {
+  const container = document.getElementById("today-list");
+
+  const myActive = workItems.filter(w => w.status === "in_progress" && w.assigned_to === "asia");
+  const agentBlocked = workItems.filter(w => w.assigned_to === "agent" && w.status === "blocked");
+  const bottlenecks = priorityData.bottlenecks || [];
+  const myActiveRepos = new Set(myActive.map(w => w.repo_name));
+  const topPriority = (priorityData.items || []).filter(i => i.tier_num <= 2 && !myActiveRepos.has(i.repo_name));
+  const okrActive = pipelineTasks.filter(t => t.status === "In Progress");
+  const todayLogged = (okrStats && okrStats.today && okrStats.today.tasks) ? okrStats.today.tasks : [];
+
+  const totalSignals = myActive.length + agentBlocked.length + bottlenecks.length + topPriority.length;
+
+  let html = `<div class="today-header">
+    <h2 class="today-headline">${totalSignals === 0 ? "Nothing urgent right now." : `${totalSignals} item${totalSignals !== 1 ? "s" : ""} need${totalSignals === 1 ? "s" : ""} your attention`}</h2>
+    <span class="today-subline">${new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</span>
+  </div>`;
+
+  if (myActive.length > 0) {
+    html += `<div class="today-section">
+      <h3 class="today-section-label">My work in flight <span class="work-group-count">${myActive.length}</span></h3>`;
+    myActive.forEach(item => {
+      const startedAgo = timeAgo(item.started_at);
+      html += `<div class="today-row today-row-mine">
+        <div class="today-row-main">
+          <span class="badge badge-work badge-work-in_progress">In Progress</span>
+          <a href="https://github.com/asiakay/${escapeText(item.repo_name)}" target="_blank" rel="noopener noreferrer" class="work-repo">${escapeText(item.repo_name)}</a>
+          <span class="work-task">${escapeText(item.task_description)}</span>
+        </div>
+        <div class="today-row-meta">
+          ${startedAgo ? `<span class="work-time">Started ${startedAgo}</span>` : ""}
+          <button class="btn-ghost btn-sm" onclick="switchTab('active-work')">Edit →</button>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (agentBlocked.length > 0) {
+    html += `<div class="today-section">
+      <h3 class="today-section-label today-section-urgent">Agent blocked — needs you <span class="work-group-count">${agentBlocked.length}</span></h3>`;
+    agentBlocked.forEach(item => {
+      html += `<div class="today-row today-row-blocked">
+        <div class="today-row-main">
+          <span class="badge badge-work badge-work-blocked">Blocked</span>
+          <a href="https://github.com/asiakay/${escapeText(item.repo_name)}" target="_blank" rel="noopener noreferrer" class="work-repo">${escapeText(item.repo_name)}</a>
+          <span class="work-task">${escapeText(item.task_description)}</span>
+        </div>
+        ${item.notes ? `<div class="today-row-notes">${escapeText(item.notes)}</div>` : ""}
+        <div class="today-row-meta">
+          <button class="btn-ghost btn-sm" onclick="openEditForm(${item.id});switchTab('active-work')">Unblock →</button>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (bottlenecks.length > 0) {
+    html += `<div class="today-section">
+      <h3 class="today-section-label today-section-urgent">Deadline pressure — no work in flight <span class="work-group-count">${bottlenecks.length}</span></h3>`;
+    bottlenecks.forEach(b => {
+      const isOverdue = b.days_remaining <= 0;
+      const daysLabel = isOverdue ? "OVERDUE" : `${b.days_remaining}d remaining`;
+      html += `<div class="today-row today-row-deadline">
+        <div class="today-row-main">
+          <span class="badge badge-domain badge-domain-${escapeText(b.domain)}">${escapeText(b.domain)}</span>
+          <span class="work-task">${escapeText(b.title)}</span>
+        </div>
+        <div class="today-row-meta">
+          <span class="${isOverdue || b.days_remaining <= 3 ? "text-urgent" : "work-time"}">${daysLabel}</span>
+          <span class="work-time">due ${escapeText(b.due_date)}</span>
+          <button class="btn-ghost btn-sm" onclick="switchTab('priority')">Priority →</button>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (topPriority.length > 0) {
+    html += `<div class="today-section">
+      <h3 class="today-section-label">High priority — start next <span class="work-group-count">${topPriority.length}</span></h3>`;
+    topPriority.forEach(item => {
+      html += `<div class="today-row">
+        <div class="today-row-main">
+          <span class="badge badge-tier badge-tier-${item.tier_num}">${item.tier_num}</span>
+          <a href="https://github.com/asiakay/${escapeText(item.repo_name)}" target="_blank" rel="noopener noreferrer" class="work-repo">${escapeText(item.repo_name)}</a>
+          <span class="work-task">${escapeText(item.task_description)}</span>
+        </div>
+        <div class="today-row-meta">
+          <span class="impact-score">${item.impact_score}</span><span class="impact-max">/25</span>
+          <span class="badge badge-work badge-work-${item.status}">${escapeText(WORK_STATUS_LABELS[item.status] || item.status)}</span>
+          <button class="btn-ghost btn-sm" onclick="switchTab('priority')">Details →</button>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (okrActive.length > 0) {
+    html += `<div class="today-section">
+      <h3 class="today-section-label">OKR tasks in progress <span class="work-group-count">${okrActive.length}</span></h3>`;
+    okrActive.forEach(t => {
+      html += `<div class="today-row">
+        <div class="today-row-main">
+          <span class="badge badge-work badge-work-in_progress">In Progress</span>
+          <span class="okr-id">${escapeText(t.okr_id)}</span>
+          <span class="work-task">${escapeText(t.description)}</span>
+        </div>
+        <div class="today-row-meta">
+          ${t.time_spent ? `<span class="pipeline-chip">${escapeText(t.time_spent)}</span>` : ""}
+          <button class="btn-ghost btn-sm" onclick="switchTab('pipeline')">Pipeline →</button>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (totalSignals === 0 && okrActive.length === 0) {
+    html += `<p class="empty-state">All clear — nothing requires your attention right now. <button class="btn-link" onclick="switchTab('capacity')">Check Capacity →</button></p>`;
+  }
+
+  if (todayLogged.length > 0) {
+    html += `<div class="today-section today-log-section">
+      <h3 class="today-section-label today-section-dim">Logged today <span class="work-group-count">${todayLogged.length}</span></h3>`;
+    todayLogged.forEach(t => {
+      html += `<div class="today-row today-row-done">
+        <div class="today-row-main">
+          <span class="okr-id">${escapeText(t.okr_id)}</span>
+          <span class="work-task">${escapeText(t.description)}</span>
+        </div>
+        ${t.time_spent ? `<div class="today-row-meta"><span class="pipeline-chip">${escapeText(t.time_spent)}</span></div>` : ""}
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  container.innerHTML = html;
+}
+
+// ============================================================
+// Capacity view
+// ============================================================
+function computeExpectedPct(okr) {
+  if (!okr.target_date || okr.target_date === "Ongoing") return null;
+  if (!okr.created_at) return null;
+  const target = new Date(okr.target_date);
+  const start = new Date(okr.created_at);
+  const totalMs = target - start;
+  if (totalMs <= 0) return 100;
+  const elapsedMs = Date.now() - start;
+  return Math.min(100, Math.round((elapsedMs / totalMs) * 100));
+}
+
+function renderAllResourcesList() {
+  if (!resources.length) return "";
+  return `<div class="resource-grid">` +
+    resources.map(r => `<div class="resource-card resource-util-${escapeText(r.utilization)}">
+      <div class="resource-card-header">
+        <span class="resource-name">${escapeText(r.name)}</span>
+        <span class="badge resource-badge resource-badge-${escapeText(r.utilization)}">${escapeText(r.utilization)}</span>
+      </div>
+      <span class="resource-category">${escapeText(r.category.replace("_", " "))}</span>
+      ${r.notes ? `<div class="resource-notes">${escapeText(r.notes)}</div>` : ""}
+      <div class="resource-card-actions">
+        <button class="btn-ghost btn-sm" onclick="openEditResource(${r.id})">Edit</button>
+      </div>
+    </div>`).join("") + `</div>`;
+}
+
+function renderAddResourceForm(containerId) {
+  const form = document.getElementById(containerId);
+  form.innerHTML = `
+    <div class="work-form-grid">
+      <div class="control">
+        <label>Name</label>
+        <input id="rf-name" type="text" placeholder="e.g. Grantmatch pipeline, Python/data skills" />
+      </div>
+      <div class="control">
+        <label>Category</label>
+        <select id="rf-category">
+          <option value="tool_repo">Tool / Repo</option>
+          <option value="skill">Skill</option>
+          <option value="network">Network / Collaborators</option>
+          <option value="financial">Financial</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="control">
+        <label>Utilization</label>
+        <select id="rf-utilization">
+          <option value="abundant">Abundant</option>
+          <option value="underused">Underused</option>
+          <option value="active">Active</option>
+          <option value="depleted">Depleted</option>
+          <option value="unknown">Unknown</option>
+        </select>
+      </div>
+      <div class="control">
+        <label>Notes (optional)</label>
+        <input id="rf-notes" type="text" placeholder="Context about this resource" />
+      </div>
+    </div>
+    <div class="work-form-actions">
+      <button class="btn-primary" onclick="saveNewResource()">Save</button>
+      <button class="btn-ghost" onclick="document.getElementById('${containerId}').classList.add('hidden')">Cancel</button>
+    </div>`;
+}
+
+async function saveNewResource() {
+  const name = document.getElementById("rf-name").value.trim();
+  const category = document.getElementById("rf-category").value;
+  const utilization = document.getElementById("rf-utilization").value;
+  const notes = document.getElementById("rf-notes").value.trim() || null;
+
+  if (!name) { alert("Name is required."); return; }
+
+  const doSave = async () => {
+    const res = await fetch("/api/resources", {
+      method: "POST",
+      headers: writeHeaders(),
+      body: JSON.stringify({ name, category, utilization, notes }),
+    });
+    return handleWriteResponse(res, doSave);
+  };
+
+  try {
+    const created = await doSave();
+    resources.push(created);
+    renderCapacity();
+  } catch (err) {
+    alert("Failed to save: " + err.message);
+  }
+}
+
+function openEditResource(id) {
+  const resource = resources.find(r => r.id === id);
+  if (!resource) return;
+
+  const form = document.getElementById("resource-edit-form");
+  if (!form) return;
+  form.classList.remove("hidden");
+  form.innerHTML = `
+    <div class="work-form-grid">
+      <div class="control">
+        <label>Name</label>
+        <input id="re-name" type="text" value="${escapeText(resource.name)}" />
+      </div>
+      <div class="control">
+        <label>Category</label>
+        <select id="re-category">
+          <option value="tool_repo" ${resource.category === "tool_repo" ? "selected" : ""}>Tool / Repo</option>
+          <option value="skill" ${resource.category === "skill" ? "selected" : ""}>Skill</option>
+          <option value="network" ${resource.category === "network" ? "selected" : ""}>Network / Collaborators</option>
+          <option value="financial" ${resource.category === "financial" ? "selected" : ""}>Financial</option>
+          <option value="other" ${resource.category === "other" ? "selected" : ""}>Other</option>
+        </select>
+      </div>
+      <div class="control">
+        <label>Utilization</label>
+        <select id="re-utilization">
+          <option value="abundant" ${resource.utilization === "abundant" ? "selected" : ""}>Abundant</option>
+          <option value="underused" ${resource.utilization === "underused" ? "selected" : ""}>Underused</option>
+          <option value="active" ${resource.utilization === "active" ? "selected" : ""}>Active</option>
+          <option value="depleted" ${resource.utilization === "depleted" ? "selected" : ""}>Depleted</option>
+          <option value="unknown" ${resource.utilization === "unknown" ? "selected" : ""}>Unknown</option>
+        </select>
+      </div>
+      <div class="control">
+        <label>Notes</label>
+        <input id="re-notes" type="text" value="${escapeText(resource.notes || "")}" />
+      </div>
+    </div>
+    <div class="work-form-actions">
+      <button class="btn-primary" onclick="saveEditResource(${id})">Save</button>
+      <button class="btn-ghost" onclick="document.getElementById('resource-edit-form').classList.add('hidden')">Cancel</button>
+    </div>`;
+  form.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+async function saveEditResource(id) {
+  const name = document.getElementById("re-name").value.trim();
+  const category = document.getElementById("re-category").value;
+  const utilization = document.getElementById("re-utilization").value;
+  const notes = document.getElementById("re-notes").value.trim() || null;
+
+  if (!name) { alert("Name is required."); return; }
+
+  const doSave = async () => {
+    const res = await fetch(`/api/resources/${id}`, {
+      method: "PUT",
+      headers: writeHeaders(),
+      body: JSON.stringify({ name, category, utilization, notes }),
+    });
+    return handleWriteResponse(res, doSave);
+  };
+
+  try {
+    const updated = await doSave();
+    const idx = resources.findIndex(r => r.id === id);
+    if (idx !== -1) resources[idx] = updated;
+    document.getElementById("resource-edit-form").classList.add("hidden");
+    renderCapacity();
+  } catch (err) {
+    alert("Failed to save: " + err.message);
+  }
+}
+
+function renderCapacity() {
+  const container = document.getElementById("capacity-list");
+
+  const okrList = (okrStats && okrStats.okrs) ? okrStats.okrs : [];
+
+  const behindPace = okrList
+    .filter(o => o.status !== "Completed")
+    .map(o => ({ ...o, expected_pct: computeExpectedPct(o) }))
+    .filter(o => o.expected_pct !== null && (o.completion_pct || 0) < o.expected_pct - 10);
+
+  const plannedOkrs = okrList.filter(o => o.status === "Planned");
+
+  const asiaNotStarted = workItems.filter(w => w.assigned_to === "asia" && w.status === "not_started");
+
+  const activeRepoNames = new Set(workItems.filter(w => w.status !== "done").map(w => w.repo_name));
+  const idleRepos = allRepos
+    .filter(r => !activeRepoNames.has(r.name))
+    .sort((a, b) => new Date(a.updated_at) - new Date(b.updated_at))
+    .slice(0, 10);
+
+  const availableResources = resources.filter(r => ["abundant", "underused"].includes(r.utilization));
+  const totalSlack = behindPace.length + plannedOkrs.length + asiaNotStarted.length;
+
+  let html = `<div class="today-header">
+    <h2 class="today-headline">Capacity</h2>
+    <span class="today-subline">${totalSlack} area${totalSlack !== 1 ? "s" : ""} with room to move</span>
+  </div>`;
+
+  if (availableResources.length > 0) {
+    html += `<div class="today-section">
+      <h3 class="today-section-label today-section-resource">Available resources <span class="work-group-count">${availableResources.length}</span></h3>
+      <div class="resource-grid">`;
+    availableResources.forEach(r => {
+      html += `<div class="resource-card resource-util-${escapeText(r.utilization)}">
+        <div class="resource-card-header">
+          <span class="resource-name">${escapeText(r.name)}</span>
+          <span class="badge resource-badge resource-badge-${escapeText(r.utilization)}">${escapeText(r.utilization)}</span>
+        </div>
+        <span class="resource-category">${escapeText(r.category.replace("_", " "))}</span>
+        ${r.notes ? `<div class="resource-notes">${escapeText(r.notes)}</div>` : ""}
+        <div class="resource-card-actions">
+          <button class="btn-ghost btn-sm" onclick="openEditResource(${r.id})">Edit</button>
+        </div>
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+
+  if (behindPace.length > 0) {
+    html += `<div class="today-section">
+      <h3 class="today-section-label today-section-warn">OKRs behind pace <span class="work-group-count">${behindPace.length}</span></h3>`;
+    behindPace.forEach(okr => {
+      const gap = okr.expected_pct - Math.round(okr.completion_pct || 0);
+      html += `<div class="today-row today-row-behind">
+        <div class="today-row-main">
+          <span class="okr-id">${escapeText(okr.id)}</span>
+          <span class="work-task">${escapeText(okr.key_result)}</span>
+        </div>
+        <div class="today-row-meta">
+          <span class="capacity-pace-gap">−${gap}% behind</span>
+          <span class="work-time">${Math.round(okr.completion_pct || 0)}% done, expected ${okr.expected_pct}%</span>
+          <button class="btn-ghost btn-sm" onclick="switchTab('okr-progress')">OKRs →</button>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (plannedOkrs.length > 0) {
+    html += `<div class="today-section">
+      <h3 class="today-section-label">Planned OKRs — not started <span class="work-group-count">${plannedOkrs.length}</span></h3>`;
+    plannedOkrs.forEach(okr => {
+      html += `<div class="today-row">
+        <div class="today-row-main">
+          <span class="badge badge-work badge-work-not_started">Planned</span>
+          <span class="okr-id">${escapeText(okr.id)}</span>
+          <span class="work-task">${escapeText(okr.key_result)}</span>
+        </div>
+        ${okr.target_date ? `<div class="today-row-meta"><span class="work-time">Target: ${escapeText(okr.target_date)}</span></div>` : ""}
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (asiaNotStarted.length > 0) {
+    html += `<div class="today-section">
+      <h3 class="today-section-label">My queue — not started <span class="work-group-count">${asiaNotStarted.length}</span></h3>`;
+    asiaNotStarted.forEach(item => {
+      html += `<div class="today-row">
+        <div class="today-row-main">
+          <span class="badge badge-work badge-work-not_started">Not started</span>
+          <a href="https://github.com/asiakay/${escapeText(item.repo_name)}" target="_blank" rel="noopener noreferrer" class="work-repo">${escapeText(item.repo_name)}</a>
+          <span class="work-task">${escapeText(item.task_description)}</span>
+        </div>
+        <div class="today-row-meta">
+          ${item.depends_on_repo ? `<span class="work-dep">→ needs ${escapeText(item.depends_on_repo)}</span>` : ""}
+          <button class="btn-ghost btn-sm" onclick="switchTab('active-work')">Start →</button>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (idleRepos.length > 0) {
+    html += `<div class="today-section">
+      <h3 class="today-section-label today-section-dim">Repos with no active work <span class="work-group-count">${idleRepos.length}${allRepos.filter(r => !activeRepoNames.has(r.name)).length > 10 ? "+" : ""}</span></h3>
+      <p class="today-section-sub">Oldest activity first — candidates to invest in or archive.</p>`;
+    idleRepos.forEach(repo => {
+      const daysStale = Math.floor((Date.now() - new Date(repo.updated_at)) / 86400000);
+      html += `<div class="today-row">
+        <div class="today-row-main">
+          <span class="badge badge-health-${repo.health}"><span class="badge-dot" aria-hidden="true"></span>${repo.health.toUpperCase()}</span>
+          <a href="${escapeText(repo.url)}" target="_blank" rel="noopener noreferrer" class="work-repo">${escapeText(repo.name)}</a>
+          <span class="work-task" style="color:var(--text-muted)">${escapeText(repo.description || "No description")}</span>
+        </div>
+        <div class="today-row-meta">
+          <span class="work-time">${daysStale}d idle</span>
+          <button class="btn-ghost btn-sm" onclick="switchTab('repos')">Repos →</button>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (totalSlack === 0 && availableResources.length === 0 && idleRepos.length === 0) {
+    html += `<p class="empty-state">All projects have active work and no idle resources. Nothing obvious to invest in right now.</p>`;
+  }
+
+  html += `<div class="today-section resource-manage-section">
+    <h3 class="today-section-label today-section-dim" style="display:flex;align-items:center">
+      All resources
+      <button class="btn-primary btn-sm" id="btn-add-resource" style="margin-left:auto">+ Add resource</button>
+    </h3>
+    <div id="add-resource-form" class="work-form hidden" style="margin-bottom:12px"></div>
+    <div id="resource-edit-form" class="work-form hidden" style="margin-bottom:12px"></div>
+    ${resources.length === 0 ? `<p class="empty-state">No resources tracked yet. Add tools, skills, or financial resources you want to leverage.</p>` : renderAllResourcesList()}
+  </div>`;
+
+  container.innerHTML = html;
+
+  document.getElementById("btn-add-resource").addEventListener("click", () => {
+    const form = document.getElementById("add-resource-form");
+    form.classList.toggle("hidden");
+    if (!form.classList.contains("hidden")) renderAddResourceForm("add-resource-form");
+  });
 }
 
 // ============================================================
@@ -1393,8 +1867,9 @@ document.getElementById("pipeline-okr-filter").addEventListener("change", e => {
 // Init
 // ============================================================
 async function init() {
-  await Promise.all([loadRepos(), loadWorkItems(), loadPriorityData(), loadOkrStats(), loadRepoTaskData(), loadPipelineTasks(), loadIdentity()]);
-  renderRepos(); // re-render repos with work items overlaid
+  await Promise.all([loadRepos(), loadWorkItems(), loadPriorityData(), loadOkrStats(), loadRepoTaskData(), loadPipelineTasks(), loadResources(), loadIdentity()]);
+  renderToday();   // Today is the landing view
+  renderRepos();   // pre-render repos with work items overlaid
 }
 
 init();

@@ -120,8 +120,11 @@ JSON-RPC 2.0 transport. All requests must include `Content-Type: application/jso
 | `get_daily_summary` | `date` (optional, defaults to UTC today) | All tasks for a date |
 | `register_okr` | `id`, `objective`, `key_result` | Create or update an OKR |
 | `list_agent_tasks` | _(none)_ | Return the agent work queue (assigned_to=agent, excludes done by default). Optional: `include_done`, `repo_name` filter |
-| `start_task` | `task_id` | Claim a task: set status=in_progress, stamp started_at. Idempotent if already in_progress |
-| `finish_task` | `task_id` | Complete a task: set status=done, stamp completed_at. Optional `notes` appended to existing |
+| `start_task` | `task_id` | Claim a work-item task: set status=in_progress, stamp started_at. Idempotent if already in_progress |
+| `finish_task` | `task_id` | Complete a work-item task: set status=done, stamp completed_at. Optional `notes` appended to existing |
+| `list_okr_tasks` | _(none)_ | Return OKR micro-tasks from the `tasks` table. Optional: `okr_id`, `status`, `include_done` |
+| `start_okr_task` | `task_id` | Advance an OKR micro-task to In Progress; stamps `started_at`. Idempotent |
+| `finish_okr_task` | `task_id` | Advance an OKR micro-task to Done; stamps `completed_at`. Optional: `notes`, `time_spent` |
 
 **Error codes:**
 
@@ -206,9 +209,17 @@ curl -s -X POST "$BASE" \
   -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"get_okr_progress","arguments":{}}}'
 ```
 
+## Pipeline / Kanban view
+
+The **Pipeline** tab shows OKR micro-tasks (`tasks` table) as a Kanban board: **In Progress → To Do → Done**.
+
+- Frontend: `public/js/app.js` `renderPipeline()`, styles in `public/styles.css` under "Pipeline / Kanban board".
+- REST: `GET /api/tasks` (open), `PUT /api/tasks/:id` (write-auth) — implemented in `functions/api/tasks.js` and `functions/api/tasks/[id].js`.
+- Clicking **Advance** on a card calls `PUT /api/tasks/:id` with the next status; the server auto-stamps `started_at` / `completed_at`.
+- The OKR filter dropdown at top-right filters all three columns simultaneously.
+- Migration `db/migrations/0003_task_timestamps.sql` (applied to production D1) adds `started_at TEXT` and `completed_at TEXT` to the `tasks` table.
+
 ## What's NOT built yet (as of last update)
 
 - Open PR/branch data is not surfaced on repo cards — only manually-logged `work_items` rows.
 - Write auth uses `WRITE_TOKEN` (local dev) and Cloudflare Access (production). `functions/_shared/auth.js` checks the `Cf-Access-Authenticated-User-Email` header first; if present, the user is considered authenticated. If absent (local dev), it falls back to `WRITE_TOKEN` bearer-token check. Read endpoints remain open.
-- Apply migration `db/migrations/0003_task_timestamps.sql` to add `started_at`/`completed_at` to the `tasks` table before deploying the MCP auto-stamp changes.
-- The OKR/tasks data is not yet surfaced in the dashboard frontend — it's API + MCP only at this stage.

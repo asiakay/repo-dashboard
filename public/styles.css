@@ -1338,3 +1338,177 @@ body { min-height: 100vh; }
   color: var(--text-muted);
   white-space: nowrap;
 }
+
+/* ============================================================
+   Pipeline / Kanban board
+   ============================================================ */
+.pipeline-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pipeline-filter-row select {
+  background: var(--card-alt);
+  color: var(--text-main);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.pipeline-board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  align-items: start;
+  padding: 0 0 40px;
+}
+
+.pipeline-col {
+  background: var(--card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.pipeline-col-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.pipeline-col-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.pipeline-col-inprogress .pipeline-col-label { color: var(--accent); }
+.pipeline-col-done .pipeline-col-label        { color: var(--success); }
+
+.pipeline-col-count {
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--card-alt);
+  color: var(--text-muted);
+  border-radius: var(--radius-pill);
+  padding: 2px 8px;
+}
+
+.pipeline-col-cards {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 80px;
+}
+
+.pipeline-card {
+  background: var(--card-alt);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: border-color 0.15s;
+}
+
+.pipeline-card:hover { border-color: rgba(79, 209, 197, 0.3); }
+
+.pipeline-card-done {
+  opacity: 0.55;
+}
+
+.pipeline-card-okr {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.pipeline-card-desc {
+  font-size: 13px;
+  color: var(--text-main);
+  line-height: 1.45;
+}
+
+.pipeline-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.pipeline-chip {
+  font-size: 11px;
+  background: rgba(79, 209, 197, 0.12);
+  color: var(--accent);
+  border: 1px solid rgba(79, 209, 197, 0.25);
+  border-radius: var(--radius-pill);
+  padding: 1px 7px;
+  white-space: nowrap;
+}
+
+.pipeline-chip-muted {
+  background: var(--card);
+  color: var(--text-muted);
+  border-color: var(--border-subtle);
+}
+
+.pipeline-card-notes {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  border-left: 2px solid var(--border-subtle);
+  padding-left: 8px;
+}
+
+.pipeline-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 2px;
+}
+
+.pipeline-advance-btn {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  background: rgba(79, 209, 197, 0.10);
+  border: 1px solid rgba(79, 209, 197, 0.3);
+  border-radius: var(--radius-pill);
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.pipeline-advance-btn:hover {
+  background: rgba(79, 209, 197, 0.2);
+  border-color: var(--accent);
+}
+
+.pipeline-advance-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.pipeline-empty {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 20px 0;
+  opacity: 0.7;
+}
+
+@media (max-width: 860px) {
+  .pipeline-board {
+    grid-template-columns: 1fr;
+  }
+}

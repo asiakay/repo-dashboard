@@ -59,11 +59,12 @@ One row per task, not per repo — a repo accumulates history over time rather t
 ```sql
 -- Strategic objectives / key results
 CREATE TABLE okrs (
-    id TEXT PRIMARY KEY,              -- e.g. 'KR-1.1'
+    id TEXT PRIMARY KEY,              -- e.g. 'KR-1.1' or 'EDU-1.1'
     objective TEXT NOT NULL,          -- high-level goal title
     key_result TEXT NOT NULL,         -- measurable outcome
     target_date TEXT,                 -- YYYY-MM-DD or 'Ongoing'
-    status TEXT CHECK(status IN ('Planned','In Progress','In Review','Completed'))
+    status TEXT CHECK(status IN ('Planned','In Progress','In Review','Completed')),
+    category TEXT DEFAULT 'project'   -- 'project','education','life_admin','health','financial','other'
 );
 
 -- Micro-tasks linked to OKRs
@@ -118,7 +119,7 @@ JSON-RPC 2.0 transport. All requests must include `Content-Type: application/jso
 | `log_task` | `description`, `okr_id` | Log a micro-task against an OKR |
 | `get_okr_progress` | _(none)_ | Aggregated completion % per OKR |
 | `get_daily_summary` | `date` (optional, defaults to UTC today) | All tasks for a date |
-| `register_okr` | `id`, `objective`, `key_result` | Create or update an OKR |
+| `register_okr` | `id`, `objective`, `key_result` | Create or update an OKR. Optional: `category` (`project`/`education`/`life_admin`/`health`/`financial`/`other`, defaults to `project`) |
 | `list_agent_tasks` | _(none)_ | Return the agent work queue (assigned_to=agent, excludes done by default). Optional: `include_done`, `repo_name` filter |
 | `start_task` | `task_id` | Claim a work-item task: set status=in_progress, stamp started_at. Idempotent if already in_progress |
 | `finish_task` | `task_id` | Complete a work-item task: set status=done, stamp completed_at. Optional `notes` appended to existing |

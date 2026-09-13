@@ -41,7 +41,8 @@ CREATE TABLE IF NOT EXISTS okrs (
     objective TEXT NOT NULL,
     key_result TEXT NOT NULL,
     target_date TEXT,
-    status TEXT CHECK(status IN ('Planned', 'In Progress', 'In Review', 'Completed')) DEFAULT 'In Progress'
+    status TEXT CHECK(status IN ('Planned', 'In Progress', 'In Review', 'Completed')) DEFAULT 'In Progress',
+    category TEXT DEFAULT 'project' CHECK(category IN ('project','education','life_admin','health','financial','other'))
 );
 
 CREATE TABLE IF NOT EXISTS tasks (

@@ -72,6 +72,7 @@ let pipelineTasks = [];
 let resources = [];
 let pipelineError = null;
 let pipelineOkrFilter = "";
+let okrCategoryFilter = "";
 let workItemsError = null;
 let priorityError = null;
 let reposError = null;
@@ -1626,7 +1627,26 @@ function renderOkrProgress() {
     return;
   }
 
-  const okrCards = okrs.map(okr => {
+  const CATEGORY_LABELS = {
+    project:    "Projects",
+    education:  "Education",
+    life_admin: "Life Admin",
+    health:     "Health",
+    financial:  "Financial",
+    other:      "Other",
+  };
+
+  // Build category filter dropdown (persists across re-renders)
+  const categories = [...new Set(okrs.map(o => o.category || "project"))].sort();
+  const filterEl = container.querySelector(".okr-category-filter");
+  const savedFilter = filterEl ? filterEl.value : okrCategoryFilter;
+  okrCategoryFilter = savedFilter;
+
+  const filteredOkrs = okrCategoryFilter
+    ? okrs.filter(o => (o.category || "project") === okrCategoryFilter)
+    : okrs;
+
+  function renderOkrCard(okr) {
     const pct = okr.completion_pct || 0;
     const barColor = pct >= 80 ? "var(--success)" : pct >= 40 ? "var(--accent)" : "var(--danger)";
     const badgeClass = OKR_STATUS_BADGE[okr.status] || "badge-work-not_started";
@@ -1636,7 +1656,6 @@ function renderOkrProgress() {
     const taskChips = okr.total_tasks > 0
       ? `<span class="okr-task-chip">${okr.done_tasks}/${okr.total_tasks} tasks done</span>`
       : `<span class="okr-task-chip okr-task-chip-empty">No tasks yet</span>`;
-
     return `
       <div class="okr-card">
         <div class="okr-card-header">
@@ -1658,7 +1677,25 @@ function renderOkrProgress() {
           <span class="okr-bar-label">${pct}%</span>
         </div>
       </div>`;
-  }).join("");
+  }
+
+  // Group by category; render a section header before each group when multiple categories exist
+  const groupedHtml = (() => {
+    const showHeaders = categories.length > 1 && !okrCategoryFilter;
+    if (!showHeaders) {
+      return `<div class="okr-grid">${filteredOkrs.map(renderOkrCard).join("")}</div>`;
+    }
+    const byCategory = {};
+    filteredOkrs.forEach(o => {
+      const cat = o.category || "project";
+      (byCategory[cat] = byCategory[cat] || []).push(o);
+    });
+    return Object.entries(byCategory).map(([cat, items]) => `
+      <div class="okr-category-group">
+        <h3 class="okr-category-heading">${escapeText(CATEGORY_LABELS[cat] || cat)}</h3>
+        <div class="okr-grid">${items.map(renderOkrCard).join("")}</div>
+      </div>`).join("");
+  })();
 
   const taskStatusClass = s => s === "Done" ? "done" : s === "In Progress" ? "in_progress" : "not_started";
 
@@ -1685,12 +1722,21 @@ function renderOkrProgress() {
 
   const taskCount = (today && today.tasks) ? today.tasks.length : 0;
 
-  const okrOptions = okrs.map(o =>
+  const okrOptions = filteredOkrs.map(o =>
     `<option value="${escapeText(o.id)}">${escapeText(o.id)} — ${escapeText(o.key_result)}</option>`
   ).join("");
 
+  const categoryFilterOptions = `<option value="">All categories</option>` +
+    categories.map(cat =>
+      `<option value="${escapeText(cat)}"${cat === okrCategoryFilter ? " selected" : ""}>${escapeText(CATEGORY_LABELS[cat] || cat)}</option>`
+    ).join("");
+
   container.innerHTML = `
-    <div class="okr-grid">${okrCards}</div>
+    <div class="okr-progress-toolbar">
+      <label for="okr-category-filter" class="sr-only">Filter by category</label>
+      <select id="okr-category-filter" class="okr-category-filter">${categoryFilterOptions}</select>
+    </div>
+    ${groupedHtml}
     <section class="okr-today-section">
       <h3 class="okr-today-title">
         Today's Log <span class="work-group-count">${taskCount}</span>
@@ -1880,6 +1926,14 @@ function renderPipeline() {
 document.getElementById("pipeline-okr-filter").addEventListener("change", e => {
   pipelineOkrFilter = e.target.value;
   renderPipeline();
+});
+
+// OKR category filter (rendered dynamically inside #okr-progress-list, use delegation)
+document.getElementById("okr-progress-list").addEventListener("change", e => {
+  if (e.target.id === "okr-category-filter") {
+    okrCategoryFilter = e.target.value;
+    renderOkrProgress();
+  }
 });
 
 // ============================================================

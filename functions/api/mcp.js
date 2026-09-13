@@ -74,7 +74,7 @@ const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        id: { type: "string", description: "OKR ID, e.g. KR-5.1" },
+        id: { type: "string", description: "OKR ID, e.g. KR-5.1 or EDU-1.1" },
         objective: { type: "string", description: "High-level objective title" },
         key_result: { type: "string", description: "Measurable key result description" },
         target_date: { type: "string", description: "Target date (YYYY-MM-DD) or 'Ongoing'" },
@@ -82,6 +82,11 @@ const TOOLS = [
           type: "string",
           enum: ["Planned", "In Progress", "In Review", "Completed"],
           description: "OKR status (defaults to 'In Progress')",
+        },
+        category: {
+          type: "string",
+          enum: ["project", "education", "life_admin", "health", "financial", "other"],
+          description: "OKR category (defaults to 'project'). Use 'education' for coursework, 'life_admin' for personal admin, etc.",
         },
       },
       required: ["id", "objective", "key_result"],
@@ -318,6 +323,7 @@ async function handleToolCall(name, args, db, env) {
                 o.key_result,
                 o.target_date,
                 o.status,
+                COALESCE(o.category, 'project') AS category,
                 COUNT(t.id) AS total_tasks,
                 SUM(CASE WHEN t.status = 'Done' THEN 1 ELSE 0 END) AS done_tasks,
                 ROUND(
@@ -328,7 +334,7 @@ async function handleToolCall(name, args, db, env) {
          FROM okrs o
          LEFT JOIN tasks t ON t.okr_id = o.id
          GROUP BY o.id
-         ORDER BY o.id`
+         ORDER BY o.category, o.id`
       )
       .all();
 
@@ -353,7 +359,7 @@ async function handleToolCall(name, args, db, env) {
   }
 
   if (name === "register_okr") {
-    const { id, objective, key_result, target_date = null, status = "In Progress" } = args || {};
+    const { id, objective, key_result, target_date = null, status = "In Progress", category = "project" } = args || {};
 
     if (!id || !objective || !key_result) {
       return {
@@ -364,16 +370,17 @@ async function handleToolCall(name, args, db, env) {
 
     const okr = await db
       .prepare(
-        `INSERT INTO okrs (id, objective, key_result, target_date, status)
-         VALUES (?, ?, ?, ?, ?)
+        `INSERT INTO okrs (id, objective, key_result, target_date, status, category)
+         VALUES (?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            objective   = excluded.objective,
            key_result  = excluded.key_result,
            target_date = excluded.target_date,
-           status      = excluded.status
+           status      = excluded.status,
+           category    = excluded.category
          RETURNING *`
       )
-      .bind(id, objective, key_result, target_date, status)
+      .bind(id, objective, key_result, target_date, status, category)
       .first();
 
     return { content: [{ type: "text", text: JSON.stringify(okr) }] };

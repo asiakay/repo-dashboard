@@ -28,6 +28,7 @@ export async function onRequest(context) {
                 o.target_date,
                 o.status,
                 o.created_at,
+                COALESCE(o.category, 'project') AS category,
                 COUNT(t.id) AS total_tasks,
                 SUM(CASE WHEN t.status = 'Done' THEN 1 ELSE 0 END) AS done_tasks,
                 ROUND(
@@ -38,7 +39,7 @@ export async function onRequest(context) {
          FROM okrs o
          LEFT JOIN tasks t ON t.okr_id = o.id
          GROUP BY o.id
-         ORDER BY o.id`
+         ORDER BY o.category, o.id`
       ).all(),
       env.DB.prepare(
         `SELECT t.id, t.date, t.description, t.okr_id, t.time_spent, t.status, t.notes, t.created_at,
@@ -61,7 +62,8 @@ export async function onRequest(context) {
           key_result TEXT NOT NULL,
           target_date TEXT,
           status TEXT CHECK(status IN ('Planned','In Progress','In Review','Completed')) DEFAULT 'In Progress',
-          created_at TEXT DEFAULT NULL
+          created_at TEXT DEFAULT NULL,
+          category TEXT DEFAULT 'project' CHECK(category IN ('project','education','life_admin','health','financial','other'))
         );
         CREATE TABLE IF NOT EXISTS tasks (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -90,6 +92,7 @@ export async function onRequest(context) {
                   o.target_date,
                   o.status,
                   o.created_at,
+                  COALESCE(o.category, 'project') AS category,
                   COUNT(t.id) AS total_tasks,
                   SUM(CASE WHEN t.status = 'Done' THEN 1 ELSE 0 END) AS done_tasks,
                   ROUND(
@@ -100,7 +103,7 @@ export async function onRequest(context) {
            FROM okrs o
            LEFT JOIN tasks t ON t.okr_id = o.id
            GROUP BY o.id
-           ORDER BY o.id`
+           ORDER BY o.category, o.id`
         ).all(),
         env.DB.prepare(
           `SELECT t.id, t.date, t.description, t.okr_id, t.time_spent, t.status, t.notes, t.created_at,

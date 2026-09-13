@@ -607,14 +607,12 @@ async function handleToolCall(name, args, db, env, isAuthenticated = false) {
     if (env.CF_API_TOKEN && !isAuthenticated) {
       return { isError: true, content: [{ type: "text", text: CF_AUTH_ERR }] };
     }
-    const { token_id, duration } = args || {};
+    const { token_id, duration = "8760h" } = args || {};
     if (!token_id) {
       return { isError: true, content: [{ type: "text", text: "Missing required field: token_id" }] };
     }
-    // Update duration metadata first if requested (PUT does not regenerate credentials).
-    if (duration) {
-      await cfAccessFetch(env, "PUT", `/${token_id}`, { duration });
-    }
+    // Apply duration via PUT first (PUT updates metadata but does not regenerate credentials).
+    await cfAccessFetch(env, "PUT", `/${token_id}`, { duration });
     // Rotate credentials via the dedicated refresh endpoint.
     const result = await cfAccessFetch(env, "POST", `/${token_id}/refresh`);
     const out = {
@@ -653,20 +651,24 @@ export async function onRequest(context) {
     return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405, headers: CORS });
   }
 
-  // Bearer token auth — opt-in: open when MCP_SECRET_TOKEN is not configured
+  // Resolve caller identity before applying any gate.
+  // cfAccessEmail is set by Cloudflare Access on authenticated requests.
+  const cfAccessEmail = request.headers.get("Cf-Access-Authenticated-User-Email");
   const authHeader = request.headers.get("Authorization") || "";
   const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+
+  // Bearer token auth — opt-in: open when MCP_SECRET_TOKEN is not configured.
+  // CF Access identity is accepted as an alternative to the bearer token so that
+  // callers authenticated by Cloudflare Access aren't rejected even when
+  // MCP_SECRET_TOKEN is also configured.
   if (env.MCP_SECRET_TOKEN) {
-    if (bearerToken !== env.MCP_SECRET_TOKEN) {
+    if (!cfAccessEmail && bearerToken !== env.MCP_SECRET_TOKEN) {
       return jsonRpcError(null, -32000, "Unauthorized", 401);
     }
   }
 
-  // isAuthenticated: true when the caller passed a valid bearer token OR arrived
-  // via Cloudflare Access (which injects the Cf-Access-Authenticated-User-Email header).
-  // Used by privileged tools (service token management) to enforce auth even when
-  // MCP_SECRET_TOKEN is not configured.
-  const cfAccessEmail = request.headers.get("Cf-Access-Authenticated-User-Email");
+  // isAuthenticated: used by privileged tools (service token management) to enforce
+  // auth even when MCP_SECRET_TOKEN is not configured.
   const isAuthenticated = !!(cfAccessEmail) ||
     !!(env.MCP_SECRET_TOKEN && bearerToken === env.MCP_SECRET_TOKEN);
 

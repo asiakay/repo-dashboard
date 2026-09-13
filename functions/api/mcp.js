@@ -167,6 +167,47 @@ const TOOLS = [
       required: ["task_id"],
     },
   },
+  // ── Cloudflare Access service token tools ────────────────────────────────
+  {
+    name: "list_service_tokens",
+    description: "List all Cloudflare Access service tokens for this account. Returns id, name, client_id, created_at, expires_at, and duration for each token.",
+    inputSchema: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "create_service_token",
+    description: "Create a new short-lived Cloudflare Access service token. The client_secret is returned ONCE — store it immediately; it cannot be retrieved again.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name:     { type: "string", description: "A label for this token, e.g. 'claude-code-dev'" },
+        duration: { type: "string", description: "Token lifetime: '720h' (30d), '2160h' (90d), '8760h' (1yr). Default: '8760h'" },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "rotate_service_token",
+    description: "Rotate (refresh) an existing Cloudflare Access service token, issuing a new client_secret and extending its expiry. The new client_secret is returned ONCE — store it immediately.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        token_id: { type: "string", description: "The UUID of the service token to rotate (from list_service_tokens)" },
+        duration: { type: "string", description: "New lifetime after rotation: '720h', '2160h', '8760h'. Default: '8760h'" },
+      },
+      required: ["token_id"],
+    },
+  },
+  {
+    name: "delete_service_token",
+    description: "Permanently delete a Cloudflare Access service token. Any clients using it will immediately lose access.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        token_id: { type: "string", description: "The UUID of the service token to delete" },
+      },
+      required: ["token_id"],
+    },
+  },
   // ── Resource inventory tools ──────────────────────────────────────────────
   {
     name: "list_resources",
@@ -207,7 +248,29 @@ const TOOLS = [
 
 // ── Tool handlers ───────────────────────────────────────────────────────────
 
-async function handleToolCall(name, args, db) {
+async function cfAccessFetch(env, method, path, body) {
+  if (!env.CF_API_TOKEN || !env.CF_ACCOUNT_ID) {
+    throw new Error("CF_API_TOKEN and CF_ACCOUNT_ID environment variables must be set to use service token tools");
+  }
+  const res = await fetch(
+    `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/access/service_tokens${path}`,
+    {
+      method,
+      headers: {
+        "Authorization": `Bearer ${env.CF_API_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    }
+  );
+  const json = await res.json();
+  if (!json.success) {
+    throw new Error(json.errors?.[0]?.message || `CF API error ${res.status}`);
+  }
+  return json.result;
+}
+
+async function handleToolCall(name, args, db, env) {
   if (name === "log_task") {
     const { description, okr_id, time_spent = null, status = "Done", notes = null } = args || {};
 
@@ -489,6 +552,52 @@ async function handleToolCall(name, args, db) {
     return { content: [{ type: "text", text: JSON.stringify(row) }] };
   }
 
+  if (name === "list_service_tokens") {
+    const tokens = await cfAccessFetch(env, "GET", "");
+    const rows = (Array.isArray(tokens) ? tokens : []).map(t => ({
+      id: t.id, name: t.name, client_id: t.client_id,
+      created_at: t.created_at, expires_at: t.expires_at, duration: t.duration,
+    }));
+    return { content: [{ type: "text", text: JSON.stringify(rows) }] };
+  }
+
+  if (name === "create_service_token") {
+    const { name: tokenName, duration = "8760h" } = args || {};
+    if (!tokenName) {
+      return { isError: true, content: [{ type: "text", text: "Missing required field: name" }] };
+    }
+    const result = await cfAccessFetch(env, "POST", "", { name: tokenName, duration });
+    const out = {
+      id: result.id, name: result.name, client_id: result.client_id,
+      client_secret: result.client_secret, expires_at: result.expires_at,
+      _note: "Store client_secret now — it will NOT be shown again.",
+    };
+    return { content: [{ type: "text", text: JSON.stringify(out) }] };
+  }
+
+  if (name === "rotate_service_token") {
+    const { token_id, duration = "8760h" } = args || {};
+    if (!token_id) {
+      return { isError: true, content: [{ type: "text", text: "Missing required field: token_id" }] };
+    }
+    const result = await cfAccessFetch(env, "PUT", `/${token_id}`, { duration });
+    const out = {
+      id: result.id, name: result.name, client_id: result.client_id,
+      client_secret: result.client_secret, expires_at: result.expires_at,
+      _note: "Store client_secret now — it will NOT be shown again.",
+    };
+    return { content: [{ type: "text", text: JSON.stringify(out) }] };
+  }
+
+  if (name === "delete_service_token") {
+    const { token_id } = args || {};
+    if (!token_id) {
+      return { isError: true, content: [{ type: "text", text: "Missing required field: token_id" }] };
+    }
+    await cfAccessFetch(env, "DELETE", `/${token_id}`);
+    return { content: [{ type: "text", text: JSON.stringify({ deleted: true, id: token_id }) }] };
+  }
+
   return null; // unknown tool
 }
 
@@ -535,7 +644,7 @@ export async function onRequest(context) {
     const { name, arguments: args = {} } = params;
     let result;
     try {
-      result = await handleToolCall(name, args, env.DB);
+      result = await handleToolCall(name, args, env.DB, env);
     } catch (err) {
       return jsonRpcError(id, -32603, `Internal error: ${err.message}`);
     }

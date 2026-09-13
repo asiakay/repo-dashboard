@@ -1319,6 +1319,87 @@ body { min-height: 100vh; }
   border-radius: var(--radius-pill);
 }
 
+/* OKR card expand button */
+.okr-expand-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 11px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+.okr-expand-btn:hover { color: var(--text-main); background: var(--border-subtle); }
+
+/* OKR-level dependency badge */
+.okr-dep-badge {
+  font-size: 11px;
+  padding: 1px 7px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: var(--radius-pill);
+  color: #f59e0b;
+  white-space: nowrap;
+}
+
+/* Expanded task list inside an OKR card */
+.okr-task-list {
+  margin-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.okr-task-list-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 4px 0;
+}
+
+.okr-task-row {
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+}
+
+.okr-task-row-done { opacity: 0.6; }
+
+.okr-task-row-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.okr-task-desc { flex: 1; font-size: 13px; color: var(--text-main); min-width: 0; }
+
+.okr-task-date {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.okr-blocked-by {
+  font-size: 11px;
+  color: var(--danger);
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.okr-task-notes {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
 @media (max-width: 640px) {
   .okr-grid { grid-template-columns: 1fr; }
 }

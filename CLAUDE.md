@@ -76,7 +76,16 @@ CREATE TABLE tasks (
     time_spent TEXT,                  -- free-form, e.g. '45m', '1.5h'
     status TEXT CHECK(status IN ('To Do','In Progress','Done')),
     notes TEXT,
+    depends_on_task_id INTEGER REFERENCES tasks(id),  -- blocking relationship within an OKR
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- OKR-to-OKR ordering (cross-OKR dependencies)
+CREATE TABLE okr_dependencies (
+    okr_id            TEXT NOT NULL REFERENCES okrs(id) ON DELETE CASCADE,
+    depends_on_okr_id TEXT NOT NULL REFERENCES okrs(id) ON DELETE CASCADE,
+    note              TEXT,
+    PRIMARY KEY (okr_id, depends_on_okr_id)
 );
 ```
 

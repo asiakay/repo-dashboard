@@ -31,9 +31,12 @@ export async function onRequest({ request, env }) {
     const filterOkr = url.searchParams.get("okr_id");
 
     let sql = `
-      SELECT t.*, o.objective, o.key_result, o.status AS okr_status
+      SELECT t.*,
+             o.objective, o.key_result, o.status AS okr_status,
+             dt.description AS blocked_by_desc, dt.status AS blocked_by_status
       FROM tasks t
       JOIN okrs o ON o.id = t.okr_id
+      LEFT JOIN tasks dt ON dt.id = t.depends_on_task_id
     `;
     const binds = [];
     const conditions = [];

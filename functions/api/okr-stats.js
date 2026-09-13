@@ -62,7 +62,8 @@ export async function onRequest(context) {
           key_result TEXT NOT NULL,
           target_date TEXT,
           status TEXT CHECK(status IN ('Planned','In Progress','In Review','Completed')) DEFAULT 'In Progress',
-          created_at TEXT DEFAULT NULL
+          created_at TEXT DEFAULT NULL,
+          category TEXT DEFAULT 'project' CHECK(category IN ('project','education','life_admin','health','financial','other'))
         );
         CREATE TABLE IF NOT EXISTS tasks (
           id INTEGER PRIMARY KEY AUTOINCREMENT,

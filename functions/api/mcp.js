@@ -275,7 +275,27 @@ async function cfAccessFetch(env, method, path, body) {
   return json.result;
 }
 
-async function handleToolCall(name, args, db, env) {
+// Fetches all pages of a CF Access paginated list endpoint.
+async function cfAccessFetchAll(env) {
+  if (!env.CF_API_TOKEN || !env.CF_ACCOUNT_ID) {
+    throw new Error("CF_API_TOKEN and CF_ACCOUNT_ID environment variables must be set to use service token tools");
+  }
+  let page = 1, all = [];
+  while (true) {
+    const res = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/access/service_tokens?page=${page}&per_page=100`,
+      { headers: { "Authorization": `Bearer ${env.CF_API_TOKEN}`, "Content-Type": "application/json" } }
+    );
+    const json = await res.json();
+    if (!json.success) throw new Error(json.errors?.[0]?.message || `CF API error ${res.status}`);
+    all = all.concat(Array.isArray(json.result) ? json.result : []);
+    if (!json.result_info || page >= json.result_info.total_pages) break;
+    page++;
+  }
+  return all;
+}
+
+async function handleToolCall(name, args, db, env, isAuthenticated = false) {
   if (name === "log_task") {
     const { description, okr_id, time_spent = null, status = "Done", notes = null } = args || {};
 
@@ -559,9 +579,14 @@ async function handleToolCall(name, args, db, env) {
     return { content: [{ type: "text", text: JSON.stringify(row) }] };
   }
 
+  const CF_AUTH_ERR = "Service token tools require authentication. Set MCP_SECRET_TOKEN or access via Cloudflare Access.";
+
   if (name === "list_service_tokens") {
-    const tokens = await cfAccessFetch(env, "GET", "");
-    const rows = (Array.isArray(tokens) ? tokens : []).map(t => ({
+    if (env.CF_API_TOKEN && !isAuthenticated) {
+      return { isError: true, content: [{ type: "text", text: CF_AUTH_ERR }] };
+    }
+    const tokens = await cfAccessFetchAll(env);
+    const rows = tokens.map(t => ({
       id: t.id, name: t.name, client_id: t.client_id,
       created_at: t.created_at, expires_at: t.expires_at, duration: t.duration,
     }));
@@ -569,6 +594,9 @@ async function handleToolCall(name, args, db, env) {
   }
 
   if (name === "create_service_token") {
+    if (env.CF_API_TOKEN && !isAuthenticated) {
+      return { isError: true, content: [{ type: "text", text: CF_AUTH_ERR }] };
+    }
     const { name: tokenName, duration = "8760h" } = args || {};
     if (!tokenName) {
       return { isError: true, content: [{ type: "text", text: "Missing required field: name" }] };
@@ -583,11 +611,17 @@ async function handleToolCall(name, args, db, env) {
   }
 
   if (name === "rotate_service_token") {
+    if (env.CF_API_TOKEN && !isAuthenticated) {
+      return { isError: true, content: [{ type: "text", text: CF_AUTH_ERR }] };
+    }
     const { token_id, duration = "8760h" } = args || {};
     if (!token_id) {
       return { isError: true, content: [{ type: "text", text: "Missing required field: token_id" }] };
     }
-    const result = await cfAccessFetch(env, "PUT", `/${token_id}`, { duration });
+    // Apply duration via PUT first (PUT updates metadata but does not regenerate credentials).
+    await cfAccessFetch(env, "PUT", `/${token_id}`, { duration });
+    // Rotate credentials via the dedicated refresh endpoint.
+    const result = await cfAccessFetch(env, "POST", `/${token_id}/refresh`);
     const out = {
       id: result.id, name: result.name, client_id: result.client_id,
       client_secret: result.client_secret, expires_at: result.expires_at,
@@ -597,6 +631,9 @@ async function handleToolCall(name, args, db, env) {
   }
 
   if (name === "delete_service_token") {
+    if (env.CF_API_TOKEN && !isAuthenticated) {
+      return { isError: true, content: [{ type: "text", text: CF_AUTH_ERR }] };
+    }
     const { token_id } = args || {};
     if (!token_id) {
       return { isError: true, content: [{ type: "text", text: "Missing required field: token_id" }] };
@@ -621,14 +658,26 @@ export async function onRequest(context) {
     return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405, headers: CORS });
   }
 
-  // Bearer token auth — opt-in: open when MCP_SECRET_TOKEN is not configured
+  // Resolve caller identity before applying any gate.
+  // cfAccessEmail is set by Cloudflare Access on authenticated requests.
+  const cfAccessEmail = request.headers.get("Cf-Access-Authenticated-User-Email");
+  const authHeader = request.headers.get("Authorization") || "";
+  const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+
+  // Bearer token auth — opt-in: open when MCP_SECRET_TOKEN is not configured.
+  // CF Access identity is accepted as an alternative to the bearer token so that
+  // callers authenticated by Cloudflare Access aren't rejected even when
+  // MCP_SECRET_TOKEN is also configured.
   if (env.MCP_SECRET_TOKEN) {
-    const auth = request.headers.get("Authorization") || "";
-    const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
-    if (token !== env.MCP_SECRET_TOKEN) {
+    if (!cfAccessEmail && bearerToken !== env.MCP_SECRET_TOKEN) {
       return jsonRpcError(null, -32000, "Unauthorized", 401);
     }
   }
+
+  // isAuthenticated: used by privileged tools (service token management) to enforce
+  // auth even when MCP_SECRET_TOKEN is not configured.
+  const isAuthenticated = !!(cfAccessEmail) ||
+    !!(env.MCP_SECRET_TOKEN && bearerToken === env.MCP_SECRET_TOKEN);
 
   let body;
   try {
@@ -651,7 +700,7 @@ export async function onRequest(context) {
     const { name, arguments: args = {} } = params;
     let result;
     try {
-      result = await handleToolCall(name, args, env.DB, env);
+      result = await handleToolCall(name, args, env.DB, env, isAuthenticated);
     } catch (err) {
       return jsonRpcError(id, -32603, `Internal error: ${err.message}`);
     }

@@ -52,6 +52,19 @@ export async function onRequest(context) {
     ]);
     okrs = okrResult.results;
     tasks = taskResult.results;
+    // Attach OKR-level dependencies (soft-fail if table not yet created)
+    try {
+      const { results: deps } = await env.DB.prepare(
+        `SELECT od.okr_id, od.depends_on_okr_id, o.objective AS dep_objective
+         FROM okr_dependencies od
+         JOIN okrs o ON o.id = od.depends_on_okr_id`
+      ).all();
+      const depsMap = {};
+      for (const d of deps) (depsMap[d.okr_id] = depsMap[d.okr_id] || []).push(d);
+      okrs = okrs.map(o => ({ ...o, deps: depsMap[o.id] || [] }));
+    } catch {
+      okrs = okrs.map(o => ({ ...o, deps: [] }));
+    }
   } catch {
     // Tables don't exist yet — apply the schema inline and retry (no wrangler CLI needed).
     try {
@@ -114,7 +127,7 @@ export async function onRequest(context) {
            ORDER BY t.created_at`
         ).bind(today).all(),
       ]);
-      okrs = okrResult2.results;
+      okrs = okrResult2.results.map(o => ({ ...o, deps: [] }));
       tasks = taskResult2.results;
     } catch {
       // exec() itself failed — D1 binding misconfigured or unknown error.

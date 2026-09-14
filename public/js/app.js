@@ -73,6 +73,8 @@ let resources = [];
 let pipelineError = null;
 let pipelineOkrFilter = "";
 let okrCategoryFilter = "";
+const expandedOkrIds = new Set();
+const okrTaskCache = {};
 let workItemsError = null;
 let priorityError = null;
 let reposError = null;
@@ -1656,16 +1658,62 @@ function renderOkrProgress() {
     const taskChips = okr.total_tasks > 0
       ? `<span class="okr-task-chip">${okr.done_tasks}/${okr.total_tasks} tasks done</span>`
       : `<span class="okr-task-chip okr-task-chip-empty">No tasks yet</span>`;
+
+    const isExpanded = expandedOkrIds.has(okr.id);
+
+    // OKR-level dependency badges
+    const depBadges = (okr.deps || []).map(d =>
+      `<span class="okr-dep-badge" title="${escapeText(d.dep_objective || "")}">Needs: ${escapeText(d.depends_on_okr_id)}</span>`
+    ).join("");
+
+    // Expanded task list
+    let taskListHtml = "";
+    if (isExpanded) {
+      const cached = okrTaskCache[okr.id];
+      if (!cached || cached === "loading") {
+        taskListHtml = `<div class="okr-task-list"><p class="okr-task-list-empty">Loading…</p></div>`;
+      } else if (cached === "error") {
+        taskListHtml = `<div class="okr-task-list"><p class="okr-task-list-empty">Failed to load tasks.</p></div>`;
+      } else if (!cached.length) {
+        taskListHtml = `<div class="okr-task-list"><p class="okr-task-list-empty">No tasks yet — use <code>log_task</code> via MCP.</p></div>`;
+      } else {
+        const taskRows = cached.map(t => {
+          const tBadgeClass = t.status === "Done" ? "badge-work-done"
+            : t.status === "In Progress" ? "badge-work-in_progress"
+            : "badge-work-not_started";
+          const timeSpent = t.time_spent ? `<span class="okr-task-time">${escapeText(t.time_spent)}</span>` : "";
+          const taskDate = t.date ? `<span class="okr-task-date">${escapeText(t.date)}</span>` : "";
+          const blockedBy = t.blocked_by_desc
+            ? `<div class="okr-blocked-by">⛔ Blocked by: ${escapeText(t.blocked_by_desc)} <span class="badge badge-work ${t.blocked_by_status === "Done" ? "badge-work-done" : "badge-work-in_progress"}">${escapeText(t.blocked_by_status || "")}</span></div>`
+            : "";
+          return `
+            <div class="okr-task-row${t.status === "Done" ? " okr-task-row-done" : ""}">
+              <div class="okr-task-row-main">
+                <span class="badge badge-work ${tBadgeClass}">${escapeText(t.status || "To Do")}</span>
+                <span class="okr-task-desc">${escapeText(t.description)}</span>
+                ${timeSpent}
+                ${taskDate}
+              </div>
+              ${blockedBy}
+              ${t.notes ? `<div class="okr-task-notes">${escapeText(t.notes)}</div>` : ""}
+            </div>`;
+        }).join("");
+        taskListHtml = `<div class="okr-task-list">${taskRows}</div>`;
+      }
+    }
+
     return `
-      <div class="okr-card">
+      <div class="okr-card" data-okr-id="${escapeText(okr.id)}">
         <div class="okr-card-header">
           <div class="okr-card-title">
             <span class="okr-id">${escapeText(okr.id)}</span>
             <span class="badge badge-work ${badgeClass}">${escapeText(okr.status || "Planned")}</span>
+            ${depBadges}
           </div>
           <div class="okr-card-meta">
             ${taskChips}
             ${targetDate}
+            <button class="okr-expand-btn" data-expand-okr="${escapeText(okr.id)}" aria-label="${isExpanded ? "Collapse tasks" : "Expand tasks"}" aria-expanded="${isExpanded}">${isExpanded ? "▲" : "▼"}</button>
           </div>
         </div>
         <div class="okr-objective">${escapeText(okr.objective)}</div>
@@ -1676,6 +1724,7 @@ function renderOkrProgress() {
           </div>
           <span class="okr-bar-label">${pct}%</span>
         </div>
+        ${taskListHtml}
       </div>`;
   }
 
@@ -1934,6 +1983,30 @@ document.getElementById("okr-progress-list").addEventListener("change", e => {
     okrCategoryFilter = e.target.value;
     renderOkrProgress();
   }
+});
+
+// OKR card expand/collapse
+document.getElementById("okr-progress-list").addEventListener("click", async e => {
+  const btn = e.target.closest("[data-expand-okr]");
+  if (!btn) return;
+  const okrId = btn.dataset.expandOkr;
+  if (expandedOkrIds.has(okrId)) {
+    expandedOkrIds.delete(okrId);
+    renderOkrProgress();
+    return;
+  }
+  expandedOkrIds.add(okrId);
+  if (!okrTaskCache[okrId]) {
+    okrTaskCache[okrId] = "loading";
+    renderOkrProgress();
+    try {
+      const res = await fetch(`/api/tasks?okr_id=${encodeURIComponent(okrId)}`);
+      okrTaskCache[okrId] = res.ok ? await res.json() : "error";
+    } catch {
+      okrTaskCache[okrId] = "error";
+    }
+  }
+  renderOkrProgress();
 });
 
 // ============================================================

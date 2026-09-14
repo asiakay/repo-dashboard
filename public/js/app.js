@@ -62,6 +62,8 @@ async function loadIdentity() {
   }
 }
 
+const COLLEGE_TRACKER_URL = "https://college-tracker.asialakaygrady-6d4.workers.dev";
+
 let allRepos = [];
 let filteredRepos = [];
 let workItems = [];
@@ -70,6 +72,9 @@ let okrStats = null;
 let repoTaskData = [];
 let pipelineTasks = [];
 let resources = [];
+let collegeDeadlines = [];
+let collegeDailyTasks = [];
+let collegeError = null;
 let pipelineError = null;
 let pipelineOkrFilter = "";
 let okrCategoryFilter = "";
@@ -307,6 +312,33 @@ async function retryPipeline() {
   renderPipeline();
 }
 
+async function loadCollegeDeadlines() {
+  try {
+    const res = await fetch(`${COLLEGE_TRACKER_URL}/api/deadlines?days=14`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    collegeDeadlines = data.deadlines || [];
+    collegeError = null;
+  } catch (err) {
+    console.warn("Could not load college deadlines:", err);
+    collegeDeadlines = [];
+    collegeError = err.message;
+  }
+}
+
+async function loadCollegeDailyTasks() {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const res = await fetch(`${COLLEGE_TRACKER_URL}/api/tasks?date=${today}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    collegeDailyTasks = data.tasks || [];
+  } catch (err) {
+    console.warn("Could not load college daily tasks:", err);
+    collegeDailyTasks = [];
+  }
+}
+
 async function loadResources() {
   try {
     const res = await fetch("/api/resources");
@@ -365,8 +397,12 @@ function renderToday() {
   const topPriority = (priorityData.items || []).filter(i => i.tier_num <= 2 && !myActiveRepos.has(i.repo_name));
   const okrActive = pipelineTasks.filter(t => t.status === "In Progress");
   const todayLogged = (okrStats && okrStats.today && okrStats.today.tasks) ? okrStats.today.tasks : [];
+  const upcomingAssignments = collegeDeadlines.slice().sort((a, b) => (a.due_date || "").localeCompare(b.due_date || ""));
 
-  const totalSignals = myActive.length + agentBlocked.length + bottlenecks.length + topPriority.length;
+  const totalSignals = myActive.length + agentBlocked.length + bottlenecks.length + topPriority.length + upcomingAssignments.filter(a => {
+    const days = a.due_date ? Math.ceil((new Date(a.due_date) - new Date()) / 86400000) : 999;
+    return days <= 7;
+  }).length;
 
   let html = `<div class="today-header">
     <h2 class="today-headline">${totalSignals === 0 ? "Nothing urgent right now." : `${totalSignals} item${totalSignals !== 1 ? "s" : ""} need${totalSignals === 1 ? "s" : ""} your attention`}</h2>
@@ -433,6 +469,35 @@ function renderToday() {
     html += `</div>`;
   }
 
+  if (upcomingAssignments.length > 0) {
+    const urgentCount = upcomingAssignments.filter(a => {
+      const days = a.due_date ? Math.ceil((new Date(a.due_date) - new Date()) / 86400000) : 999;
+      return days <= 7;
+    }).length;
+    const labelClass = urgentCount > 0 ? "today-section-urgent" : "";
+    html += `<div class="today-section">
+      <h3 class="today-section-label ${labelClass}">Assignments due soon <span class="work-group-count">${upcomingAssignments.length}</span></h3>`;
+    upcomingAssignments.forEach(a => {
+      const days = a.due_date ? Math.ceil((new Date(a.due_date) - new Date()) / 86400000) : null;
+      const isOverdue = days !== null && days <= 0;
+      const daysLabel = days === null ? "" : isOverdue ? "OVERDUE" : days === 0 ? "due today" : `${days}d`;
+      const urgentClass = isOverdue || days <= 3 ? "text-urgent" : days <= 7 ? "work-time" : "work-time";
+      html += `<div class="today-row today-row-deadline">
+        <div class="today-row-main">
+          <span class="badge badge-college-type badge-college-${escapeText((a.deliverable_type || "Project").toLowerCase())}">${escapeText(a.deliverable_type || "Project")}</span>
+          <span class="work-task">${escapeText(a.title)}</span>
+        </div>
+        <div class="today-row-meta">
+          <span class="work-time">${escapeText(a.course_name || a.course_id)}</span>
+          ${daysLabel ? `<span class="${urgentClass}">${daysLabel}</span>` : ""}
+          ${a.due_date ? `<span class="work-time">due ${escapeText(a.due_date)}</span>` : ""}
+          ${a.weight_pct ? `<span class="pipeline-chip">${a.weight_pct}%</span>` : ""}
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
   if (topPriority.length > 0) {
     html += `<div class="today-section">
       <h3 class="today-section-label">High priority — start next <span class="work-group-count">${topPriority.length}</span></h3>`;
@@ -486,6 +551,24 @@ function renderToday() {
           <span class="work-task">${escapeText(t.description)}</span>
         </div>
         ${t.time_spent ? `<div class="today-row-meta"><span class="pipeline-chip">${escapeText(t.time_spent)}</span></div>` : ""}
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (collegeDailyTasks.length > 0) {
+    html += `<div class="today-section today-log-section">
+      <h3 class="today-section-label today-section-dim">Academic work logged today <span class="work-group-count">${collegeDailyTasks.length}</span></h3>`;
+    collegeDailyTasks.forEach(t => {
+      html += `<div class="today-row today-row-done">
+        <div class="today-row-main">
+          <span class="okr-id">${escapeText(t.okr_id)}</span>
+          <span class="work-task">${escapeText(t.description)}</span>
+        </div>
+        <div class="today-row-meta">
+          ${t.time_spent ? `<span class="pipeline-chip">${escapeText(t.time_spent)}</span>` : ""}
+          ${t.assignment_id ? `<span class="work-time">${escapeText(t.assignment_id)}</span>` : ""}
+        </div>
       </div>`;
     });
     html += `</div>`;
@@ -1061,12 +1144,38 @@ function renderActiveWork() {
 function renderActiveWorkItems(container) {
   const items = workItems.filter(w => w.status !== "done");
 
+  let html = "";
+
+  if (collegeDeadlines.length > 0) {
+    const sorted = collegeDeadlines.slice().sort((a, b) => (a.due_date || "").localeCompare(b.due_date || ""));
+    html += `<div class="work-group">
+      <h3 class="work-group-label">Upcoming Assignments <span class="work-group-count">${sorted.length}</span></h3>`;
+    sorted.forEach(a => {
+      const days = a.due_date ? Math.ceil((new Date(a.due_date) - new Date()) / 86400000) : null;
+      const isOverdue = days !== null && days <= 0;
+      const daysLabel = days === null ? "" : isOverdue ? "OVERDUE" : days === 0 ? "today" : `${days}d`;
+      html += `<div class="work-row">
+        <div class="work-card-top">
+          <span class="badge badge-college-type badge-college-${escapeText((a.deliverable_type || "Project").toLowerCase())}">${escapeText(a.deliverable_type || "Project")}</span>
+          <span class="work-repo">${escapeText(a.course_name || a.course_id)}</span>
+          <span class="work-task">${escapeText(a.title)}</span>
+        </div>
+        <div class="work-card-meta">
+          ${a.due_date ? `<span class="${isOverdue || days <= 3 ? "text-urgent" : "work-time"}">${daysLabel} · due ${escapeText(a.due_date)}</span>` : ""}
+          ${a.weight_pct ? `<span class="pipeline-chip">${a.weight_pct}%</span>` : ""}
+          <span class="badge badge-work badge-work-not_started">${escapeText(a.status || "Not Started")}</span>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
   if (!items.length) {
-    container.innerHTML = `<p class="empty-state">Nothing active right now. All clear! <button class="btn-ghost btn-sm" onclick="activeWorkView='completed';renderActiveWork()">See completed →</button></p>`;
+    html += `<p class="empty-state">Nothing active right now. All clear! <button class="btn-ghost btn-sm" onclick="activeWorkView='completed';renderActiveWork()">See completed →</button></p>`;
+    container.innerHTML = html;
     return;
   }
 
-  let html = "";
   STATUS_ORDER.forEach(status => {
     const group = items.filter(w => w.status === status);
     if (!group.length) return;
@@ -1405,6 +1514,44 @@ function renderPriority() {
     html += `</ul></div>`;
   }
 
+  // Academic deadlines panel
+  if (collegeDeadlines.length > 0) {
+    const urgent = collegeDeadlines.filter(a => {
+      const days = a.due_date ? Math.ceil((new Date(a.due_date) - new Date()) / 86400000) : 999;
+      return days <= 7;
+    });
+    const panelClass = urgent.length > 0 ? "bottleneck-panel bottleneck-panel-college" : "bottleneck-panel bottleneck-panel-college bottleneck-panel-calm";
+    const sorted = collegeDeadlines.slice().sort((a, b) => (a.due_date || "").localeCompare(b.due_date || ""));
+    html += `<div class="${panelClass}" role="region" aria-label="Academic deadlines">
+      <div class="bottleneck-header">
+        <span aria-hidden="true">🎓</span>
+        <strong>Academic Deadlines — next 14 days</strong>
+        <span class="bottleneck-count">${sorted.length}</span>
+      </div>
+      <ul class="bottleneck-list">`;
+    for (const a of sorted) {
+      const days = a.due_date ? Math.ceil((new Date(a.due_date) - new Date()) / 86400000) : null;
+      const isOverdue = days !== null && days <= 0;
+      const daysLabel = days === null ? "" : isOverdue
+        ? `<strong class="text-urgent">OVERDUE</strong>`
+        : `<strong class="${days <= 3 ? "text-urgent" : ""}">${days}d remaining</strong>`;
+      html += `<li class="bottleneck-item">
+        <span class="bottleneck-title">${escapeText(a.title)}</span>
+        <span class="bottleneck-meta">
+          · ${escapeText(a.course_name || a.course_id)}
+          ${a.due_date ? ` · due ${escapeText(a.due_date)}` : ""}
+          ${daysLabel ? ` · ${daysLabel}` : ""}
+          ${a.weight_pct ? ` · <span class="pipeline-chip">${a.weight_pct}%</span>` : ""}
+        </span>
+        <span class="bottleneck-repos">
+          <span class="badge badge-college-type badge-college-${escapeText((a.deliverable_type || "Project").toLowerCase())}">${escapeText(a.deliverable_type || "Project")}</span>
+          ${escapeText(a.objective || a.okr_id || "")}
+        </span>
+      </li>`;
+    }
+    html += `</ul></div>`;
+  }
+
   if (!items || !items.length) {
     html += `<p class="empty-state">No active work items. All done!</p>`;
     container.innerHTML = html;
@@ -1656,9 +1803,17 @@ function renderOkrProgress() {
     const targetDate = okr.target_date
       ? `<span class="okr-target-date">${escapeText(okr.target_date)}</span>`
       : "";
-    const taskChips = okr.total_tasks > 0
-      ? `<span class="okr-task-chip">${okr.done_tasks}/${okr.total_tasks} tasks done</span>`
-      : `<span class="okr-task-chip okr-task-chip-empty">No tasks yet</span>`;
+    const taskChips = okr.has_assignments
+      ? (okr.total_assignments > 0
+        ? `<span class="okr-task-chip">${okr.completed_assignments}/${okr.total_assignments} assignments submitted</span>`
+        : `<span class="okr-task-chip okr-task-chip-empty">No assignments yet</span>`)
+      : (okr.total_tasks > 0
+        ? `<span class="okr-task-chip">${okr.done_tasks}/${okr.total_tasks} tasks done</span>`
+        : `<span class="okr-task-chip okr-task-chip-empty">No tasks yet</span>`);
+
+    const nextDueChip = okr.next_due_date
+      ? `<span class="okr-next-due">Next due: ${escapeText(okr.next_due_date)}</span>`
+      : "";
 
     const isExpanded = expandedOkrIds.has(okr.id);
 
@@ -1678,7 +1833,26 @@ function renderOkrProgress() {
       } else if (!cached.length) {
         taskListHtml = `<div class="okr-task-list"><p class="okr-task-list-empty">No tasks yet — use <code>log_task</code> via MCP.</p></div>`;
       } else {
+        const asnBadgeClass = s => s === "Graded" ? "badge-work-done"
+          : s === "Submitted" ? "badge-work-in_progress"
+          : s === "Late" ? "badge-work-blocked"
+          : "badge-work-not_started";
         const taskRows = cached.map(t => {
+          if (t.is_assignment) {
+            const isDone = t.status === "Submitted" || t.status === "Graded";
+            const dueInfo = t.due_date ? `<span class="okr-task-date">Due: ${escapeText(t.due_date)}</span>` : "";
+            const courseChip = t.course_name ? `<span class="okr-task-time">${escapeText(t.course_name)}</span>` : "";
+            return `
+              <div class="okr-task-row${isDone ? " okr-task-row-done" : ""}">
+                <div class="okr-task-row-main">
+                  <span class="badge badge-work ${asnBadgeClass(t.status)}">${escapeText(t.status || "Not Submitted")}</span>
+                  <span class="okr-task-desc">${escapeText(t.description)}</span>
+                  ${dueInfo}
+                  ${courseChip}
+                </div>
+                ${t.notes ? `<div class="okr-task-notes">${escapeText(t.notes)}</div>` : ""}
+              </div>`;
+          }
           const tBadgeClass = t.status === "Done" ? "badge-work-done"
             : t.status === "In Progress" ? "badge-work-in_progress"
             : "badge-work-not_started";
@@ -1713,6 +1887,7 @@ function renderOkrProgress() {
           </div>
           <div class="okr-card-meta">
             ${taskChips}
+            ${nextDueChip}
             ${targetDate}
             <button class="okr-expand-btn" data-expand-okr="${escapeText(okr.id)}" aria-label="${isExpanded ? "Collapse tasks" : "Expand tasks"}" aria-expanded="${isExpanded}">${isExpanded ? "▲" : "▼"}</button>
           </div>
@@ -2147,7 +2322,7 @@ function renderPullRequests() {
 // Init
 // ============================================================
 async function init() {
-  await Promise.all([loadRepos(), loadWorkItems(), loadPriorityData(), loadOkrStats(), loadRepoTaskData(), loadPipelineTasks(), loadResources(), loadIdentity(), loadPullRequests()]);
+  await Promise.all([loadRepos(), loadWorkItems(), loadPriorityData(), loadOkrStats(), loadRepoTaskData(), loadPipelineTasks(), loadResources(), loadIdentity(), loadCollegeDeadlines(), loadCollegeDailyTasks()]);
   renderToday();   // Today is the landing view
   renderRepos();   // pre-render repos with work items overlaid
 }

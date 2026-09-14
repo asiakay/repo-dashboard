@@ -1243,6 +1243,7 @@ body { min-height: 100vh; }
 .okr-task-chip-empty { opacity: 0.6; }
 
 .okr-target-date { font-size: 12px; color: var(--text-muted); }
+.okr-next-due { font-size: 12px; color: var(--accent); font-weight: 500; }
 
 .okr-objective { font-size: 14px; font-weight: 600; color: var(--text-main); }
 

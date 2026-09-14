@@ -1655,9 +1655,17 @@ function renderOkrProgress() {
     const targetDate = okr.target_date
       ? `<span class="okr-target-date">${escapeText(okr.target_date)}</span>`
       : "";
-    const taskChips = okr.total_tasks > 0
-      ? `<span class="okr-task-chip">${okr.done_tasks}/${okr.total_tasks} tasks done</span>`
-      : `<span class="okr-task-chip okr-task-chip-empty">No tasks yet</span>`;
+    const taskChips = okr.has_assignments
+      ? (okr.total_assignments > 0
+        ? `<span class="okr-task-chip">${okr.completed_assignments}/${okr.total_assignments} assignments submitted</span>`
+        : `<span class="okr-task-chip okr-task-chip-empty">No assignments yet</span>`)
+      : (okr.total_tasks > 0
+        ? `<span class="okr-task-chip">${okr.done_tasks}/${okr.total_tasks} tasks done</span>`
+        : `<span class="okr-task-chip okr-task-chip-empty">No tasks yet</span>`);
+
+    const nextDueChip = okr.next_due_date
+      ? `<span class="okr-next-due">Next due: ${escapeText(okr.next_due_date)}</span>`
+      : "";
 
     const isExpanded = expandedOkrIds.has(okr.id);
 
@@ -1677,7 +1685,26 @@ function renderOkrProgress() {
       } else if (!cached.length) {
         taskListHtml = `<div class="okr-task-list"><p class="okr-task-list-empty">No tasks yet — use <code>log_task</code> via MCP.</p></div>`;
       } else {
+        const asnBadgeClass = s => s === "Graded" ? "badge-work-done"
+          : s === "Submitted" ? "badge-work-in_progress"
+          : s === "Late" ? "badge-work-blocked"
+          : "badge-work-not_started";
         const taskRows = cached.map(t => {
+          if (t.is_assignment) {
+            const isDone = t.status === "Submitted" || t.status === "Graded";
+            const dueInfo = t.due_date ? `<span class="okr-task-date">Due: ${escapeText(t.due_date)}</span>` : "";
+            const courseChip = t.course_name ? `<span class="okr-task-time">${escapeText(t.course_name)}</span>` : "";
+            return `
+              <div class="okr-task-row${isDone ? " okr-task-row-done" : ""}">
+                <div class="okr-task-row-main">
+                  <span class="badge badge-work ${asnBadgeClass(t.status)}">${escapeText(t.status || "Not Submitted")}</span>
+                  <span class="okr-task-desc">${escapeText(t.description)}</span>
+                  ${dueInfo}
+                  ${courseChip}
+                </div>
+                ${t.notes ? `<div class="okr-task-notes">${escapeText(t.notes)}</div>` : ""}
+              </div>`;
+          }
           const tBadgeClass = t.status === "Done" ? "badge-work-done"
             : t.status === "In Progress" ? "badge-work-in_progress"
             : "badge-work-not_started";
@@ -1712,6 +1739,7 @@ function renderOkrProgress() {
           </div>
           <div class="okr-card-meta">
             ${taskChips}
+            ${nextDueChip}
             ${targetDate}
             <button class="okr-expand-btn" data-expand-okr="${escapeText(okr.id)}" aria-label="${isExpanded ? "Collapse tasks" : "Expand tasks"}" aria-expanded="${isExpanded}">${isExpanded ? "▲" : "▼"}</button>
           </div>

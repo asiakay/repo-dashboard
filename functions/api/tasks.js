@@ -46,6 +46,27 @@ export async function onRequest({ request, env }) {
     sql += " ORDER BY CASE t.status WHEN 'In Progress' THEN 0 WHEN 'To Do' THEN 1 ELSE 2 END, t.okr_id, t.id";
 
     const { results } = await env.DB.prepare(sql).bind(...binds).all();
+
+    // When filtering by OKR, also return assignments linked to that OKR (soft-fail)
+    if (filterOkr) {
+      let asnRows = [];
+      try {
+        const { results: asns } = await env.DB.prepare(`
+          SELECT a.id, a.title AS description, a.due_date, a.status, a.notes,
+                 a.course_id, a.deliverable_type, a.weight_pct, a.okr_id,
+                 1 AS is_assignment, c.name AS course_name
+          FROM assignments a
+          LEFT JOIN courses c ON c.id = a.course_id
+          WHERE a.okr_id = ?
+          ORDER BY a.due_date ASC NULLS LAST
+        `).bind(filterOkr).all();
+        asnRows = asns;
+      } catch {
+        // assignments table not present
+      }
+      return new Response(JSON.stringify([...asnRows, ...results]), { headers: CORS });
+    }
+
     return new Response(JSON.stringify(results), { headers: CORS });
   }
 

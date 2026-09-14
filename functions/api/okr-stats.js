@@ -138,6 +138,41 @@ export async function onRequest(context) {
     }
   }
 
+  // Augment education OKRs with assignment-based progress (soft-fail)
+  try {
+    const { results: asnStats } = await env.DB.prepare(`
+      SELECT
+        okr_id,
+        COUNT(*)                                                           AS total_assignments,
+        SUM(CASE WHEN status IN ('Submitted','Graded') THEN 1 ELSE 0 END) AS completed_assignments,
+        MIN(CASE WHEN status NOT IN ('Submitted','Graded')
+                  AND due_date >= DATE('now')
+                 THEN due_date END)                                        AS next_due_date
+      FROM assignments
+      WHERE okr_id IS NOT NULL
+      GROUP BY okr_id
+    `).all();
+    const asnMap = {};
+    for (const a of asnStats) asnMap[a.okr_id] = a;
+    okrs = okrs.map(o => {
+      const asn = asnMap[o.id];
+      if (!asn || asn.total_assignments === 0) return o;
+      const pct = Math.round(1000 * asn.completed_assignments / asn.total_assignments) / 10;
+      return {
+        ...o,
+        has_assignments: true,
+        total_assignments: asn.total_assignments,
+        completed_assignments: asn.completed_assignments,
+        total_tasks: asn.total_assignments,
+        done_tasks: asn.completed_assignments,
+        completion_pct: pct,
+        next_due_date: asn.next_due_date || null,
+      };
+    });
+  } catch {
+    // assignments table not present — skip silently
+  }
+
   return new Response(
     JSON.stringify({ okrs, today: { date: today, tasks } }),
     { headers: CORS }

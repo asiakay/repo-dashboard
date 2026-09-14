@@ -1045,6 +1045,44 @@ body { min-height: 100vh; }
   font-weight: 600;
 }
 
+/* College academic panel variant */
+.bottleneck-panel-college {
+  border-color: rgba(99, 179, 237, 0.45);
+  background: rgba(99, 179, 237, 0.07);
+}
+
+.bottleneck-panel-college .bottleneck-header {
+  color: #90cdf4;
+}
+
+.bottleneck-panel-college .bottleneck-count {
+  background: rgba(99, 179, 237, 0.2);
+}
+
+.bottleneck-panel-calm {
+  border-color: rgba(99, 179, 237, 0.25);
+  background: rgba(99, 179, 237, 0.04);
+}
+
+/* College deliverable-type badges */
+.badge-college-type {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-subtle);
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text-muted);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.badge-college-exam   { border-color: rgba(245, 101, 101, 0.4); background: rgba(245, 101, 101, 0.1); color: #fc8181; }
+.badge-college-essay  { border-color: rgba(154, 230, 180, 0.4); background: rgba(154, 230, 180, 0.1); color: #9ae6b4; }
+.badge-college-project{ border-color: rgba(99,  179, 237,  0.4); background: rgba(99,  179, 237,  0.1); color: #90cdf4; }
+.badge-college-code   { border-color: rgba(214, 188, 250, 0.4); background: rgba(214, 188, 250, 0.1); color: #d6bcfa; }
+.badge-college-reading{ border-color: rgba(251, 211, 141, 0.4); background: rgba(251, 211, 141, 0.1); color: #fbd38d; }
+.badge-college-presentation { border-color: rgba(79, 209, 197, 0.4); background: rgba(79, 209, 197, 0.1); color: #4fd1c5; }
+
 /* ============================================================
    Priority table & cards
    ============================================================ */

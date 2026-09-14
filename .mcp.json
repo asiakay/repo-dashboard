@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "college-tracker": {
+      "type": "http",
+      "url": "https://college-tracker.asialakaygrady-6d4.workers.dev/mcp",
+      "headers": {
+        "Authorization": "Bearer ${COLLEGE_TRACKER_MCP_TOKEN}"
+      }
+    }
+  }
+}

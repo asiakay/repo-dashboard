@@ -52,6 +52,7 @@
       <button class="tab-btn" data-tab="agent-tasks" id="tab-agent-tasks" role="tab" aria-selected="false" aria-controls="view-agent-tasks">Agent Tasks</button>
       <button class="tab-btn" data-tab="priority" id="tab-priority" role="tab" aria-selected="false" aria-controls="view-priority">Priority</button>
       <button class="tab-btn" data-tab="pipeline" id="tab-pipeline" role="tab" aria-selected="false" aria-controls="view-pipeline">Pipeline</button>
+      <button class="tab-btn" data-tab="pull-requests" id="tab-pull-requests" role="tab" aria-selected="false" aria-controls="view-pull-requests">Pull Requests</button>
     </div>
   </nav>
 
@@ -229,6 +230,17 @@
       <div id="pipeline-board" class="pipeline-board">
         <!-- Kanban columns injected by JS -->
       </div>
+    </section>
+
+    <!-- ========== VIEW: PULL REQUESTS ========== -->
+    <section id="view-pull-requests" class="view hidden" role="tabpanel" aria-labelledby="tab-pull-requests">
+      <div class="view-header">
+        <div>
+          <h2 class="view-title">Pull Requests</h2>
+          <p class="view-subtitle">PR activity across all repos — share of total shows where work is concentrated.</p>
+        </div>
+      </div>
+      <div id="pr-chart-container"></div>
     </section>
 
   </main>

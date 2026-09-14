@@ -127,7 +127,7 @@ function updateActivePill() {
 // ============================================================
 // Tab switching
 // ============================================================
-const TABS = ["today", "capacity", "repos", "active-work", "agent-tasks", "priority", "okr-progress", "pipeline"];
+const TABS = ["today", "capacity", "repos", "active-work", "agent-tasks", "priority", "okr-progress", "pipeline", "pull-requests"];
 
 function switchTab(tabId) {
   TABS.forEach(id => {
@@ -146,6 +146,7 @@ function switchTab(tabId) {
   if (tabId === "priority") renderPriority();
   if (tabId === "okr-progress") renderOkrProgress();
   if (tabId === "pipeline") renderPipeline();
+  if (tabId === "pull-requests") renderPullRequests();
 }
 
 document.querySelectorAll(".tab-btn").forEach(btn => {
@@ -2010,10 +2011,143 @@ document.getElementById("okr-progress-list").addEventListener("click", async e =
 });
 
 // ============================================================
+// Pull Requests — donut chart
+// ============================================================
+let prData = null;
+let prDataError = null;
+
+async function loadPullRequests() {
+  try {
+    const res = await fetch("/data/pull_requests.json");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    prData = await res.json();
+  } catch (err) {
+    prDataError = err.message;
+  }
+}
+
+function renderPullRequests() {
+  const el = document.getElementById("pr-chart-container");
+  if (!el) return;
+
+  if (prData === null && !prDataError) {
+    el.innerHTML = `<p class="view-loading">Loading PR data…</p>`;
+    return;
+  }
+  if (prDataError) {
+    el.innerHTML = `<p class="view-error">Failed to load PR data: ${prDataError}</p>`;
+    return;
+  }
+
+  const repos = prData.repos || [];
+  const totalPRs = prData.total_prs || 0;
+
+  if (!repos.length || !totalPRs) {
+    el.innerHTML = `<p class="view-empty">No PR data yet — the workflow runs every 4 hours and will populate this view.</p>`;
+    return;
+  }
+
+  // Top 9 repos + "Other" for the rest
+  const TOP = 9;
+  const sorted = [...repos].sort((a, b) => b.total - a.total);
+  const top = sorted.slice(0, TOP);
+  const rest = sorted.slice(TOP);
+  if (rest.length) {
+    top.push({
+      name: "Other",
+      open: rest.reduce((s, r) => s + r.open, 0),
+      merged: rest.reduce((s, r) => s + r.merged, 0),
+      closed: rest.reduce((s, r) => s + r.closed, 0),
+      total: rest.reduce((s, r) => s + r.total, 0),
+    });
+  }
+
+  const COLORS = [
+    "#4fd1c5", "#63b3ed", "#f6ad55", "#fc8181", "#b794f4",
+    "#76e4f7", "#68d391", "#f6e05e", "#ed64a6", "#a0aec0"
+  ];
+
+  // SVG donut geometry
+  const CX = 120, CY = 120, OR = 100, IR = 58;
+
+  function pt(angleDeg, r) {
+    const a = (angleDeg - 90) * Math.PI / 180;
+    return { x: CX + r * Math.cos(a), y: CY + r * Math.sin(a) };
+  }
+
+  function arcPath(startDeg, endDeg, color, idx) {
+    // Clamp near-full circles to avoid SVG arc edge case
+    const sweep = Math.min(endDeg - startDeg, 359.99);
+    const large = sweep > 180 ? 1 : 0;
+    const endClamped = startDeg + sweep;
+    const s1 = pt(startDeg, OR), s2 = pt(endClamped, OR);
+    const s3 = pt(endClamped, IR), s4 = pt(startDeg, IR);
+    const gap = 0.6; // degrees of gap between slices
+    const gs = pt(startDeg + gap / 2, OR), ge = pt(endClamped - gap / 2, OR);
+    const gi = pt(endClamped - gap / 2, IR), gis = pt(startDeg + gap / 2, IR);
+    return `<path d="M ${gs.x} ${gs.y} A ${OR} ${OR} 0 ${large} 1 ${ge.x} ${ge.y} L ${gi.x} ${gi.y} A ${IR} ${IR} 0 ${large} 0 ${gis.x} ${gis.y} Z"
+      fill="${color}" class="pr-slice" data-idx="${idx}" />`;
+  }
+
+  let angle = 0;
+  const segments = top.map((repo, i) => {
+    const pct = totalPRs > 0 ? repo.total / totalPRs : 0;
+    const sweep = pct * 360;
+    const path = arcPath(angle, angle + sweep, COLORS[i % COLORS.length], i);
+    const seg = { repo, pct, sweep, color: COLORS[i % COLORS.length], path };
+    angle += sweep;
+    return seg;
+  });
+
+  const freshness = prData.generated_at
+    ? `<span class="pr-freshness">Updated ${new Date(prData.generated_at).toLocaleString()}</span>`
+    : "";
+
+  const svgSlices = segments.map(s => s.path).join("\n");
+
+  const legendRows = segments.map(({ repo, pct, color }) => `
+    <div class="pr-legend-row">
+      <span class="pr-legend-swatch" style="background:${color}"></span>
+      <span class="pr-legend-name" title="${repo.name}">${repo.name}</span>
+      <span class="pr-legend-pct">${Math.round(pct * 100)}%</span>
+      <span class="pr-legend-counts">
+        <span class="pr-badge pr-open" title="Open">${repo.open}</span>
+        <span class="pr-badge pr-merged" title="Merged">${repo.merged}</span>
+        <span class="pr-badge pr-closed" title="Closed">${repo.closed}</span>
+      </span>
+    </div>`).join("");
+
+  el.innerHTML = `
+    <div class="pr-meta-row">${freshness} <span class="pr-total-label">${totalPRs} total PRs across ${repos.length} repos</span></div>
+    <div class="pr-chart-wrap">
+      <svg viewBox="0 0 240 240" class="pr-donut-svg" role="img" aria-label="Donut chart showing PR share by repository">
+        ${svgSlices}
+        <text x="${CX}" y="${CY - 8}" class="pr-center-count" text-anchor="middle">${totalPRs}</text>
+        <text x="${CX}" y="${CY + 14}" class="pr-center-label" text-anchor="middle">Total PRs</text>
+      </svg>
+      <div class="pr-legend">
+        <div class="pr-legend-header">
+          <span></span><span></span><span></span>
+          <span class="pr-badge pr-open" title="Open">●</span>
+          <span class="pr-badge pr-merged" title="Merged">●</span>
+          <span class="pr-badge pr-closed" title="Closed">●</span>
+        </div>
+        <div class="pr-legend-hint-row">
+          <span></span><span></span><span></span>
+          <span class="pr-badge-label">open</span>
+          <span class="pr-badge-label">merged</span>
+          <span class="pr-badge-label">closed</span>
+        </div>
+        ${legendRows}
+      </div>
+    </div>`;
+}
+
+// ============================================================
 // Init
 // ============================================================
 async function init() {
-  await Promise.all([loadRepos(), loadWorkItems(), loadPriorityData(), loadOkrStats(), loadRepoTaskData(), loadPipelineTasks(), loadResources(), loadIdentity()]);
+  await Promise.all([loadRepos(), loadWorkItems(), loadPriorityData(), loadOkrStats(), loadRepoTaskData(), loadPipelineTasks(), loadResources(), loadIdentity(), loadPullRequests()]);
   renderToday();   // Today is the landing view
   renderRepos();   // pre-render repos with work items overlaid
 }

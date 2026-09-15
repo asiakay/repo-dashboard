@@ -1845,6 +1845,151 @@ body { min-height: 100vh; }
 .resource-badge-unknown   { color: var(--text-muted); font-weight: 700; font-size: 12px; }
 
 /* ============================================================
+   Pull Requests — donut chart view
+   ============================================================ */
+.pr-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  margin-bottom: 24px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.pr-total-label {
+  color: var(--text-muted);
+}
+
+.pr-freshness {
+  color: var(--text-muted);
+}
+
+.pr-chart-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 32px;
+  align-items: flex-start;
+}
+
+.pr-donut-svg {
+  flex-shrink: 0;
+  width: 240px;
+  height: 240px;
+}
+
+.pr-slice {
+  transition: opacity 0.15s;
+  cursor: default;
+}
+
+.pr-slice:hover {
+  opacity: 0.8;
+  filter: brightness(1.15);
+}
+
+.pr-center-count {
+  font-size: 26px;
+  font-weight: 700;
+  fill: var(--text-main);
+  font-family: var(--font-main);
+}
+
+.pr-center-label {
+  font-size: 11px;
+  fill: var(--text-muted);
+  font-family: var(--font-main);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.pr-legend {
+  flex: 1;
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pr-legend-header,
+.pr-legend-hint-row {
+  display: grid;
+  grid-template-columns: 12px 1fr 36px 36px 36px 36px;
+  gap: 6px;
+  align-items: center;
+  padding: 2px 0;
+}
+
+.pr-legend-hint-row span {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.pr-legend-row {
+  display: grid;
+  grid-template-columns: 12px 1fr 36px auto;
+  gap: 6px;
+  align-items: center;
+  padding: 5px 8px;
+  border-radius: 6px;
+  transition: background 0.1s;
+}
+
+.pr-legend-row:hover {
+  background: var(--bg-alt);
+}
+
+.pr-legend-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.pr-legend-name {
+  font-size: 13px;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+.pr-legend-pct {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.pr-legend-counts {
+  display: flex;
+  gap: 4px;
+}
+
+.pr-badge {
+  display: inline-block;
+  min-width: 24px;
+  text-align: center;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.pr-badge-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.pr-open   { background: rgba(79, 209, 197, 0.14); color: #4fd1c5; }
+.pr-merged { background: rgba(167, 139, 250, 0.14); color: #a78bfa; }
+.pr-closed { background: rgba(160, 174, 192, 0.14); color: #a0aec0; }
+
+/* ============================================================
    Shared utility
    ============================================================ */
 .btn-link {

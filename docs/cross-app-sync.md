@@ -109,10 +109,11 @@ The worker's fetch to `/api/mcp` is fire-and-forget, wrapped in try/catch. If it
 
 - No webhook, no queue, no polling. One server-side fetch per checkbox interaction.
 - No bi-directional sync. repo-dashboard does not write back to masshealth-crm.
-- Not built yet. This note is the design gate before implementation.
 
-## Next step to build it
+## Status
 
-1. Add the `POST /api/repodash/log-stage` route to `masshealth-crm/worker/index.js` as sketched above.
-2. Set `REPODASH_MCP_URL` and `REPODASH_MCP_TOKEN` as worker secrets via the Cloudflare dashboard.
-3. Add `logStageToRepoDash(stage, title)` call in `index.html`'s stage checkbox handler (after `saveState()`).
+**Built.** Both the worker route and the browser-side call are in `masshealth-crm` main.
+
+Remaining one-time setup (Cloudflare dashboard):
+1. Set `REPODASH_MCP_URL` and `REPODASH_MCP_TOKEN` as worker secrets on `masshealth-crm-api`.
+2. Optionally set `MCP_SECRET_TOKEN` on the repo-dashboard Pages project to lock the MCP endpoint.

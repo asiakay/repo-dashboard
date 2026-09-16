@@ -1,0 +1,24 @@
+-- Migration 0006: deadline_signals for guardianship/placement legal deadlines
+--
+-- IMPORTANT — per CONTRIBUTING.md:25, specific filing dates must NOT be committed
+-- to git. The two rows this migration describes (ME guardianship hearing and MA
+-- placement/transport target) were inserted directly into production D1 via the
+-- Cloudflare MCP tool and are NOT represented as runnable SQL here.
+--
+-- To add or update these rows, use the Cloudflare D1 MCP or wrangler d1 execute
+-- with an ad-hoc SQL statement entered interactively — do not write the date into
+-- a committed file.
+--
+-- Both rows must be inserted with last_synced = 'manual' so the hourly
+-- sync-deadlines workflow preserves them (it skips DELETE for rows carrying
+-- that sentinel value — see .github/workflows/sync-deadlines.yml and the note
+-- in db/schema.sql about manual deadline_signals rows).
+--
+-- Shape of each row:
+--   title                TEXT   — generic process label, no docket/court/date text
+--   due_date             TEXT   — YYYY-MM-DD; enter directly in D1, do not commit
+--   consequence_severity INT    — 1-5 per the priority scoring table
+--   affects_repos        TEXT   — JSON array, e.g. '["fathers-care","masshealth-crm"]'
+--   source_repo          TEXT   — 'fathers-care' (synthetic label)
+--   domain               TEXT   — 'legal' (triggers legal lead-time curve)
+--   last_synced          TEXT   — 'manual' (sentinel; preserves row through hourly sync)

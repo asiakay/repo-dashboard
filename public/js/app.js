@@ -1,5 +1,5 @@
 // ============================================================
-// Write auth — token stored in localStorage, prompted on 401
+// Write auth — CF Access (production) or WRITE_TOKEN (local dev)
 // ============================================================
 function writeHeaders() {
   const token = localStorage.getItem("writeToken");
@@ -8,21 +8,61 @@ function writeHeaders() {
   return headers;
 }
 
+function showSessionExpiredBanner() {
+  let banner = document.getElementById("auth-expired-banner");
+  if (banner) return;
+  banner = document.createElement("div");
+  banner.id = "auth-expired-banner";
+  banner.className = "auth-expired-banner";
+  banner.setAttribute("role", "alert");
+  banner.innerHTML = `
+    <span>Session expired — please <button class="auth-refresh-btn" onclick="location.reload()">refresh</button> to re-authenticate.</span>
+    <button class="auth-dismiss-btn" aria-label="Dismiss" onclick="this.closest('#auth-expired-banner').remove()">✕</button>
+  `;
+  document.body.prepend(banner);
+}
+
 async function handleWriteResponse(res, retryFn) {
   if (res.status === 401) {
-    const token = prompt(
-      "A write token is required.\n" +
-      "Enter your WRITE_TOKEN (it will be saved in this browser):"
-    );
-    if (token) {
-      localStorage.setItem("writeToken", token.trim());
-      return retryFn();
+    // In production, CF Access is the gate — a 401 means the session expired.
+    // In local dev, try the stored WRITE_TOKEN; if missing, prompt once and retry.
+    const existingToken = localStorage.getItem("writeToken");
+    if (!existingToken) {
+      const token = prompt(
+        "Local dev: enter your WRITE_TOKEN (saved in this browser):"
+      );
+      if (token) {
+        localStorage.setItem("writeToken", token.trim());
+        return retryFn();
+      }
+    } else {
+      // Token was sent but rejected — clear it and show the expiry banner.
+      localStorage.removeItem("writeToken");
     }
-    throw new Error("Write token required — request cancelled.");
+    showSessionExpiredBanner();
+    throw new Error("Not authenticated — request cancelled.");
   }
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
+
+// Load and display the authenticated user identity from /api/me.
+async function loadIdentity() {
+  try {
+    const res = await fetch("/api/me");
+    if (!res.ok) return;
+    const { email, authenticated } = await res.json();
+    if (authenticated && email) {
+      const chip = document.getElementById("identity-chip");
+      chip.textContent = `● ${email}`;
+      chip.hidden = false;
+    }
+  } catch {
+    // Identity display is best-effort; silently skip on error.
+  }
+}
+
+const COLLEGE_TRACKER_URL = "https://college-tracker.asialakaygrady-6d4.workers.dev";
 
 let allRepos = [];
 let filteredRepos = [];
@@ -30,10 +70,22 @@ let workItems = [];
 let priorityData = { items: [], bottlenecks: [] };
 let okrStats = null;
 let repoTaskData = [];
+let pipelineTasks = [];
+let resources = [];
+let collegeDeadlines = [];
+let collegeDailyTasks = [];
+let collegeError = null;
+let pipelineError = null;
+let pipelineOkrFilter = "";
+let okrCategoryFilter = "";
+const expandedOkrIds = new Set();
+const okrTaskCache = {};
 let workItemsError = null;
 let priorityError = null;
 let reposError = null;
 let okrStatsError = null;
+let resourcesError = null;
+let activeWorkView = "active"; // "active" | "completed"
 
 // DOM refs — repos view
 const searchInput = document.getElementById("search");
@@ -80,7 +132,7 @@ function updateActivePill() {
 // ============================================================
 // Tab switching
 // ============================================================
-const TABS = ["repos", "active-work", "agent-tasks", "priority", "okr-progress"];
+const TABS = ["today", "capacity", "repos", "active-work", "agent-tasks", "priority", "okr-progress", "pipeline", "pull-requests"];
 
 function switchTab(tabId) {
   TABS.forEach(id => {
@@ -92,14 +144,25 @@ function switchTab(tabId) {
     btn.classList.toggle("active", isActive);
     btn.setAttribute("aria-selected", isActive ? "true" : "false");
   });
+  if (tabId === "today") renderToday();
+  if (tabId === "capacity") renderCapacity();
   if (tabId === "active-work") renderActiveWork();
   if (tabId === "agent-tasks") renderAgentTasks();
   if (tabId === "priority") renderPriority();
   if (tabId === "okr-progress") renderOkrProgress();
+  if (tabId === "pipeline") renderPipeline();
+  if (tabId === "pull-requests") renderPullRequests();
 }
 
 document.querySelectorAll(".tab-btn").forEach(btn => {
   btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+});
+
+document.querySelectorAll(".work-toggle-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    activeWorkView = btn.dataset.view;
+    renderActiveWork();
+  });
 });
 
 document.querySelector(".tab-nav-inner").addEventListener("keydown", e => {
@@ -138,6 +201,7 @@ async function loadRepos() {
     } else if (data && Array.isArray(data.repos)) {
       allRepos = data.repos;
       if (data.generated_at) showFreshness(data.generated_at);
+      if (data.stale) dataFreshness.textContent += " · using cached data";
     } else {
       reposError = "No repo data found";
       summaryText.textContent = "";
@@ -148,6 +212,7 @@ async function loadRepos() {
     reposError = null;
     filteredRepos = [...allRepos];
     populateLanguageFilter();
+    populateRepoDatalist();
     updateStats();
     applySorting();
     renderRepos();
@@ -228,6 +293,65 @@ async function retryOkrStats() {
   renderOkrProgress();
 }
 
+async function loadPipelineTasks() {
+  try {
+    const res = await fetch("/api/tasks?include_done=true");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    pipelineTasks = await res.json();
+    pipelineError = null;
+  } catch (err) {
+    console.warn("Could not load pipeline tasks:", err);
+    pipelineTasks = [];
+    pipelineError = err.message;
+  }
+}
+
+async function retryPipeline() {
+  pipelineError = null;
+  await loadPipelineTasks();
+  renderPipeline();
+}
+
+async function loadCollegeDeadlines() {
+  try {
+    const res = await fetch(`${COLLEGE_TRACKER_URL}/api/deadlines?days=14`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    collegeDeadlines = data.deadlines || [];
+    collegeError = null;
+  } catch (err) {
+    console.warn("Could not load college deadlines:", err);
+    collegeDeadlines = [];
+    collegeError = err.message;
+  }
+}
+
+async function loadCollegeDailyTasks() {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const res = await fetch(`${COLLEGE_TRACKER_URL}/api/tasks?date=${today}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    collegeDailyTasks = data.tasks || [];
+  } catch (err) {
+    console.warn("Could not load college daily tasks:", err);
+    collegeDailyTasks = [];
+  }
+}
+
+async function loadResources() {
+  try {
+    const res = await fetch("/api/resources");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    resources = await res.json();
+    resourcesError = null;
+  } catch (err) {
+    console.warn("Could not load resources:", err);
+    resources = [];
+    resourcesError = err.message;
+  }
+}
+
 async function loadRepoTaskData() {
   try {
     const res = await fetch("/api/repo-task-summary");
@@ -261,6 +385,533 @@ function timeAgo(dateStr) {
 }
 
 // ============================================================
+// Today view
+// ============================================================
+function renderToday() {
+  const container = document.getElementById("today-list");
+
+  const myActive = workItems.filter(w => w.status === "in_progress" && w.assigned_to === "asia");
+  const agentBlocked = workItems.filter(w => w.assigned_to === "agent" && w.status === "blocked");
+  const bottlenecks = priorityData.bottlenecks || [];
+  const myActiveRepos = new Set(myActive.map(w => w.repo_name));
+  const topPriority = (priorityData.items || []).filter(i => i.tier_num <= 2 && !myActiveRepos.has(i.repo_name));
+  const okrActive = pipelineTasks.filter(t => t.status === "In Progress");
+  const todayLogged = (okrStats && okrStats.today && okrStats.today.tasks) ? okrStats.today.tasks : [];
+  const upcomingAssignments = collegeDeadlines.slice().sort((a, b) => (a.due_date || "").localeCompare(b.due_date || ""));
+
+  const totalSignals = myActive.length + agentBlocked.length + bottlenecks.length + topPriority.length + upcomingAssignments.filter(a => {
+    const days = a.due_date ? Math.ceil((new Date(a.due_date) - new Date()) / 86400000) : 999;
+    return days <= 7;
+  }).length;
+
+  let html = `<div class="today-header">
+    <h2 class="today-headline">${totalSignals === 0 ? "Nothing urgent right now." : `${totalSignals} item${totalSignals !== 1 ? "s" : ""} need${totalSignals === 1 ? "s" : ""} your attention`}</h2>
+    <span class="today-subline">${new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</span>
+  </div>`;
+
+  if (myActive.length > 0) {
+    html += `<div class="today-section">
+      <h3 class="today-section-label">My work in flight <span class="work-group-count">${myActive.length}</span></h3>`;
+    myActive.forEach(item => {
+      const startedAgo = timeAgo(item.started_at);
+      html += `<div class="today-row today-row-mine">
+        <div class="today-row-main">
+          <span class="badge badge-work badge-work-in_progress">In Progress</span>
+          <a href="https://github.com/asiakay/${escapeText(item.repo_name)}" target="_blank" rel="noopener noreferrer" class="work-repo">${escapeText(item.repo_name)}</a>
+          <span class="work-task">${escapeText(item.task_description)}</span>
+        </div>
+        <div class="today-row-meta">
+          ${startedAgo ? `<span class="work-time">Started ${startedAgo}</span>` : ""}
+          <button class="btn-ghost btn-sm" onclick="switchTab('active-work')">Edit →</button>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (agentBlocked.length > 0) {
+    html += `<div class="today-section">
+      <h3 class="today-section-label today-section-urgent">Agent blocked — needs you <span class="work-group-count">${agentBlocked.length}</span></h3>`;
+    agentBlocked.forEach(item => {
+      html += `<div class="today-row today-row-blocked">
+        <div class="today-row-main">
+          <span class="badge badge-work badge-work-blocked">Blocked</span>
+          <a href="https://github.com/asiakay/${escapeText(item.repo_name)}" target="_blank" rel="noopener noreferrer" class="work-repo">${escapeText(item.repo_name)}</a>
+          <span class="work-task">${escapeText(item.task_description)}</span>
+        </div>
+        ${item.notes ? `<div class="today-row-notes">${escapeText(item.notes)}</div>` : ""}
+        <div class="today-row-meta">
+          <button class="btn-ghost btn-sm" onclick="switchTab('active-work');setTimeout(()=>openEditForm(${item.id}),0)">Unblock →</button>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (bottlenecks.length > 0) {
+    html += `<div class="today-section">
+      <h3 class="today-section-label today-section-urgent">Deadline pressure — no work in flight <span class="work-group-count">${bottlenecks.length}</span></h3>`;
+    bottlenecks.forEach(b => {
+      const isOverdue = b.days_remaining <= 0;
+      const daysLabel = isOverdue ? "OVERDUE" : `${b.days_remaining}d remaining`;
+      html += `<div class="today-row today-row-deadline">
+        <div class="today-row-main">
+          <span class="badge badge-domain badge-domain-${escapeText(b.domain)}">${escapeText(b.domain)}</span>
+          <span class="work-task">${escapeText(b.title)}</span>
+        </div>
+        <div class="today-row-meta">
+          <span class="${isOverdue || b.days_remaining <= 3 ? "text-urgent" : "work-time"}">${daysLabel}</span>
+          <span class="work-time">due ${escapeText(b.due_date)}</span>
+          <button class="btn-ghost btn-sm" onclick="switchTab('priority')">Priority →</button>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (upcomingAssignments.length > 0) {
+    const urgentCount = upcomingAssignments.filter(a => {
+      const days = a.due_date ? Math.ceil((new Date(a.due_date) - new Date()) / 86400000) : 999;
+      return days <= 7;
+    }).length;
+    const labelClass = urgentCount > 0 ? "today-section-urgent" : "";
+    html += `<div class="today-section">
+      <h3 class="today-section-label ${labelClass}">Assignments due soon <span class="work-group-count">${upcomingAssignments.length}</span></h3>`;
+    upcomingAssignments.forEach(a => {
+      const days = a.due_date ? Math.ceil((new Date(a.due_date) - new Date()) / 86400000) : null;
+      const isOverdue = days !== null && days <= 0;
+      const daysLabel = days === null ? "" : isOverdue ? "OVERDUE" : days === 0 ? "due today" : `${days}d`;
+      const urgentClass = isOverdue || days <= 3 ? "text-urgent" : days <= 7 ? "work-time" : "work-time";
+      html += `<div class="today-row today-row-deadline">
+        <div class="today-row-main">
+          <span class="badge badge-college-type badge-college-${escapeText((a.deliverable_type || "Project").toLowerCase())}">${escapeText(a.deliverable_type || "Project")}</span>
+          <span class="work-task">${escapeText(a.title)}</span>
+        </div>
+        <div class="today-row-meta">
+          <span class="work-time">${escapeText(a.course_name || a.course_id)}</span>
+          ${daysLabel ? `<span class="${urgentClass}">${daysLabel}</span>` : ""}
+          ${a.due_date ? `<span class="work-time">due ${escapeText(a.due_date)}</span>` : ""}
+          ${a.weight_pct ? `<span class="pipeline-chip">${a.weight_pct}%</span>` : ""}
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (topPriority.length > 0) {
+    html += `<div class="today-section">
+      <h3 class="today-section-label">High priority — start next <span class="work-group-count">${topPriority.length}</span></h3>`;
+    topPriority.forEach(item => {
+      html += `<div class="today-row">
+        <div class="today-row-main">
+          <span class="badge badge-tier badge-tier-${item.tier_num}">${item.tier_num}</span>
+          <a href="https://github.com/asiakay/${escapeText(item.repo_name)}" target="_blank" rel="noopener noreferrer" class="work-repo">${escapeText(item.repo_name)}</a>
+          <span class="work-task">${escapeText(item.task_description)}</span>
+        </div>
+        <div class="today-row-meta">
+          <span class="impact-score">${item.impact_score}</span><span class="impact-max">/25</span>
+          <span class="badge badge-work badge-work-${item.status}">${escapeText(WORK_STATUS_LABELS[item.status] || item.status)}</span>
+          <button class="btn-ghost btn-sm" onclick="switchTab('priority')">Details →</button>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (okrActive.length > 0) {
+    html += `<div class="today-section">
+      <h3 class="today-section-label">OKR tasks in progress <span class="work-group-count">${okrActive.length}</span></h3>`;
+    okrActive.forEach(t => {
+      html += `<div class="today-row">
+        <div class="today-row-main">
+          <span class="badge badge-work badge-work-in_progress">In Progress</span>
+          <span class="okr-id">${escapeText(t.okr_id)}</span>
+          <span class="work-task">${escapeText(t.description)}</span>
+        </div>
+        <div class="today-row-meta">
+          ${t.time_spent ? `<span class="pipeline-chip">${escapeText(t.time_spent)}</span>` : ""}
+          <button class="btn-ghost btn-sm" onclick="switchTab('pipeline')">Pipeline →</button>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (totalSignals === 0 && okrActive.length === 0) {
+    html += `<p class="empty-state">All clear — nothing requires your attention right now. <button class="btn-link" onclick="switchTab('capacity')">Check Capacity →</button></p>`;
+  }
+
+  if (todayLogged.length > 0) {
+    html += `<div class="today-section today-log-section">
+      <h3 class="today-section-label today-section-dim">Logged today <span class="work-group-count">${todayLogged.length}</span></h3>`;
+    todayLogged.forEach(t => {
+      html += `<div class="today-row today-row-done">
+        <div class="today-row-main">
+          <span class="okr-id">${escapeText(t.okr_id)}</span>
+          <span class="work-task">${escapeText(t.description)}</span>
+        </div>
+        ${t.time_spent ? `<div class="today-row-meta"><span class="pipeline-chip">${escapeText(t.time_spent)}</span></div>` : ""}
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (collegeDailyTasks.length > 0) {
+    html += `<div class="today-section today-log-section">
+      <h3 class="today-section-label today-section-dim">Academic work logged today <span class="work-group-count">${collegeDailyTasks.length}</span></h3>`;
+    collegeDailyTasks.forEach(t => {
+      html += `<div class="today-row today-row-done">
+        <div class="today-row-main">
+          <span class="okr-id">${escapeText(t.okr_id)}</span>
+          <span class="work-task">${escapeText(t.description)}</span>
+        </div>
+        <div class="today-row-meta">
+          ${t.time_spent ? `<span class="pipeline-chip">${escapeText(t.time_spent)}</span>` : ""}
+          ${t.assignment_id ? `<span class="work-time">${escapeText(t.assignment_id)}</span>` : ""}
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  container.innerHTML = html;
+}
+
+// ============================================================
+// Capacity view
+// ============================================================
+function computeExpectedPct(okr) {
+  if (!okr.target_date || okr.target_date === "Ongoing") return null;
+  if (!okr.created_at) return null;
+  const target = new Date(okr.target_date);
+  const start = new Date(okr.created_at);
+  const totalMs = target - start;
+  if (totalMs <= 0) return 100;
+  const elapsedMs = Date.now() - start;
+  return Math.min(100, Math.round((elapsedMs / totalMs) * 100));
+}
+
+function renderAllResourcesList() {
+  if (!resources.length) return "";
+  return `<div class="resource-grid">` +
+    resources.map(r => `<div class="resource-card resource-util-${escapeText(r.utilization)}">
+      <div class="resource-card-header">
+        <span class="resource-name">${escapeText(r.name)}</span>
+        <span class="badge resource-badge resource-badge-${escapeText(r.utilization)}">${escapeText(r.utilization)}</span>
+      </div>
+      <span class="resource-category">${escapeText(r.category.replace("_", " "))}</span>
+      ${r.notes ? `<div class="resource-notes">${escapeText(r.notes)}</div>` : ""}
+      <div class="resource-card-actions">
+        <button class="btn-ghost btn-sm" onclick="openEditResource(${r.id})">Edit</button>
+        <button class="btn-ghost btn-sm btn-danger-sm" onclick="deleteResource(${r.id})">Delete</button>
+      </div>
+    </div>`).join("") + `</div>`;
+}
+
+async function deleteResource(id) {
+  if (!confirm("Delete this resource?")) return;
+  const doDelete = async () => {
+    const res = await fetch(`/api/resources/${id}`, {
+      method: "DELETE",
+      headers: writeHeaders(),
+    });
+    return handleWriteResponse(res, doDelete);
+  };
+  try {
+    await doDelete();
+    resources = resources.filter(r => r.id !== id);
+    renderCapacity();
+  } catch (err) {
+    alert("Failed to delete: " + err.message);
+  }
+}
+
+function renderAddResourceForm(containerId) {
+  const form = document.getElementById(containerId);
+  form.innerHTML = `
+    <div class="work-form-grid">
+      <div class="control">
+        <label>Name</label>
+        <input id="rf-name" type="text" placeholder="e.g. Grantmatch pipeline, Python/data skills" />
+      </div>
+      <div class="control">
+        <label>Category</label>
+        <select id="rf-category">
+          <option value="tool_repo">Tool / Repo</option>
+          <option value="skill">Skill</option>
+          <option value="network">Network / Collaborators</option>
+          <option value="financial">Financial</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="control">
+        <label>Utilization</label>
+        <select id="rf-utilization">
+          <option value="abundant">Abundant</option>
+          <option value="underused">Underused</option>
+          <option value="active">Active</option>
+          <option value="depleted">Depleted</option>
+          <option value="unknown">Unknown</option>
+        </select>
+      </div>
+      <div class="control">
+        <label>Notes (optional)</label>
+        <input id="rf-notes" type="text" placeholder="Context about this resource" />
+      </div>
+    </div>
+    <div class="work-form-actions">
+      <button class="btn-primary" onclick="saveNewResource()">Save</button>
+      <button class="btn-ghost" onclick="document.getElementById('${containerId}').classList.add('hidden')">Cancel</button>
+    </div>`;
+}
+
+async function saveNewResource() {
+  const name = document.getElementById("rf-name").value.trim();
+  const category = document.getElementById("rf-category").value;
+  const utilization = document.getElementById("rf-utilization").value;
+  const notes = document.getElementById("rf-notes").value.trim() || null;
+
+  if (!name) { alert("Name is required."); return; }
+
+  const doSave = async () => {
+    const res = await fetch("/api/resources", {
+      method: "POST",
+      headers: writeHeaders(),
+      body: JSON.stringify({ name, category, utilization, notes }),
+    });
+    return handleWriteResponse(res, doSave);
+  };
+
+  try {
+    const created = await doSave();
+    resources.push(created);
+    renderCapacity();
+  } catch (err) {
+    alert("Failed to save: " + err.message);
+  }
+}
+
+function openEditResource(id) {
+  const resource = resources.find(r => r.id === id);
+  if (!resource) return;
+
+  const form = document.getElementById("resource-edit-form");
+  if (!form) return;
+  form.classList.remove("hidden");
+  form.innerHTML = `
+    <div class="work-form-grid">
+      <div class="control">
+        <label>Name</label>
+        <input id="re-name" type="text" value="${escapeText(resource.name)}" />
+      </div>
+      <div class="control">
+        <label>Category</label>
+        <select id="re-category">
+          <option value="tool_repo" ${resource.category === "tool_repo" ? "selected" : ""}>Tool / Repo</option>
+          <option value="skill" ${resource.category === "skill" ? "selected" : ""}>Skill</option>
+          <option value="network" ${resource.category === "network" ? "selected" : ""}>Network / Collaborators</option>
+          <option value="financial" ${resource.category === "financial" ? "selected" : ""}>Financial</option>
+          <option value="other" ${resource.category === "other" ? "selected" : ""}>Other</option>
+        </select>
+      </div>
+      <div class="control">
+        <label>Utilization</label>
+        <select id="re-utilization">
+          <option value="abundant" ${resource.utilization === "abundant" ? "selected" : ""}>Abundant</option>
+          <option value="underused" ${resource.utilization === "underused" ? "selected" : ""}>Underused</option>
+          <option value="active" ${resource.utilization === "active" ? "selected" : ""}>Active</option>
+          <option value="depleted" ${resource.utilization === "depleted" ? "selected" : ""}>Depleted</option>
+          <option value="unknown" ${resource.utilization === "unknown" ? "selected" : ""}>Unknown</option>
+        </select>
+      </div>
+      <div class="control">
+        <label>Notes</label>
+        <input id="re-notes" type="text" value="${escapeText(resource.notes || "")}" />
+      </div>
+    </div>
+    <div class="work-form-actions">
+      <button class="btn-primary" onclick="saveEditResource(${id})">Save</button>
+      <button class="btn-ghost" onclick="document.getElementById('resource-edit-form').classList.add('hidden')">Cancel</button>
+    </div>`;
+  form.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+async function saveEditResource(id) {
+  const name = document.getElementById("re-name").value.trim();
+  const category = document.getElementById("re-category").value;
+  const utilization = document.getElementById("re-utilization").value;
+  const notes = document.getElementById("re-notes").value.trim() || null;
+
+  if (!name) { alert("Name is required."); return; }
+
+  const doSave = async () => {
+    const res = await fetch(`/api/resources/${id}`, {
+      method: "PUT",
+      headers: writeHeaders(),
+      body: JSON.stringify({ name, category, utilization, notes }),
+    });
+    return handleWriteResponse(res, doSave);
+  };
+
+  try {
+    const updated = await doSave();
+    const idx = resources.findIndex(r => r.id === id);
+    if (idx !== -1) resources[idx] = updated;
+    document.getElementById("resource-edit-form").classList.add("hidden");
+    renderCapacity();
+  } catch (err) {
+    alert("Failed to save: " + err.message);
+  }
+}
+
+function renderCapacity() {
+  const container = document.getElementById("capacity-list");
+
+  const okrList = (okrStats && okrStats.okrs) ? okrStats.okrs : [];
+
+  const behindPace = okrList
+    .filter(o => o.status !== "Completed")
+    .map(o => ({ ...o, expected_pct: computeExpectedPct(o) }))
+    .filter(o => o.expected_pct !== null && (o.completion_pct || 0) < o.expected_pct - 10);
+
+  const plannedOkrs = okrList.filter(o => o.status === "Planned");
+
+  const asiaNotStarted = workItems.filter(w => w.assigned_to === "asia" && w.status === "not_started");
+
+  const activeRepoNames = new Set(workItems.filter(w => w.status !== "done").map(w => w.repo_name));
+  const idleRepos = allRepos
+    .filter(r => !activeRepoNames.has(r.name))
+    .sort((a, b) => new Date(a.updated_at) - new Date(b.updated_at))
+    .slice(0, 10);
+
+  const availableResources = resources.filter(r => ["abundant", "underused"].includes(r.utilization));
+  const totalSlack = behindPace.length + plannedOkrs.length + asiaNotStarted.length;
+
+  let html = `<div class="today-header">
+    <h2 class="today-headline">Capacity</h2>
+    <span class="today-subline">${totalSlack} area${totalSlack !== 1 ? "s" : ""} with room to move</span>
+  </div>`;
+
+  if (availableResources.length > 0) {
+    html += `<div class="today-section">
+      <h3 class="today-section-label today-section-resource">Available resources <span class="work-group-count">${availableResources.length}</span></h3>
+      <div class="resource-grid">`;
+    availableResources.forEach(r => {
+      html += `<div class="resource-card resource-util-${escapeText(r.utilization)}">
+        <div class="resource-card-header">
+          <span class="resource-name">${escapeText(r.name)}</span>
+          <span class="badge resource-badge resource-badge-${escapeText(r.utilization)}">${escapeText(r.utilization)}</span>
+        </div>
+        <span class="resource-category">${escapeText(r.category.replace("_", " "))}</span>
+        ${r.notes ? `<div class="resource-notes">${escapeText(r.notes)}</div>` : ""}
+        <div class="resource-card-actions">
+          <button class="btn-ghost btn-sm" onclick="openEditResource(${r.id})">Edit</button>
+        </div>
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+
+  if (behindPace.length > 0) {
+    html += `<div class="today-section">
+      <h3 class="today-section-label today-section-warn">OKRs behind pace <span class="work-group-count">${behindPace.length}</span></h3>`;
+    behindPace.forEach(okr => {
+      const gap = okr.expected_pct - Math.round(okr.completion_pct || 0);
+      html += `<div class="today-row today-row-behind">
+        <div class="today-row-main">
+          <span class="okr-id">${escapeText(okr.id)}</span>
+          <span class="work-task">${escapeText(okr.key_result)}</span>
+        </div>
+        <div class="today-row-meta">
+          <span class="capacity-pace-gap">−${gap}% behind</span>
+          <span class="work-time">${Math.round(okr.completion_pct || 0)}% done, expected ${okr.expected_pct}%</span>
+          <button class="btn-ghost btn-sm" onclick="switchTab('okr-progress')">OKRs →</button>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (plannedOkrs.length > 0) {
+    html += `<div class="today-section">
+      <h3 class="today-section-label">Planned OKRs — not started <span class="work-group-count">${plannedOkrs.length}</span></h3>`;
+    plannedOkrs.forEach(okr => {
+      html += `<div class="today-row">
+        <div class="today-row-main">
+          <span class="badge badge-work badge-work-not_started">Planned</span>
+          <span class="okr-id">${escapeText(okr.id)}</span>
+          <span class="work-task">${escapeText(okr.key_result)}</span>
+        </div>
+        ${okr.target_date ? `<div class="today-row-meta"><span class="work-time">Target: ${escapeText(okr.target_date)}</span></div>` : ""}
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (asiaNotStarted.length > 0) {
+    html += `<div class="today-section">
+      <h3 class="today-section-label">My queue — not started <span class="work-group-count">${asiaNotStarted.length}</span></h3>`;
+    asiaNotStarted.forEach(item => {
+      html += `<div class="today-row">
+        <div class="today-row-main">
+          <span class="badge badge-work badge-work-not_started">Not started</span>
+          <a href="https://github.com/asiakay/${escapeText(item.repo_name)}" target="_blank" rel="noopener noreferrer" class="work-repo">${escapeText(item.repo_name)}</a>
+          <span class="work-task">${escapeText(item.task_description)}</span>
+        </div>
+        <div class="today-row-meta">
+          ${item.depends_on_repo ? `<span class="work-dep">→ needs ${escapeText(item.depends_on_repo)}</span>` : ""}
+          <button class="btn-ghost btn-sm" onclick="switchTab('active-work')">Start →</button>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (idleRepos.length > 0) {
+    html += `<div class="today-section">
+      <h3 class="today-section-label today-section-dim">Repos with no active work <span class="work-group-count">${idleRepos.length}${allRepos.filter(r => !activeRepoNames.has(r.name)).length > 10 ? "+" : ""}</span></h3>
+      <p class="today-section-sub">Oldest activity first — candidates to invest in or archive.</p>`;
+    idleRepos.forEach(repo => {
+      const daysStale = Math.floor((Date.now() - new Date(repo.updated_at)) / 86400000);
+      html += `<div class="today-row">
+        <div class="today-row-main">
+          <span class="badge badge-health-${repo.health}"><span class="badge-dot" aria-hidden="true"></span>${repo.health.toUpperCase()}</span>
+          <a href="${escapeText(repo.url)}" target="_blank" rel="noopener noreferrer" class="work-repo">${escapeText(repo.name)}</a>
+          <span class="work-task" style="color:var(--text-muted)">${escapeText(repo.description || "No description")}</span>
+        </div>
+        <div class="today-row-meta">
+          <span class="work-time">${daysStale}d idle</span>
+          <button class="btn-ghost btn-sm" onclick="switchTab('repos')">Repos →</button>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (totalSlack === 0 && availableResources.length === 0 && idleRepos.length === 0) {
+    html += `<p class="empty-state">All projects have active work and no idle resources. Nothing obvious to invest in right now.</p>`;
+  }
+
+  html += `<div class="today-section resource-manage-section">
+    <h3 class="today-section-label today-section-dim" style="display:flex;align-items:center">
+      All resources
+      <button class="btn-primary btn-sm" id="btn-add-resource" style="margin-left:auto">+ Add resource</button>
+    </h3>
+    <div id="add-resource-form" class="work-form hidden" style="margin-bottom:12px"></div>
+    <div id="resource-edit-form" class="work-form hidden" style="margin-bottom:12px"></div>
+    ${resources.length === 0 ? `<p class="empty-state">No resources tracked yet. Add tools, skills, or financial resources you want to leverage.</p>` : renderAllResourcesList()}
+  </div>`;
+
+  container.innerHTML = html;
+
+  document.getElementById("btn-add-resource").addEventListener("click", () => {
+    const form = document.getElementById("add-resource-form");
+    form.classList.toggle("hidden");
+    if (!form.classList.contains("hidden")) renderAddResourceForm("add-resource-form");
+  });
+}
+
+// ============================================================
 // Repos view
 // ============================================================
 function populateLanguageFilter() {
@@ -271,6 +922,14 @@ function populateLanguageFilter() {
     opt.value = lang;
     opt.textContent = lang;
     languageFilter.appendChild(opt);
+  });
+}
+
+function populateRepoDatalist() {
+  const opts = allRepos.map(r => `<option value="${escapeText(r.name)}"></option>`).join('');
+  ['wf-repo-list', 'wf-depends-list'].forEach(id => {
+    const dl = document.getElementById(id);
+    if (dl) dl.innerHTML = opts;
   });
 }
 
@@ -453,48 +1112,84 @@ function depHasOpenWork(dependsOnRepo) {
   return workItems.some(w => w.repo_name === dependsOnRepo && w.status !== "done");
 }
 
+function durationLabel(startStr, endStr) {
+  if (!startStr || !endStr) return null;
+  const ms = new Date(endStr) - new Date(startStr);
+  const mins = Math.floor(ms / 60000);
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d`;
+}
+
+function syncWorkToggle() {
+  document.querySelectorAll(".work-toggle-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.view === activeWorkView);
+    btn.setAttribute("aria-pressed", btn.dataset.view === activeWorkView ? "true" : "false");
+  });
+}
+
 function renderActiveWork() {
   const container = document.getElementById("active-work-list");
+  syncWorkToggle();
 
   if (workItemsError) {
     container.innerHTML = errorBanner(`Failed to load work items — ${workItemsError}`, "retryWorkItems");
     return;
   }
 
-  const showDone = document.getElementById("toggle-show-done")?.checked;
-  const visibleItems = showDone ? workItems : workItems.filter(w => w.status !== "done");
+  if (activeWorkView === "completed") {
+    renderCompletedWork(container);
+  } else {
+    renderActiveWorkItems(container);
+  }
+}
 
-  if (!visibleItems.length) {
-    container.innerHTML = `
-      <div class="work-toggle-row">
-        <label class="toggle-label">
-          <input type="checkbox" id="toggle-show-done" ${showDone ? "checked" : ""} />
-          Show completed
-        </label>
-      </div>
-      <p class="empty-state">Nothing active right now. All clear!</p>`;
-    document.getElementById("toggle-show-done").addEventListener("change", renderActiveWork);
+function renderActiveWorkItems(container) {
+  const items = workItems.filter(w => w.status !== "done");
+
+  let html = "";
+
+  if (collegeDeadlines.length > 0) {
+    const sorted = collegeDeadlines.slice().sort((a, b) => (a.due_date || "").localeCompare(b.due_date || ""));
+    html += `<div class="work-group">
+      <h3 class="work-group-label">Upcoming Assignments <span class="work-group-count">${sorted.length}</span></h3>`;
+    sorted.forEach(a => {
+      const days = a.due_date ? Math.ceil((new Date(a.due_date) - new Date()) / 86400000) : null;
+      const isOverdue = days !== null && days <= 0;
+      const daysLabel = days === null ? "" : isOverdue ? "OVERDUE" : days === 0 ? "today" : `${days}d`;
+      html += `<div class="work-row">
+        <div class="work-card-top">
+          <span class="badge badge-college-type badge-college-${escapeText((a.deliverable_type || "Project").toLowerCase())}">${escapeText(a.deliverable_type || "Project")}</span>
+          <span class="work-repo">${escapeText(a.course_name || a.course_id)}</span>
+          <span class="work-task">${escapeText(a.title)}</span>
+        </div>
+        <div class="work-card-meta">
+          ${a.due_date ? `<span class="${isOverdue || days <= 3 ? "text-urgent" : "work-time"}">${daysLabel} · due ${escapeText(a.due_date)}</span>` : ""}
+          ${a.weight_pct ? `<span class="pipeline-chip">${a.weight_pct}%</span>` : ""}
+          <span class="badge badge-work badge-work-not_started">${escapeText(a.status || "Not Started")}</span>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (!items.length) {
+    html += `<p class="empty-state">Nothing active right now. All clear! <button class="btn-ghost btn-sm" onclick="activeWorkView='completed';renderActiveWork()">See completed →</button></p>`;
+    container.innerHTML = html;
     return;
   }
 
-  let html = `
-    <div class="work-toggle-row">
-      <label class="toggle-label">
-        <input type="checkbox" id="toggle-show-done" ${showDone ? "checked" : ""} />
-        Show completed
-      </label>
-    </div>`;
+  STATUS_ORDER.forEach(status => {
+    const group = items.filter(w => w.status === status);
+    if (!group.length) return;
 
-  const allStatuses = showDone ? [...STATUS_ORDER, "done"] : STATUS_ORDER;
-  allStatuses.forEach(status => {
-    const items = visibleItems.filter(w => w.status === status);
-    if (!items.length) return;
-
-    const sectionLabel = STATUS_SECTION_LABELS[status] || WORK_STATUS_LABELS[status] || status;
+    const sectionLabel = STATUS_SECTION_LABELS[status];
     html += `<div class="work-group">
-      <h3 class="work-group-label">${sectionLabel} <span class="work-group-count">${items.length}</span></h3>`;
+      <h3 class="work-group-label">${sectionLabel} <span class="work-group-count">${group.length}</span></h3>`;
 
-    items.forEach(item => {
+    group.forEach(item => {
       const depWarning = item.depends_on_repo && depHasOpenWork(item.depends_on_repo)
         ? `<div class="dep-warning">⚠ <strong>${escapeText(item.repo_name)}</strong> depends on <strong>${escapeText(item.depends_on_repo)}</strong>, which has unfinished work.</div>`
         : "";
@@ -535,7 +1230,67 @@ function renderActiveWork() {
   });
 
   container.innerHTML = html;
-  document.getElementById("toggle-show-done").addEventListener("change", renderActiveWork);
+}
+
+function renderCompletedWork(container) {
+  const doneItems = workItems
+    .filter(w => w.status === "done")
+    .sort((a, b) => {
+      const aTime = a.completed_at ? new Date(a.completed_at) : new Date(0);
+      const bTime = b.completed_at ? new Date(b.completed_at) : new Date(0);
+      return bTime - aTime;
+    });
+
+  if (!doneItems.length) {
+    container.innerHTML = `<p class="empty-state">No completed work items yet.</p>`;
+    return;
+  }
+
+  let html = `<div class="work-group">
+    <h3 class="work-group-label">Completed <span class="work-group-count">${doneItems.length}</span></h3>`;
+
+  doneItems.forEach(item => {
+    const completedAgo = timeAgo(item.completed_at);
+    const completedFull = item.completed_at
+      ? new Date(item.completed_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
+      : null;
+    const dur = durationLabel(item.started_at, item.completed_at);
+
+    const completedSpan = completedFull
+      ? `<span class="work-time work-completed-at" title="${escapeText(item.completed_at)}">Completed ${completedAgo}${completedFull ? ` (${completedFull})` : ""}</span>`
+      : "";
+    const durSpan = dur
+      ? `<span class="work-duration">· took ${dur}</span>`
+      : "";
+
+    const notesDiv = item.notes
+      ? `<div class="work-notes-inline">${escapeText(item.notes)}</div>`
+      : "";
+
+    html += `
+      <div class="work-row work-row-done" data-id="${item.id}">
+        <div class="work-card-top">
+          <span class="badge badge-work badge-work-done">Done</span>
+          <a href="https://github.com/asiakay/${escapeText(item.repo_name)}" target="_blank" rel="noopener noreferrer" class="work-repo">${escapeText(item.repo_name)}</a>
+          <span class="work-task">${escapeText(item.task_description)}</span>
+        </div>
+        <div class="work-card-meta">
+          <span class="work-assigned badge-assigned-${item.assigned_to}">${escapeText(item.assigned_to)}</span>
+          ${completedSpan}
+          ${durSpan}
+          <button class="btn-ghost btn-sm" onclick="openEditForm(${item.id})">Edit</button>
+        </div>
+        ${notesDiv}
+        <div class="work-okr-nudge">
+          <span class="okr-nudge-icon" aria-hidden="true">✓</span>
+          This work is done — <button class="btn-link" onclick="switchTab('okr-progress')">log it against an OKR →</button>
+        </div>
+        <div id="edit-form-${item.id}" class="work-form work-inline-form hidden"></div>
+      </div>`;
+  });
+
+  html += `</div>`;
+  container.innerHTML = html;
 }
 
 function openEditForm(id) {
@@ -759,6 +1514,44 @@ function renderPriority() {
           · from <a href="https://github.com/asiakay/${escapeText(b.source_repo)}" target="_blank" rel="noopener noreferrer">${escapeText(b.source_repo)}</a>
         </span>
         <span class="bottleneck-repos">affects: ${b.affects_repos.map(r => escapeText(r)).join(", ")}</span>
+      </li>`;
+    }
+    html += `</ul></div>`;
+  }
+
+  // Academic deadlines panel
+  if (collegeDeadlines.length > 0) {
+    const urgent = collegeDeadlines.filter(a => {
+      const days = a.due_date ? Math.ceil((new Date(a.due_date) - new Date()) / 86400000) : 999;
+      return days <= 7;
+    });
+    const panelClass = urgent.length > 0 ? "bottleneck-panel bottleneck-panel-college" : "bottleneck-panel bottleneck-panel-college bottleneck-panel-calm";
+    const sorted = collegeDeadlines.slice().sort((a, b) => (a.due_date || "").localeCompare(b.due_date || ""));
+    html += `<div class="${panelClass}" role="region" aria-label="Academic deadlines">
+      <div class="bottleneck-header">
+        <span aria-hidden="true">🎓</span>
+        <strong>Academic Deadlines — next 14 days</strong>
+        <span class="bottleneck-count">${sorted.length}</span>
+      </div>
+      <ul class="bottleneck-list">`;
+    for (const a of sorted) {
+      const days = a.due_date ? Math.ceil((new Date(a.due_date) - new Date()) / 86400000) : null;
+      const isOverdue = days !== null && days <= 0;
+      const daysLabel = days === null ? "" : isOverdue
+        ? `<strong class="text-urgent">OVERDUE</strong>`
+        : `<strong class="${days <= 3 ? "text-urgent" : ""}">${days}d remaining</strong>`;
+      html += `<li class="bottleneck-item">
+        <span class="bottleneck-title">${escapeText(a.title)}</span>
+        <span class="bottleneck-meta">
+          · ${escapeText(a.course_name || a.course_id)}
+          ${a.due_date ? ` · due ${escapeText(a.due_date)}` : ""}
+          ${daysLabel ? ` · ${daysLabel}` : ""}
+          ${a.weight_pct ? ` · <span class="pipeline-chip">${a.weight_pct}%</span>` : ""}
+        </span>
+        <span class="bottleneck-repos">
+          <span class="badge badge-college-type badge-college-${escapeText((a.deliverable_type || "Project").toLowerCase())}">${escapeText(a.deliverable_type || "Project")}</span>
+          ${escapeText(a.objective || a.okr_id || "")}
+        </span>
       </li>`;
     }
     html += `</ul></div>`;
@@ -989,27 +1782,119 @@ function renderOkrProgress() {
     return;
   }
 
-  const okrCards = okrs.map(okr => {
+  const CATEGORY_LABELS = {
+    project:    "Projects",
+    education:  "Education",
+    life_admin: "Life Admin",
+    health:     "Health",
+    financial:  "Financial",
+    other:      "Other",
+  };
+
+  // Build category filter dropdown (persists across re-renders)
+  const categories = [...new Set(okrs.map(o => o.category || "project"))].sort();
+  const filterEl = container.querySelector(".okr-category-filter");
+  const savedFilter = filterEl ? filterEl.value : okrCategoryFilter;
+  okrCategoryFilter = savedFilter;
+
+  const filteredOkrs = okrCategoryFilter
+    ? okrs.filter(o => (o.category || "project") === okrCategoryFilter)
+    : okrs;
+
+  function renderOkrCard(okr) {
     const pct = okr.completion_pct || 0;
     const barColor = pct >= 80 ? "var(--success)" : pct >= 40 ? "var(--accent)" : "var(--danger)";
     const badgeClass = OKR_STATUS_BADGE[okr.status] || "badge-work-not_started";
     const targetDate = okr.target_date
       ? `<span class="okr-target-date">${escapeText(okr.target_date)}</span>`
       : "";
-    const taskChips = okr.total_tasks > 0
-      ? `<span class="okr-task-chip">${okr.done_tasks}/${okr.total_tasks} tasks done</span>`
-      : `<span class="okr-task-chip okr-task-chip-empty">No tasks yet</span>`;
+    const taskChips = okr.has_assignments
+      ? (okr.total_assignments > 0
+        ? `<span class="okr-task-chip">${okr.completed_assignments}/${okr.total_assignments} assignments submitted</span>`
+        : `<span class="okr-task-chip okr-task-chip-empty">No assignments yet</span>`)
+      : (okr.total_tasks > 0
+        ? `<span class="okr-task-chip">${okr.done_tasks}/${okr.total_tasks} tasks done</span>`
+        : `<span class="okr-task-chip okr-task-chip-empty">No tasks yet</span>`);
+
+    const nextDueChip = okr.next_due_date
+      ? `<span class="okr-next-due">Next due: ${escapeText(okr.next_due_date)}</span>`
+      : "";
+
+    const isExpanded = expandedOkrIds.has(okr.id);
+
+    // OKR-level dependency badges
+    const depBadges = (okr.deps || []).map(d =>
+      `<span class="okr-dep-badge" title="${escapeText(d.dep_objective || "")}">Needs: ${escapeText(d.depends_on_okr_id)}</span>`
+    ).join("");
+
+    // Expanded task list
+    let taskListHtml = "";
+    if (isExpanded) {
+      const cached = okrTaskCache[okr.id];
+      if (!cached || cached === "loading") {
+        taskListHtml = `<div class="okr-task-list"><p class="okr-task-list-empty">Loading…</p></div>`;
+      } else if (cached === "error") {
+        taskListHtml = `<div class="okr-task-list"><p class="okr-task-list-empty">Failed to load tasks.</p></div>`;
+      } else if (!cached.length) {
+        taskListHtml = `<div class="okr-task-list"><p class="okr-task-list-empty">No tasks yet — use <code>log_task</code> via MCP.</p></div>`;
+      } else {
+        const asnBadgeClass = s => s === "Graded" ? "badge-work-done"
+          : s === "Submitted" ? "badge-work-in_progress"
+          : s === "Late" ? "badge-work-blocked"
+          : "badge-work-not_started";
+        const taskRows = cached.map(t => {
+          if (t.is_assignment) {
+            const isDone = t.status === "Submitted" || t.status === "Graded";
+            const dueInfo = t.due_date ? `<span class="okr-task-date">Due: ${escapeText(t.due_date)}</span>` : "";
+            const courseChip = t.course_name ? `<span class="okr-task-time">${escapeText(t.course_name)}</span>` : "";
+            return `
+              <div class="okr-task-row${isDone ? " okr-task-row-done" : ""}">
+                <div class="okr-task-row-main">
+                  <span class="badge badge-work ${asnBadgeClass(t.status)}">${escapeText(t.status || "Not Submitted")}</span>
+                  <span class="okr-task-desc">${escapeText(t.description)}</span>
+                  ${dueInfo}
+                  ${courseChip}
+                </div>
+                ${t.notes ? `<div class="okr-task-notes">${escapeText(t.notes)}</div>` : ""}
+              </div>`;
+          }
+          const tBadgeClass = t.status === "Done" ? "badge-work-done"
+            : t.status === "In Progress" ? "badge-work-in_progress"
+            : "badge-work-not_started";
+          const timeSpent = t.time_spent ? `<span class="okr-task-time">${escapeText(t.time_spent)}</span>` : "";
+          const taskDate = t.date ? `<span class="okr-task-date">${escapeText(t.date)}</span>` : "";
+          const blockedBy = t.blocked_by_desc
+            ? `<div class="okr-blocked-by">⛔ Blocked by: ${escapeText(t.blocked_by_desc)} <span class="badge badge-work ${t.blocked_by_status === "Done" ? "badge-work-done" : "badge-work-in_progress"}">${escapeText(t.blocked_by_status || "")}</span></div>`
+            : "";
+          return `
+            <div class="okr-task-row${t.status === "Done" ? " okr-task-row-done" : ""}">
+              <div class="okr-task-row-main">
+                <span class="badge badge-work ${tBadgeClass}">${escapeText(t.status || "To Do")}</span>
+                <span class="okr-task-desc">${escapeText(t.description)}</span>
+                ${timeSpent}
+                ${taskDate}
+              </div>
+              ${blockedBy}
+              ${t.notes ? `<div class="okr-task-notes">${escapeText(t.notes)}</div>` : ""}
+            </div>`;
+        }).join("");
+        taskListHtml = `<div class="okr-task-list">${taskRows}</div>`;
+      }
+    }
 
     return `
-      <div class="okr-card">
+      <div class="okr-card" data-okr-id="${escapeText(okr.id)}">
         <div class="okr-card-header">
           <div class="okr-card-title">
             <span class="okr-id">${escapeText(okr.id)}</span>
             <span class="badge badge-work ${badgeClass}">${escapeText(okr.status || "Planned")}</span>
+            ${depBadges}
           </div>
           <div class="okr-card-meta">
             ${taskChips}
+            ${nextDueChip}
             ${targetDate}
+            <button class="okr-expand-btn" data-expand-okr="${escapeText(okr.id)}" aria-label="${isExpanded ? "Collapse tasks" : "Expand tasks"}" aria-expanded="${isExpanded}">${isExpanded ? "▲" : "▼"}</button>
           </div>
         </div>
         <div class="okr-objective">${escapeText(okr.objective)}</div>
@@ -1020,8 +1905,27 @@ function renderOkrProgress() {
           </div>
           <span class="okr-bar-label">${pct}%</span>
         </div>
+        ${taskListHtml}
       </div>`;
-  }).join("");
+  }
+
+  // Group by category; render a section header before each group when multiple categories exist
+  const groupedHtml = (() => {
+    const showHeaders = categories.length > 1 && !okrCategoryFilter;
+    if (!showHeaders) {
+      return `<div class="okr-grid">${filteredOkrs.map(renderOkrCard).join("")}</div>`;
+    }
+    const byCategory = {};
+    filteredOkrs.forEach(o => {
+      const cat = o.category || "project";
+      (byCategory[cat] = byCategory[cat] || []).push(o);
+    });
+    return Object.entries(byCategory).map(([cat, items]) => `
+      <div class="okr-category-group">
+        <h3 class="okr-category-heading">${escapeText(CATEGORY_LABELS[cat] || cat)}</h3>
+        <div class="okr-grid">${items.map(renderOkrCard).join("")}</div>
+      </div>`).join("");
+  })();
 
   const taskStatusClass = s => s === "Done" ? "done" : s === "In Progress" ? "in_progress" : "not_started";
 
@@ -1048,12 +1952,21 @@ function renderOkrProgress() {
 
   const taskCount = (today && today.tasks) ? today.tasks.length : 0;
 
-  const okrOptions = okrs.map(o =>
+  const okrOptions = filteredOkrs.map(o =>
     `<option value="${escapeText(o.id)}">${escapeText(o.id)} — ${escapeText(o.key_result)}</option>`
   ).join("");
 
+  const categoryFilterOptions = `<option value="">All categories</option>` +
+    categories.map(cat =>
+      `<option value="${escapeText(cat)}"${cat === okrCategoryFilter ? " selected" : ""}>${escapeText(CATEGORY_LABELS[cat] || cat)}</option>`
+    ).join("");
+
   container.innerHTML = `
-    <div class="okr-grid">${okrCards}</div>
+    <div class="okr-progress-toolbar">
+      <label for="okr-category-filter" class="sr-only">Filter by category</label>
+      <select id="okr-category-filter" class="okr-category-filter">${categoryFilterOptions}</select>
+    </div>
+    ${groupedHtml}
     <section class="okr-today-section">
       <h3 class="okr-today-title">
         Today's Log <span class="work-group-count">${taskCount}</span>
@@ -1143,11 +2056,280 @@ async function saveNewTask() {
 }
 
 // ============================================================
+// Pipeline (Kanban) view
+// ============================================================
+const PIPELINE_COLS = [
+  { status: "In Progress", label: "In Progress", cls: "pipeline-col-inprogress" },
+  { status: "To Do",       label: "To Do",       cls: "pipeline-col-todo" },
+  { status: "Done",        label: "Done",         cls: "pipeline-col-done" },
+];
+
+const NEXT_STATUS = { "To Do": "In Progress", "In Progress": "Done", "Done": null };
+
+function renderPipeline() {
+  const board = document.getElementById("pipeline-board");
+  const filterEl = document.getElementById("pipeline-okr-filter");
+
+  if (pipelineError) {
+    board.innerHTML = errorBanner(`Failed to load pipeline — ${pipelineError}`, "retryPipeline");
+    return;
+  }
+
+  // Populate OKR filter dropdown from loaded tasks
+  const okrIds = [...new Set(pipelineTasks.map(t => t.okr_id))].sort();
+  const currentFilter = filterEl.value;
+  filterEl.innerHTML = `<option value="">All OKRs</option>` +
+    okrIds.map(id => `<option value="${escapeText(id)}"${id === currentFilter ? " selected" : ""}>${escapeText(id)}</option>`).join("");
+  pipelineOkrFilter = filterEl.value;
+
+  const tasks = pipelineOkrFilter
+    ? pipelineTasks.filter(t => t.okr_id === pipelineOkrFilter)
+    : pipelineTasks;
+
+  if (!tasks.length) {
+    board.innerHTML = `<p class="empty-state">No tasks found. Use the MCP <code>log_task</code> tool or the OKR Progress tab to add tasks.</p>`;
+    return;
+  }
+
+  const colsHtml = PIPELINE_COLS.map(col => {
+    const colTasks = tasks.filter(t => t.status === col.status);
+    const next = NEXT_STATUS[col.status];
+
+    const cards = colTasks.map(t => {
+      const advanceBtn = next
+        ? `<button class="pipeline-advance-btn" data-task-id="${t.id}" data-next="${escapeText(next)}" aria-label="Advance to ${next}">→ ${escapeText(next)}</button>`
+        : "";
+      const timeChip = t.time_spent ? `<span class="pipeline-chip">${escapeText(t.time_spent)}</span>` : "";
+      const started = t.started_at ? `<span class="pipeline-chip pipeline-chip-muted">Started ${t.started_at.slice(0, 10)}</span>` : "";
+      const completed = t.completed_at ? `<span class="pipeline-chip pipeline-chip-muted">Done ${t.completed_at.slice(0, 10)}</span>` : "";
+      return `
+        <div class="pipeline-card${col.status === "Done" ? " pipeline-card-done" : ""}">
+          <div class="pipeline-card-okr">${escapeText(t.okr_id)}</div>
+          <div class="pipeline-card-desc">${escapeText(t.description)}</div>
+          <div class="pipeline-card-meta">${timeChip}${started}${completed}</div>
+          ${t.notes ? `<div class="pipeline-card-notes">${escapeText(t.notes)}</div>` : ""}
+          <div class="pipeline-card-actions">${advanceBtn}</div>
+        </div>`;
+    }).join("");
+
+    return `
+      <div class="pipeline-col ${col.cls}">
+        <div class="pipeline-col-header">
+          <span class="pipeline-col-label">${col.label}</span>
+          <span class="pipeline-col-count">${colTasks.length}</span>
+        </div>
+        <div class="pipeline-col-cards">${cards || `<p class="pipeline-empty">Nothing here</p>`}</div>
+      </div>`;
+  }).join("");
+
+  board.innerHTML = colsHtml;
+
+  // Advance-button handlers
+  board.querySelectorAll(".pipeline-advance-btn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const taskId = btn.dataset.taskId;
+      const nextStatus = btn.dataset.next;
+      btn.disabled = true;
+      btn.textContent = "Saving…";
+      const doSave = async () => {
+        const res = await fetch(`/api/tasks/${taskId}`, {
+          method: "PUT",
+          headers: writeHeaders(),
+          body: JSON.stringify({ status: nextStatus }),
+        });
+        return handleWriteResponse(res, doSave);
+      };
+      try {
+        await doSave();
+        await loadPipelineTasks();
+        renderPipeline();
+      } catch (err) {
+        alert("Failed to update task: " + err.message);
+        btn.disabled = false;
+        btn.textContent = `→ ${nextStatus}`;
+      }
+    });
+  });
+}
+
+// OKR filter change
+document.getElementById("pipeline-okr-filter").addEventListener("change", e => {
+  pipelineOkrFilter = e.target.value;
+  renderPipeline();
+});
+
+// OKR category filter (rendered dynamically inside #okr-progress-list, use delegation)
+document.getElementById("okr-progress-list").addEventListener("change", e => {
+  if (e.target.id === "okr-category-filter") {
+    okrCategoryFilter = e.target.value;
+    renderOkrProgress();
+  }
+});
+
+// OKR card expand/collapse
+document.getElementById("okr-progress-list").addEventListener("click", async e => {
+  const btn = e.target.closest("[data-expand-okr]");
+  if (!btn) return;
+  const okrId = btn.dataset.expandOkr;
+  if (expandedOkrIds.has(okrId)) {
+    expandedOkrIds.delete(okrId);
+    renderOkrProgress();
+    return;
+  }
+  expandedOkrIds.add(okrId);
+  if (!okrTaskCache[okrId]) {
+    okrTaskCache[okrId] = "loading";
+    renderOkrProgress();
+    try {
+      const res = await fetch(`/api/tasks?okr_id=${encodeURIComponent(okrId)}`);
+      okrTaskCache[okrId] = res.ok ? await res.json() : "error";
+    } catch {
+      okrTaskCache[okrId] = "error";
+    }
+  }
+  renderOkrProgress();
+});
+
+// ============================================================
+// Pull Requests — donut chart
+// ============================================================
+let prData = null;
+let prDataError = null;
+
+async function loadPullRequests() {
+  try {
+    const res = await fetch("/data/pull_requests.json");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    prData = await res.json();
+  } catch (err) {
+    prDataError = err.message;
+  }
+}
+
+function renderPullRequests() {
+  const el = document.getElementById("pr-chart-container");
+  if (!el) return;
+
+  if (prData === null && !prDataError) {
+    el.innerHTML = `<p class="view-loading">Loading PR data…</p>`;
+    return;
+  }
+  if (prDataError) {
+    el.innerHTML = `<p class="view-error">Failed to load PR data: ${prDataError}</p>`;
+    return;
+  }
+
+  const repos = prData.repos || [];
+  const totalPRs = prData.total_prs || 0;
+
+  if (!repos.length || !totalPRs) {
+    el.innerHTML = `<p class="view-empty">No PR data yet — the workflow runs every 4 hours and will populate this view.</p>`;
+    return;
+  }
+
+  // Top 9 repos + "Other" for the rest
+  const TOP = 9;
+  const sorted = [...repos].sort((a, b) => b.total - a.total);
+  const top = sorted.slice(0, TOP);
+  const rest = sorted.slice(TOP);
+  if (rest.length) {
+    top.push({
+      name: "Other",
+      open: rest.reduce((s, r) => s + r.open, 0),
+      merged: rest.reduce((s, r) => s + r.merged, 0),
+      closed: rest.reduce((s, r) => s + r.closed, 0),
+      total: rest.reduce((s, r) => s + r.total, 0),
+    });
+  }
+
+  const COLORS = [
+    "#4fd1c5", "#63b3ed", "#f6ad55", "#fc8181", "#b794f4",
+    "#76e4f7", "#68d391", "#f6e05e", "#ed64a6", "#a0aec0"
+  ];
+
+  // SVG donut geometry
+  const CX = 120, CY = 120, OR = 100, IR = 58;
+
+  function pt(angleDeg, r) {
+    const a = (angleDeg - 90) * Math.PI / 180;
+    return { x: CX + r * Math.cos(a), y: CY + r * Math.sin(a) };
+  }
+
+  function arcPath(startDeg, endDeg, color, idx) {
+    // Clamp near-full circles to avoid SVG arc edge case
+    const sweep = Math.min(endDeg - startDeg, 359.99);
+    const large = sweep > 180 ? 1 : 0;
+    const endClamped = startDeg + sweep;
+    const s1 = pt(startDeg, OR), s2 = pt(endClamped, OR);
+    const s3 = pt(endClamped, IR), s4 = pt(startDeg, IR);
+    const gap = 0.6; // degrees of gap between slices
+    const gs = pt(startDeg + gap / 2, OR), ge = pt(endClamped - gap / 2, OR);
+    const gi = pt(endClamped - gap / 2, IR), gis = pt(startDeg + gap / 2, IR);
+    return `<path d="M ${gs.x} ${gs.y} A ${OR} ${OR} 0 ${large} 1 ${ge.x} ${ge.y} L ${gi.x} ${gi.y} A ${IR} ${IR} 0 ${large} 0 ${gis.x} ${gis.y} Z"
+      fill="${color}" class="pr-slice" data-idx="${idx}" />`;
+  }
+
+  let angle = 0;
+  const segments = top.map((repo, i) => {
+    const pct = totalPRs > 0 ? repo.total / totalPRs : 0;
+    const sweep = pct * 360;
+    const path = arcPath(angle, angle + sweep, COLORS[i % COLORS.length], i);
+    const seg = { repo, pct, sweep, color: COLORS[i % COLORS.length], path };
+    angle += sweep;
+    return seg;
+  });
+
+  const freshness = prData.generated_at
+    ? `<span class="pr-freshness">Updated ${new Date(prData.generated_at).toLocaleString()}</span>`
+    : "";
+
+  const svgSlices = segments.map(s => s.path).join("\n");
+
+  const legendRows = segments.map(({ repo, pct, color }) => `
+    <div class="pr-legend-row">
+      <span class="pr-legend-swatch" style="background:${color}"></span>
+      <span class="pr-legend-name" title="${repo.name}">${repo.name}</span>
+      <span class="pr-legend-pct">${Math.round(pct * 100)}%</span>
+      <span class="pr-legend-counts">
+        <span class="pr-badge pr-open" title="Open">${repo.open}</span>
+        <span class="pr-badge pr-merged" title="Merged">${repo.merged}</span>
+        <span class="pr-badge pr-closed" title="Closed">${repo.closed}</span>
+      </span>
+    </div>`).join("");
+
+  el.innerHTML = `
+    <div class="pr-meta-row">${freshness} <span class="pr-total-label">${totalPRs} total PRs across ${repos.length} repos</span></div>
+    <div class="pr-chart-wrap">
+      <svg viewBox="0 0 240 240" class="pr-donut-svg" role="img" aria-label="Donut chart showing PR share by repository">
+        ${svgSlices}
+        <text x="${CX}" y="${CY - 8}" class="pr-center-count" text-anchor="middle">${totalPRs}</text>
+        <text x="${CX}" y="${CY + 14}" class="pr-center-label" text-anchor="middle">Total PRs</text>
+      </svg>
+      <div class="pr-legend">
+        <div class="pr-legend-header">
+          <span></span><span></span><span></span>
+          <span class="pr-badge pr-open" title="Open">●</span>
+          <span class="pr-badge pr-merged" title="Merged">●</span>
+          <span class="pr-badge pr-closed" title="Closed">●</span>
+        </div>
+        <div class="pr-legend-hint-row">
+          <span></span><span></span><span></span>
+          <span class="pr-badge-label">open</span>
+          <span class="pr-badge-label">merged</span>
+          <span class="pr-badge-label">closed</span>
+        </div>
+        ${legendRows}
+      </div>
+    </div>`;
+}
+
+// ============================================================
 // Init
 // ============================================================
 async function init() {
-  await Promise.all([loadRepos(), loadWorkItems(), loadPriorityData(), loadOkrStats(), loadRepoTaskData()]);
-  renderRepos(); // re-render repos with work items overlaid
+  await Promise.all([loadRepos(), loadWorkItems(), loadPriorityData(), loadOkrStats(), loadRepoTaskData(), loadPipelineTasks(), loadResources(), loadIdentity(), loadCollegeDeadlines(), loadCollegeDailyTasks()]);
+  renderToday();   // Today is the landing view
+  renderRepos();   // pre-render repos with work items overlaid
 }
 
 init();

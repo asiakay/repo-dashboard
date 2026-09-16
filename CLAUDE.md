@@ -12,7 +12,8 @@ Static Cloudflare Pages site — no build step, no package.json, vanilla HTML/CS
 
 - `public/data/repos.json` — repo health data, committed hourly by a GitHub Actions workflow; fetched directly by the frontend (not via an API function).
 - `functions/api/repos.js` — a Cloudflare Pages Function; exists but is not currently used by the frontend for repo data (frontend reads the static JSON directly instead).
-- `functions/api/work-items.js` / `functions/api/work-items/[id].js` — API for the D1-backed work-items tracker (GET/POST list+create, PUT update by id).
+- `functions/api/work-items.js` / `functions/api/work-items/[id].js` — API for the D1-backed work-items tracker (GET/POST list+create, PUT update by id). The PUT handler auto-stamps `started_at`/`completed_at` based on status transitions (server-side).
+- `functions/api/me.js` — GET `/api/me`; returns `{ email, authenticated }` from the `Cf-Access-Authenticated-User-Email` header injected by Cloudflare Access.
 - `wrangler.jsonc` — config; includes a `d1_databases` binding named `DB` pointing at the `repo-dashboard-work-items` database.
 - `db/schema.sql` — the `work_items` table definition + seed data.
 - `public/js/app.js` — all frontend logic: tab switching, repo rendering, work-item rendering, dependency-warning logic, inline edit forms.
@@ -58,11 +59,12 @@ One row per task, not per repo — a repo accumulates history over time rather t
 ```sql
 -- Strategic objectives / key results
 CREATE TABLE okrs (
-    id TEXT PRIMARY KEY,              -- e.g. 'KR-1.1'
+    id TEXT PRIMARY KEY,              -- e.g. 'KR-1.1' or 'EDU-1.1'
     objective TEXT NOT NULL,          -- high-level goal title
     key_result TEXT NOT NULL,         -- measurable outcome
     target_date TEXT,                 -- YYYY-MM-DD or 'Ongoing'
-    status TEXT CHECK(status IN ('Planned','In Progress','In Review','Completed'))
+    status TEXT CHECK(status IN ('Planned','In Progress','In Review','Completed')),
+    category TEXT DEFAULT 'project'   -- 'project','education','life_admin','health','financial','other'
 );
 
 -- Micro-tasks linked to OKRs
@@ -74,7 +76,16 @@ CREATE TABLE tasks (
     time_spent TEXT,                  -- free-form, e.g. '45m', '1.5h'
     status TEXT CHECK(status IN ('To Do','In Progress','Done')),
     notes TEXT,
+    depends_on_task_id INTEGER REFERENCES tasks(id),  -- blocking relationship within an OKR
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- OKR-to-OKR ordering (cross-OKR dependencies)
+CREATE TABLE okr_dependencies (
+    okr_id            TEXT NOT NULL REFERENCES okrs(id) ON DELETE CASCADE,
+    depends_on_okr_id TEXT NOT NULL REFERENCES okrs(id) ON DELETE CASCADE,
+    note              TEXT,
+    PRIMARY KEY (okr_id, depends_on_okr_id)
 );
 ```
 
@@ -117,7 +128,13 @@ JSON-RPC 2.0 transport. All requests must include `Content-Type: application/jso
 | `log_task` | `description`, `okr_id` | Log a micro-task against an OKR |
 | `get_okr_progress` | _(none)_ | Aggregated completion % per OKR |
 | `get_daily_summary` | `date` (optional, defaults to UTC today) | All tasks for a date |
-| `register_okr` | `id`, `objective`, `key_result` | Create or update an OKR |
+| `register_okr` | `id`, `objective`, `key_result` | Create or update an OKR. Optional: `category` (`project`/`education`/`life_admin`/`health`/`financial`/`other`, defaults to `project`) |
+| `list_agent_tasks` | _(none)_ | Return the agent work queue (assigned_to=agent, excludes done by default). Optional: `include_done`, `repo_name` filter |
+| `start_task` | `task_id` | Claim a work-item task: set status=in_progress, stamp started_at. Idempotent if already in_progress |
+| `finish_task` | `task_id` | Complete a work-item task: set status=done, stamp completed_at. Optional `notes` appended to existing |
+| `list_okr_tasks` | _(none)_ | Return OKR micro-tasks from the `tasks` table. Optional: `okr_id`, `status`, `include_done` |
+| `start_okr_task` | `task_id` | Advance an OKR micro-task to In Progress; stamps `started_at`. Idempotent |
+| `finish_okr_task` | `task_id` | Advance an OKR micro-task to Done; stamps `completed_at`. Optional: `notes`, `time_spent` |
 
 **Error codes:**
 
@@ -202,8 +219,17 @@ curl -s -X POST "$BASE" \
   -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"get_okr_progress","arguments":{}}}'
 ```
 
+## Pipeline / Kanban view
+
+The **Pipeline** tab shows OKR micro-tasks (`tasks` table) as a Kanban board: **In Progress → To Do → Done**.
+
+- Frontend: `public/js/app.js` `renderPipeline()`, styles in `public/styles.css` under "Pipeline / Kanban board".
+- REST: `GET /api/tasks` (open), `PUT /api/tasks/:id` (write-auth) — implemented in `functions/api/tasks.js` and `functions/api/tasks/[id].js`.
+- Clicking **Advance** on a card calls `PUT /api/tasks/:id` with the next status; the server auto-stamps `started_at` / `completed_at`.
+- The OKR filter dropdown at top-right filters all three columns simultaneously.
+- Migration `db/migrations/0003_task_timestamps.sql` (applied to production D1) adds `started_at TEXT` and `completed_at TEXT` to the `tasks` table.
+
 ## What's NOT built yet (as of last update)
 
 - Open PR/branch data is not surfaced on repo cards — only manually-logged `work_items` rows.
-- No auth on the work-items API — anyone with the URL can read/write. Fine for personal use, worth revisiting if this is ever shared beyond Asia.
-- The OKR/tasks data is not yet surfaced in the dashboard frontend — it's API + MCP only at this stage.
+- Write auth uses `WRITE_TOKEN` (local dev) and Cloudflare Access (production). `functions/_shared/auth.js` checks the `Cf-Access-Authenticated-User-Email` header first; if present, the user is considered authenticated. If absent (local dev), it falls back to `WRITE_TOKEN` bearer-token check. Read endpoints remain open.

@@ -27,6 +27,8 @@ export async function onRequest(context) {
                 o.key_result,
                 o.target_date,
                 o.status,
+                o.created_at,
+                COALESCE(o.category, 'project') AS category,
                 COUNT(t.id) AS total_tasks,
                 SUM(CASE WHEN t.status = 'Done' THEN 1 ELSE 0 END) AS done_tasks,
                 ROUND(
@@ -37,7 +39,7 @@ export async function onRequest(context) {
          FROM okrs o
          LEFT JOIN tasks t ON t.okr_id = o.id
          GROUP BY o.id
-         ORDER BY o.id`
+         ORDER BY o.category, o.id`
       ).all(),
       env.DB.prepare(
         `SELECT t.id, t.date, t.description, t.okr_id, t.time_spent, t.status, t.notes, t.created_at,
@@ -50,6 +52,19 @@ export async function onRequest(context) {
     ]);
     okrs = okrResult.results;
     tasks = taskResult.results;
+    // Attach OKR-level dependencies (soft-fail if table not yet created)
+    try {
+      const { results: deps } = await env.DB.prepare(
+        `SELECT od.okr_id, od.depends_on_okr_id, o.objective AS dep_objective
+         FROM okr_dependencies od
+         JOIN okrs o ON o.id = od.depends_on_okr_id`
+      ).all();
+      const depsMap = {};
+      for (const d of deps) (depsMap[d.okr_id] = depsMap[d.okr_id] || []).push(d);
+      okrs = okrs.map(o => ({ ...o, deps: depsMap[o.id] || [] }));
+    } catch {
+      okrs = okrs.map(o => ({ ...o, deps: [] }));
+    }
   } catch {
     // Tables don't exist yet — apply the schema inline and retry (no wrangler CLI needed).
     try {
@@ -59,7 +74,9 @@ export async function onRequest(context) {
           objective TEXT NOT NULL,
           key_result TEXT NOT NULL,
           target_date TEXT,
-          status TEXT CHECK(status IN ('Planned','In Progress','In Review','Completed')) DEFAULT 'In Progress'
+          status TEXT CHECK(status IN ('Planned','In Progress','In Review','Completed')) DEFAULT 'In Progress',
+          created_at TEXT DEFAULT NULL,
+          category TEXT DEFAULT 'project' CHECK(category IN ('project','education','life_admin','health','financial','other'))
         );
         CREATE TABLE IF NOT EXISTS tasks (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -87,6 +104,8 @@ export async function onRequest(context) {
                   o.key_result,
                   o.target_date,
                   o.status,
+                  o.created_at,
+                  COALESCE(o.category, 'project') AS category,
                   COUNT(t.id) AS total_tasks,
                   SUM(CASE WHEN t.status = 'Done' THEN 1 ELSE 0 END) AS done_tasks,
                   ROUND(
@@ -97,7 +116,7 @@ export async function onRequest(context) {
            FROM okrs o
            LEFT JOIN tasks t ON t.okr_id = o.id
            GROUP BY o.id
-           ORDER BY o.id`
+           ORDER BY o.category, o.id`
         ).all(),
         env.DB.prepare(
           `SELECT t.id, t.date, t.description, t.okr_id, t.time_spent, t.status, t.notes, t.created_at,
@@ -108,7 +127,7 @@ export async function onRequest(context) {
            ORDER BY t.created_at`
         ).bind(today).all(),
       ]);
-      okrs = okrResult2.results;
+      okrs = okrResult2.results.map(o => ({ ...o, deps: [] }));
       tasks = taskResult2.results;
     } catch {
       // exec() itself failed — D1 binding misconfigured or unknown error.
@@ -117,6 +136,41 @@ export async function onRequest(context) {
         { headers: CORS }
       );
     }
+  }
+
+  // Augment education OKRs with assignment-based progress (soft-fail)
+  try {
+    const { results: asnStats } = await env.DB.prepare(`
+      SELECT
+        okr_id,
+        COUNT(*)                                                           AS total_assignments,
+        SUM(CASE WHEN status IN ('Submitted','Graded') THEN 1 ELSE 0 END) AS completed_assignments,
+        MIN(CASE WHEN status NOT IN ('Submitted','Graded')
+                  AND due_date >= DATE('now')
+                 THEN due_date END)                                        AS next_due_date
+      FROM assignments
+      WHERE okr_id IS NOT NULL
+      GROUP BY okr_id
+    `).all();
+    const asnMap = {};
+    for (const a of asnStats) asnMap[a.okr_id] = a;
+    okrs = okrs.map(o => {
+      const asn = asnMap[o.id];
+      if (!asn || asn.total_assignments === 0) return o;
+      const pct = Math.round(1000 * asn.completed_assignments / asn.total_assignments) / 10;
+      return {
+        ...o,
+        has_assignments: true,
+        total_assignments: asn.total_assignments,
+        completed_assignments: asn.completed_assignments,
+        total_tasks: asn.total_assignments,
+        done_tasks: asn.completed_assignments,
+        completion_pct: pct,
+        next_due_date: asn.next_due_date || null,
+      };
+    });
+  } catch {
+    // assignments table not present — skip silently
   }
 
   return new Response(

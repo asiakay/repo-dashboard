@@ -1,0 +1,19 @@
+# Local dev environment variables for wrangler pages dev
+# Copy this file to .dev.vars and fill in real values.
+# .dev.vars is gitignored and loaded automatically by `wrangler pages dev`.
+#
+# Quick start:
+#   cp .dev.vars.example .dev.vars
+#   npm run seed        # initialize local D1 schema + work_items seed data
+#   npm run seed:data   # add OKR/task/deadline seed rows for all frontend tabs
+#   npm run dev         # start full local stack at http://localhost:8788
+
+# Raises GitHub API rate limit from 60 → 5000 req/hr (unauthenticated hits cap fast).
+# Create at: https://github.com/settings/tokens  (no scopes needed for public repos)
+GITHUB_TOKEN=ghp_your_token_here
+
+# Guards POST/PUT on /api/work-items. Leave blank to keep the endpoint open (fine for local dev).
+WRITE_TOKEN=local-dev-write-token
+
+# Guards POST on /api/mcp. Leave blank to keep the endpoint open (fine for local dev).
+MCP_SECRET_TOKEN=local-dev-mcp-token

@@ -11,5 +11,29 @@
   { "name": "grantmatch", "owner": "asiakay", "sync": "file" },
   { "name": "pwse", "owner": "asiakay", "sync": "file" },
   { "name": "hemp-pilot-ops-dashboard", "owner": "asiakay", "sync": "file" },
-  { "name": "one-hour-service-library", "owner": "asiakay", "sync": "file" }
+  { "name": "one-hour-service-library", "owner": "asiakay", "sync": "file" },
+  { "name": "moving-agent-project", "owner": "asiakay", "sync": "file" },
+  { "name": "commonground", "owner": "asiakay", "sync": "file" },
+  { "name": "temporal-convergence", "owner": "asiakay", "sync": "file" },
+  {
+    "name": "masshealth-crm",
+    "owner": "asiakay",
+    "sync": "api",
+    "api_url": "https://masshealth-crm-api.asialakaygrady-6d4.workers.dev/api/deadline-signals",
+    "domain": "legal",
+    "_note": "/api/deadline-signals endpoint not yet implemented on the worker — add it when deadline data is needed in priority scoring. Requires MASSHEALTH_SYNC_TOKEN secret on repo-dashboard matching masshealth-crm WRITE_TOKEN."
+  },
+  {
+    "name": "guardianship-legal-track",
+    "owner": "asiakay",
+    "sync": "manual",
+    "domain": "legal",
+    "_note": "Placeholder — no standalone repo. Deadlines tracked via DAD-* OKRs in repo-dashboard D1."
+  },
+  {
+    "name": "fathers-care",
+    "sync": "manual",
+    "domain": "legal",
+    "_note": "Synthetic label (not a GitHub repo) for the family guardianship & care-placement case. work_items and deadline_signals use this as repo_name/affects_repos so the case surfaces in Active Work, Agent Tasks, and Priority alongside real repos. DAD-* OKRs in the okrs table are the source of truth for stage tracking. Do not attempt GitHub repo-health sync for this entry."
+  }
 ]

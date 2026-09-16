@@ -18,6 +18,7 @@
           <p>Live view of <span id="owner-name">asiakay</span> GitHub repos</p>
         </div>
       </div>
+      <div id="identity-chip" class="identity-chip" hidden aria-label="Signed in as"></div>
       <div class="top-stats" role="group" aria-label="Repository health summary">
         <div class="stat-pill" id="pill-total" title="Show all" role="button" tabindex="0">
           <span class="stat-label">Total</span>
@@ -28,7 +29,7 @@
           <span class="stat-value" id="stat-green">0</span>
         </div>
         <div class="stat-pill stat-yellow" id="pill-yellow" title="Filter: Needs attention" role="button" tabindex="0">
-          <span class="stat-label">Needs attention</span>
+          <span class="stat-label">Attention</span>
           <span class="stat-value" id="stat-yellow">0</span>
         </div>
         <div class="stat-pill stat-red" id="pill-red" title="Filter: Stale" role="button" tabindex="0">
@@ -42,23 +43,49 @@
   <!-- Tab navigation -->
   <nav class="tab-nav" aria-label="Dashboard views">
     <div class="tab-nav-inner" role="tablist">
-      <button class="tab-btn active" data-tab="repos" id="tab-repos" role="tab" aria-selected="true" aria-controls="view-repos">Repos</button>
+      <button class="tab-btn tab-primary active" data-tab="today" id="tab-today" role="tab" aria-selected="true" aria-controls="view-today">Today</button>
+      <button class="tab-btn tab-primary" data-tab="capacity" id="tab-capacity" role="tab" aria-selected="false" aria-controls="view-capacity">Capacity</button>
+      <button class="tab-btn" data-tab="okr-progress" id="tab-okr-progress" role="tab" aria-selected="false" aria-controls="view-okr-progress">OKR Progress</button>
+      <span class="tab-divider" aria-hidden="true"></span>
+      <button class="tab-btn" data-tab="repos" id="tab-repos" role="tab" aria-selected="false" aria-controls="view-repos">Repos</button>
       <button class="tab-btn" data-tab="active-work" id="tab-active-work" role="tab" aria-selected="false" aria-controls="view-active-work">Active Work</button>
       <button class="tab-btn" data-tab="agent-tasks" id="tab-agent-tasks" role="tab" aria-selected="false" aria-controls="view-agent-tasks">Agent Tasks</button>
       <button class="tab-btn" data-tab="priority" id="tab-priority" role="tab" aria-selected="false" aria-controls="view-priority">Priority</button>
-      <button class="tab-btn" data-tab="okr-progress" id="tab-okr-progress" role="tab" aria-selected="false" aria-controls="view-okr-progress">OKR Progress</button>
+      <button class="tab-btn" data-tab="pipeline" id="tab-pipeline" role="tab" aria-selected="false" aria-controls="view-pipeline">Pipeline</button>
+      <button class="tab-btn" data-tab="pull-requests" id="tab-pull-requests" role="tab" aria-selected="false" aria-controls="view-pull-requests">Pull Requests</button>
     </div>
   </nav>
 
   <main class="page" id="main-content">
 
+    <!-- ========== VIEW: TODAY ========== -->
+    <section id="view-today" class="view" role="tabpanel" aria-labelledby="tab-today">
+      <div id="today-list"></div>
+    </section>
+
+    <!-- ========== VIEW: CAPACITY ========== -->
+    <section id="view-capacity" class="view hidden" role="tabpanel" aria-labelledby="tab-capacity">
+      <div id="capacity-list"></div>
+    </section>
+
     <!-- ========== VIEW: REPOS ========== -->
-    <section id="view-repos" class="view" role="tabpanel" aria-labelledby="tab-repos">
+    <section id="view-repos" class="view hidden" role="tabpanel" aria-labelledby="tab-repos">
       <section class="controls">
         <div class="controls-row">
           <div class="control">
             <label for="search">Search</label>
             <input id="search" type="search" placeholder="Search by name or description..." />
+          </div>
+          <div class="control">
+            <label for="sort-by">Sort by</label>
+            <select id="sort-by">
+              <option value="updated_desc">Last updated (newest)</option>
+              <option value="updated_asc">Last updated (oldest)</option>
+              <option value="name_asc">Name (A–Z)</option>
+              <option value="name_desc">Name (Z–A)</option>
+              <option value="issues_desc">Open issues (high → low)</option>
+              <option value="stars_desc">Stars (high → low)</option>
+            </select>
           </div>
           <div class="control">
             <label for="language-filter">Language</label>
@@ -73,17 +100,6 @@
               <option value="green">Healthy</option>
               <option value="yellow">Needs attention</option>
               <option value="red">Stale</option>
-            </select>
-          </div>
-          <div class="control">
-            <label for="sort-by">Sort by</label>
-            <select id="sort-by">
-              <option value="updated_desc">Last updated (newest)</option>
-              <option value="updated_asc">Last updated (oldest)</option>
-              <option value="name_asc">Name (A–Z)</option>
-              <option value="name_desc">Name (Z–A)</option>
-              <option value="issues_desc">Open issues (high → low)</option>
-              <option value="stars_desc">Stars (high → low)</option>
             </select>
           </div>
         </div>
@@ -113,7 +129,8 @@
         <div class="work-form-grid">
           <div class="control">
             <label for="wf-repo">Repo name</label>
-            <input id="wf-repo" type="text" placeholder="e.g. hemp-pilot-ops-dashboard" />
+            <input id="wf-repo" type="text" list="wf-repo-list" placeholder="e.g. hemp-pilot-ops-dashboard" />
+            <datalist id="wf-repo-list"></datalist>
           </div>
           <div class="control">
             <label for="wf-task">Task description</label>
@@ -137,7 +154,8 @@
           </div>
           <div class="control">
             <label for="wf-depends">Depends on repo (optional)</label>
-            <input id="wf-depends" type="text" placeholder="e.g. front-porch-economics" />
+            <input id="wf-depends" type="text" list="wf-depends-list" placeholder="e.g. front-porch-economics" />
+            <datalist id="wf-depends-list"></datalist>
           </div>
           <div class="control">
             <label for="wf-notes">Notes (optional)</label>
@@ -148,6 +166,12 @@
           <button class="btn-primary" id="btn-save-work-item">Save</button>
           <button class="btn-ghost" id="btn-cancel-work-item">Cancel</button>
         </div>
+      </div>
+
+      <!-- Active / Completed segmented toggle -->
+      <div class="work-view-toggle" role="group" aria-label="Work item filter">
+        <button class="work-toggle-btn active" id="wtoggle-active" data-view="active">Active</button>
+        <button class="work-toggle-btn" id="wtoggle-completed" data-view="completed">Completed</button>
       </div>
 
       <!-- Grouped work items, injected by JS -->
@@ -187,6 +211,36 @@
         </div>
       </div>
       <div id="okr-progress-list"></div>
+    </section>
+
+    <!-- ========== VIEW: PIPELINE ========== -->
+    <section id="view-pipeline" class="view hidden" role="tabpanel" aria-labelledby="tab-pipeline">
+      <div class="view-header">
+        <div>
+          <h2 class="view-title">Pipeline</h2>
+          <p class="view-subtitle">Move OKR micro-tasks through To Do → In Progress → Done. Click a card to advance it.</p>
+        </div>
+        <div class="pipeline-filter-row">
+          <label for="pipeline-okr-filter" class="sr-only">Filter by OKR</label>
+          <select id="pipeline-okr-filter">
+            <option value="">All OKRs</option>
+          </select>
+        </div>
+      </div>
+      <div id="pipeline-board" class="pipeline-board">
+        <!-- Kanban columns injected by JS -->
+      </div>
+    </section>
+
+    <!-- ========== VIEW: PULL REQUESTS ========== -->
+    <section id="view-pull-requests" class="view hidden" role="tabpanel" aria-labelledby="tab-pull-requests">
+      <div class="view-header">
+        <div>
+          <h2 class="view-title">Pull Requests</h2>
+          <p class="view-subtitle">PR activity across all repos — share of total shows where work is concentrated.</p>
+        </div>
+      </div>
+      <div id="pr-chart-container"></div>
     </section>
 
   </main>

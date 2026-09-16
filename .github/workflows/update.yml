@@ -9,7 +9,26 @@ on:
     - cron: "0 * * * *"
 
 jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Write denylist from secret
+        run: |
+          mkdir -p .data-scan
+          if [ -n "$DATA_SCAN_DENYLIST" ]; then
+            printf '%s' "$DATA_SCAN_DENYLIST" > .data-scan/denylist.txt
+          fi
+        env:
+          DATA_SCAN_DENYLIST: ${{ secrets.DATA_SCAN_DENYLIST }}
+      - uses: asiakay/data-scan@v1
+        with:
+          fail-on-match: 'true'
+
   init-and-update:
+    needs: scan
     runs-on: ubuntu-latest
 
     steps:
@@ -86,8 +105,8 @@ jobs:
             echo "---- Fetching page $PAGE ----"
 
             curl -s \
-              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              "https://api.github.com/users/asiakay/repos?per_page=$PER_PAGE&page=$PAGE" \
+              -H "Authorization: token ${{ secrets.REPOS_PAT }}" \
+              "https://api.github.com/user/repos?type=all&per_page=$PER_PAGE&page=$PAGE" \
               -o page.json
 
             COUNT=$(jq '. | length' page.json)
@@ -220,11 +239,76 @@ jobs:
           EOF
 
       # ============================================================
-      # 8. SYNC GITHUB ISSUES LABELED "claude" → D1 WORK ITEMS
+      # 6a. SCAN GENERATED repos.json FOR PII/PHI
+      # The scan job above checks the current commit; it cannot see
+      # content generated at runtime in this job's workspace.
+      # This step scans the freshly written file before it is committed.
+      # ============================================================
+      - name: Write denylist from secret
+        run: |
+          mkdir -p .data-scan
+          if [ -n "$DATA_SCAN_DENYLIST" ]; then
+            printf '%s' "$DATA_SCAN_DENYLIST" > .data-scan/denylist.txt
+          fi
+        env:
+          DATA_SCAN_DENYLIST: ${{ secrets.DATA_SCAN_DENYLIST }}
+
+      - name: Scan generated repos.json for PII/PHI
+        run: |
+          node << 'EOF'
+          const fs = require('fs');
+
+          const PATTERNS = [
+            { name: 'SSN',          re: /\b\d{3}-\d{2}-\d{4}\b/ },
+            { name: 'US phone',     re: /\b(?:\+1[-.\s]?)?\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b/ },
+            { name: 'US street',    re: /\b\d+\s+[A-Za-z][A-Za-z\s]{1,30}\s+(?:St(?:reet)?|Ave(?:nue)?|Blvd|Dr(?:ive)?|Rd|Ln|Lane|Ct|Court|Pl(?:ace)?|Way|Pkwy|Terr?(?:ace)?|Cir(?:cle)?|Hwy)\b/i },
+            { name: 'court docket', re: /\b\d{2}[A-Z]\d{5}[A-Z]{2}\d{5}\b/ },
+          ];
+
+          const denylist = [];
+          try {
+            const raw = fs.readFileSync('.data-scan/denylist.txt', 'utf8');
+            for (const line of raw.split('\n')) {
+              const t = line.trim();
+              if (t && !t.startsWith('#')) denylist.push(t.toLowerCase());
+            }
+          } catch {}
+
+          const content = fs.readFileSync('public/data/repos.json', 'utf8');
+          const lines = content.split('\n');
+
+          let found = false;
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            for (const { name, re } of PATTERNS) {
+              if (re.test(line)) {
+                // Report location only — never echo matched content
+                console.error(`public/data/repos.json:${i + 1} [${name}]`);
+                found = true;
+              }
+            }
+            const lower = line.toLowerCase();
+            for (const entry of denylist) {
+              if (lower.includes(entry)) {
+                console.error(`public/data/repos.json:${i + 1} [denylist]`);
+                found = true;
+              }
+            }
+          }
+
+          if (found) {
+            console.error('\nPII/PHI match in generated repos.json — commit blocked.');
+            process.exit(1);
+          }
+          console.log('repos.json scan clean.');
+          EOF
+
+      # ============================================================
+      # 7. SYNC GITHUB ISSUES LABELED "claude" → D1 WORK ITEMS
       # ============================================================
       - name: Sync claude-labeled issues to D1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.REPOS_PAT }}
           DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
           WRITE_TOKEN: ${{ secrets.WRITE_TOKEN }}
         run: |

@@ -1,0 +1,125 @@
+name: Fetch PR Activity Data
+
+permissions:
+  contents: write
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 */4 * * *"
+
+jobs:
+  fetch-prs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Fetch PR data from GitHub API
+        env:
+          REPOS_PAT: ${{ secrets.REPOS_PAT }}
+        run: |
+          node << 'EOF'
+          (async () => {
+            const token = process.env.REPOS_PAT;
+            const headers = {
+              'Authorization': `token ${token}`,
+              'User-Agent': 'repo-dashboard/1.0',
+              'Accept': 'application/vnd.github.v3+json'
+            };
+            const fs = require('fs');
+
+            const prsByRepo = {};
+
+            async function fetchPRPage(state, page) {
+              const res = await fetch(
+                `https://api.github.com/search/issues?q=is:pr+user:asiakay+state:${state}&per_page=100&page=${page}`,
+                { headers }
+              );
+              if (res.status === 403 || res.status === 429) {
+                const retry = res.headers.get('retry-after') || '60';
+                console.log(`Rate limited — waiting ${retry}s`);
+                await new Promise(r => setTimeout(r, parseInt(retry, 10) * 1000));
+                return fetchPRPage(state, page);
+              }
+              if (!res.ok) {
+                console.error(`Search API error: HTTP ${res.status}`);
+                return null;
+              }
+              return res.json();
+            }
+
+            async function fetchAllPRs(state) {
+              const items = [];
+              let page = 1;
+              while (true) {
+                console.log(`  Fetching ${state} PRs page ${page}…`);
+                const data = await fetchPRPage(state, page);
+                if (!data || !data.items || data.items.length === 0) break;
+                items.push(...data.items);
+                console.log(`  Got ${data.items.length} items (total so far: ${items.length} / ${data.total_count})`);
+                if (items.length >= data.total_count || data.items.length < 100) break;
+                page++;
+                // Search API: 30 req/min authenticated — 2.1s gap keeps us safe
+                await new Promise(r => setTimeout(r, 2100));
+              }
+              return items;
+            }
+
+            console.log('--- Fetching open PRs ---');
+            const openPRs = await fetchAllPRs('open');
+            for (const pr of openPRs) {
+              const name = pr.repository_url.split('/').pop();
+              if (!prsByRepo[name]) prsByRepo[name] = { open: 0, merged: 0, closed: 0 };
+              prsByRepo[name].open++;
+            }
+
+            // Pause between the two search queries
+            await new Promise(r => setTimeout(r, 2100));
+
+            console.log('--- Fetching closed PRs ---');
+            const closedPRs = await fetchAllPRs('closed');
+            for (const pr of closedPRs) {
+              const name = pr.repository_url.split('/').pop();
+              if (!prsByRepo[name]) prsByRepo[name] = { open: 0, merged: 0, closed: 0 };
+              // pull_request.merged_at is present in search API results
+              const merged = pr.pull_request && pr.pull_request.merged_at;
+              if (merged) {
+                prsByRepo[name].merged++;
+              } else {
+                prsByRepo[name].closed++;
+              }
+            }
+
+            const repos = Object.entries(prsByRepo)
+              .map(([name, c]) => ({
+                name,
+                open: c.open,
+                merged: c.merged,
+                closed: c.closed,
+                total: c.open + c.merged + c.closed
+              }))
+              .sort((a, b) => b.total - a.total);
+
+            const output = {
+              generated_at: new Date().toISOString(),
+              total_prs: repos.reduce((s, r) => s + r.total, 0),
+              repos
+            };
+
+            fs.mkdirSync('public/data', { recursive: true });
+            fs.writeFileSync('public/data/pull_requests.json', JSON.stringify(output, null, 2));
+            console.log(`Wrote pull_requests.json: ${repos.length} repos, ${output.total_prs} total PRs`);
+          })();
+          EOF
+
+      - name: Commit PR data
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: update pull_requests.json"
+          file_pattern: public/data/pull_requests.json

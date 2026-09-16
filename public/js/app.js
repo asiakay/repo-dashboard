@@ -2191,10 +2191,13 @@ document.getElementById("okr-progress-list").addEventListener("click", async e =
 });
 
 // ============================================================
-// Pull Requests — donut chart
+// Pull Requests — donut chart + history list
 // ============================================================
 let prData = null;
 let prDataError = null;
+let prHistoryRepo = "all";
+let prHistoryState = "all";
+let prHistorySearch = "";
 
 async function loadPullRequests() {
   try {
@@ -2297,6 +2300,47 @@ function renderPullRequests() {
       </span>
     </div>`).join("");
 
+  // History list
+  const history = prData.history || [];
+  const repoNames = [...new Set(history.map(p => p.repo))].sort();
+
+  const filtered = history.filter(p => {
+    if (prHistoryRepo !== "all" && p.repo !== prHistoryRepo) return false;
+    if (prHistoryState !== "all" && p.state !== prHistoryState) return false;
+    if (prHistorySearch) {
+      const q = prHistorySearch.toLowerCase();
+      if (!p.title.toLowerCase().includes(q) && !p.repo.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+
+  const PAGE = 100;
+  const shown = filtered.slice(0, PAGE);
+  const moreCount = Math.max(0, filtered.length - PAGE);
+
+  const historyRows = shown.map(p => {
+    const date = p.merged_at || p.closed_at || p.created_at;
+    const dateStr = date ? new Date(date).toLocaleDateString() : "";
+    const stateClass = p.state === "open" ? "pr-open" : p.state === "merged" ? "pr-merged" : "pr-closed";
+    return `
+    <div class="pr-history-row">
+      <span class="pr-badge ${stateClass} pr-history-state">${p.state}</span>
+      <div class="pr-history-main">
+        <a href="${p.url}" target="_blank" rel="noopener" class="pr-history-title">${escapeText(p.title)}</a>
+        <div class="pr-history-meta">
+          <span>${escapeText(p.repo)}</span>
+          <span>#${p.number}</span>
+          ${p.author ? `<span>${escapeText(p.author)}</span>` : ""}
+          <span>${dateStr}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+
+  const repoOptions = repoNames.map(n =>
+    `<option value="${n}" ${prHistoryRepo === n ? "selected" : ""}>${n}</option>`
+  ).join("");
+
   el.innerHTML = `
     <div class="pr-meta-row">${freshness} <span class="pr-total-label">${totalPRs} total PRs across ${repos.length} repos</span></div>
     <div class="pr-chart-wrap">
@@ -2320,6 +2364,28 @@ function renderPullRequests() {
         </div>
         ${legendRows}
       </div>
+    </div>
+    <div class="pr-history-section">
+      <div class="pr-history-filters">
+        <select onchange="prHistoryRepo=this.value;renderPullRequests()">
+          <option value="all" ${prHistoryRepo === "all" ? "selected" : ""}>All repos</option>
+          ${repoOptions}
+        </select>
+        <select onchange="prHistoryState=this.value;renderPullRequests()">
+          <option value="all"    ${prHistoryState === "all"    ? "selected" : ""}>All states</option>
+          <option value="open"   ${prHistoryState === "open"   ? "selected" : ""}>Open</option>
+          <option value="merged" ${prHistoryState === "merged" ? "selected" : ""}>Merged</option>
+          <option value="closed" ${prHistoryState === "closed" ? "selected" : ""}>Closed</option>
+        </select>
+        <input type="search" placeholder="Search title or repo…"
+          value="${prHistorySearch.replace(/"/g, '&quot;')}"
+          oninput="prHistorySearch=this.value;renderPullRequests()" />
+        <span class="pr-history-count">${filtered.length} PR${filtered.length !== 1 ? "s" : ""}</span>
+      </div>
+      <div class="pr-history-list">
+        ${historyRows || '<p class="empty-state">No PRs match this filter.</p>'}
+        ${moreCount ? `<p class="pr-history-more">+ ${moreCount} more — narrow the filter to see all</p>` : ""}
+      </div>
     </div>`;
 }
 
@@ -2327,7 +2393,7 @@ function renderPullRequests() {
 // Init
 // ============================================================
 async function init() {
-  await Promise.all([loadRepos(), loadWorkItems(), loadPriorityData(), loadOkrStats(), loadRepoTaskData(), loadPipelineTasks(), loadResources(), loadIdentity(), loadCollegeDeadlines(), loadCollegeDailyTasks()]);
+  await Promise.all([loadRepos(), loadWorkItems(), loadPriorityData(), loadOkrStats(), loadRepoTaskData(), loadPipelineTasks(), loadResources(), loadIdentity(), loadCollegeDeadlines(), loadCollegeDailyTasks(), loadPullRequests()]);
   renderToday();   // Today is the landing view
   renderRepos();   // pre-render repos with work items overlaid
 }

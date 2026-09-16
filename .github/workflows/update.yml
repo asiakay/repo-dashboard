@@ -304,6 +304,73 @@ jobs:
           EOF
 
       # ============================================================
+      # 6b. FETCH PR DATA FOR ACTIVE REPOS → pull_requests.json
+      # Fetches open + recent PRs for repos updated in the last 90 days.
+      # Writes public/data/pull_requests.json with per-repo counts and
+      # a flat history array for the dashboard PR history list.
+      # ============================================================
+      - name: Fetch PR data for active repos
+        env:
+          REPOS_PAT: ${{ secrets.REPOS_PAT }}
+        run: |
+          node << 'EOF'
+          (async () => {
+            const fs = require('fs');
+            const raw = JSON.parse(fs.readFileSync('public/data/repos.json', 'utf8'));
+            const repos = Array.isArray(raw) ? raw : (raw.repos || []);
+
+            const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
+            const active = repos.filter(r => new Date(r.updated_at).getTime() > cutoff);
+            console.log(`Fetching PRs for ${active.length} active repos...`);
+
+            const token = process.env.REPOS_PAT;
+            const repoStats = [];
+            const history = [];
+
+            for (const repo of active) {
+              const res = await fetch(
+                `https://api.github.com/repos/asiakay/${repo.name}/pulls?state=all&per_page=30&sort=updated`,
+                { headers: { Authorization: `token ${token}`, 'User-Agent': 'repo-dashboard/1.0' } }
+              );
+              if (!res.ok) { console.log(`  skip ${repo.name}: ${res.status}`); continue; }
+              const prs = await res.json();
+              if (!Array.isArray(prs) || !prs.length) continue;
+
+              let open = 0, merged = 0, closed = 0;
+              for (const pr of prs) {
+                if (pr.state === 'open') open++;
+                else if (pr.merged_at) merged++;
+                else closed++;
+                history.push({
+                  repo: repo.name,
+                  number: pr.number,
+                  title: pr.title,
+                  state: pr.merged_at ? 'merged' : pr.state,
+                  url: pr.html_url,
+                  created_at: pr.created_at,
+                  merged_at: pr.merged_at || null,
+                  closed_at: pr.closed_at || null,
+                  author: pr.user?.login || null,
+                });
+              }
+              if (open + merged + closed > 0) {
+                repoStats.push({ name: repo.name, open, merged, closed, total: open + merged + closed });
+              }
+            }
+
+            history.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            const output = {
+              generated_at: new Date().toISOString(),
+              total_prs: history.length,
+              repos: repoStats.sort((a, b) => b.total - a.total),
+              history: history.slice(0, 300),
+            };
+            fs.writeFileSync('public/data/pull_requests.json', JSON.stringify(output, null, 2));
+            console.log(`Wrote pull_requests.json: ${repoStats.length} repos, ${history.length} PRs`);
+          })();
+          EOF
+
+      # ============================================================
       # 7. SYNC GITHUB ISSUES LABELED "claude" → D1 WORK ITEMS
       # ============================================================
       - name: Sync claude-labeled issues to D1

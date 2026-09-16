@@ -1997,6 +1997,112 @@ body { min-height: 100vh; }
 .pr-closed { background: rgba(160, 174, 192, 0.14); color: #a0aec0; }
 
 /* ============================================================
+   PR history list
+   ============================================================ */
+.pr-history-section {
+  margin-top: 28px;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 20px;
+}
+
+.pr-history-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.pr-history-filters select,
+.pr-history-filters input[type="search"] {
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: rgba(10, 13, 32, 0.95);
+  color: var(--text-main);
+  font-size: 13px;
+  font-family: var(--font-main);
+  outline: none;
+}
+
+.pr-history-filters select:focus,
+.pr-history-filters input[type="search"]:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(79, 209, 197, 0.4);
+}
+
+.pr-history-filters input[type="search"] { min-width: 200px; flex: 1; }
+
+.pr-history-count {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.pr-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pr-history-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: rgba(13, 16, 28, 0.7);
+  transition: border-color 0.12s;
+}
+
+.pr-history-row:hover { border-color: rgba(79, 209, 197, 0.25); }
+
+.pr-history-state {
+  margin-top: 2px;
+  flex-shrink: 0;
+  min-width: 54px;
+  text-align: center;
+}
+
+.pr-history-main { flex: 1; min-width: 0; }
+
+.pr-history-title {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-main);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 3px;
+}
+
+.pr-history-title:hover { color: var(--accent); }
+
+.pr-history-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.pr-history-more {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 8px 0;
+  margin: 0;
+}
+
+@media (max-width: 600px) {
+  .pr-history-filters input[type="search"] { min-width: 100%; }
+}
+
+/* ============================================================
    Shared utility
    ============================================================ */
 .btn-link {

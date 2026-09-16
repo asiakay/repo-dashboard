@@ -35,6 +35,7 @@ jobs:
             const fs = require('fs');
 
             const prsByRepo = {};
+            const history = [];
 
             async function fetchPRPage(state, page) {
               const res = await fetch(
@@ -77,6 +78,12 @@ jobs:
               const name = pr.repository_url.split('/').pop();
               if (!prsByRepo[name]) prsByRepo[name] = { open: 0, merged: 0, closed: 0 };
               prsByRepo[name].open++;
+              history.push({
+                repo: name, number: pr.number, title: pr.title,
+                state: 'open', url: pr.html_url,
+                created_at: pr.created_at, merged_at: null,
+                closed_at: null, author: pr.user?.login || null,
+              });
             }
 
             // Pause between the two search queries
@@ -88,12 +95,18 @@ jobs:
               const name = pr.repository_url.split('/').pop();
               if (!prsByRepo[name]) prsByRepo[name] = { open: 0, merged: 0, closed: 0 };
               // pull_request.merged_at is present in search API results
-              const merged = pr.pull_request && pr.pull_request.merged_at;
-              if (merged) {
+              const mergedAt = pr.pull_request && pr.pull_request.merged_at;
+              if (mergedAt) {
                 prsByRepo[name].merged++;
               } else {
                 prsByRepo[name].closed++;
               }
+              history.push({
+                repo: name, number: pr.number, title: pr.title,
+                state: mergedAt ? 'merged' : 'closed', url: pr.html_url,
+                created_at: pr.created_at, merged_at: mergedAt || null,
+                closed_at: pr.closed_at || null, author: pr.user?.login || null,
+              });
             }
 
             const repos = Object.entries(prsByRepo)
@@ -106,10 +119,13 @@ jobs:
               }))
               .sort((a, b) => b.total - a.total);
 
+            history.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
             const output = {
               generated_at: new Date().toISOString(),
               total_prs: repos.reduce((s, r) => s + r.total, 0),
-              repos
+              repos,
+              history: history.slice(0, 300),
             };
 
             fs.mkdirSync('public/data', { recursive: true });
@@ -123,3 +139,4 @@ jobs:
         with:
           commit_message: "chore: update pull_requests.json"
           file_pattern: public/data/pull_requests.json
+          commit_author: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>

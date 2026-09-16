@@ -2226,7 +2226,7 @@ function renderPullRequests() {
   const totalPRs = prData.total_prs || 0;
 
   if (!repos.length || !totalPRs) {
-    el.innerHTML = `<p class="view-empty">No PR data yet — the workflow runs hourly and will populate this view.</p>`;
+    el.innerHTML = `<p class="view-empty">No PR data yet — the hourly <strong>Initialize &amp; Update Repo Dashboard</strong> workflow will populate this view.</p>`;
     return;
   }
 

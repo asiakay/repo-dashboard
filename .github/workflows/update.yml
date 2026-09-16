@@ -173,6 +173,7 @@ jobs:
             full_name: r.full_name,
             url: r.html_url,
             description: r.description,
+            homepage: r.homepage || null,
             created_at: r.created_at,
             updated_at: r.updated_at,
             language: r.language,
@@ -180,7 +181,8 @@ jobs:
             stars: r.stargazers_count,
             forks: r.forks_count,
             topics: r.topics || [],
-            health: health(r)
+            health: health(r),
+            site_error: null
           }));
 
           const output = { generated_at: new Date().toISOString(), repos: cleaned };
@@ -189,7 +191,55 @@ jobs:
           EOF
 
       # ============================================================
-      # 5a. SCAN GENERATED repos.json FOR PII/PHI
+      # 6. PROBE LIVE SITES — mark site_error on repos with a homepage
+      # ============================================================
+      - name: Probe live sites
+        run: |
+          node << 'EOF'
+          const fs   = require('fs');
+          const https = require('https');
+          const http  = require('http');
+
+          const raw  = JSON.parse(fs.readFileSync('public/data/repos.json', 'utf8'));
+          const repos = Array.isArray(raw) ? raw : (raw.repos || []);
+
+          function probe(url) {
+            return new Promise(resolve => {
+              try {
+                const mod = url.startsWith('https') ? https : http;
+                const req = mod.request(url, { method: 'HEAD', timeout: 6000 }, res => {
+                  resolve(res.statusCode >= 400);
+                });
+                req.on('error', () => resolve(true));
+                req.on('timeout', () => { req.destroy(); resolve(true); });
+                req.end();
+              } catch (_) {
+                resolve(true);
+              }
+            });
+          }
+
+          async function run() {
+            const withHome = repos.filter(r => r.homepage);
+            console.log(`Probing ${withHome.length} live sites...`);
+            for (let i = 0; i < withHome.length; i += 10) {
+              const batch   = withHome.slice(i, i + 10);
+              const results = await Promise.allSettled(batch.map(r => probe(r.homepage)));
+              results.forEach((res, j) => {
+                const error = res.status === 'fulfilled' ? res.value : true;
+                batch[j].site_error = error;
+                if (error) console.log(`  ⚠ site error: ${batch[j].name} (${batch[j].homepage})`);
+              });
+            }
+            fs.writeFileSync('public/data/repos.json', JSON.stringify(raw, null, 2));
+            console.log('Site probe complete.');
+          }
+
+          run();
+          EOF
+
+      # ============================================================
+      # 6a. SCAN GENERATED repos.json FOR PII/PHI
       # The scan job above checks the current commit; it cannot see
       # content generated at runtime in this job's workspace.
       # This step scans the freshly written file before it is committed.
@@ -254,7 +304,7 @@ jobs:
           EOF
 
       # ============================================================
-      # 6. SYNC GITHUB ISSUES LABELED "claude" → D1 WORK ITEMS
+      # 7. SYNC GITHUB ISSUES LABELED "claude" → D1 WORK ITEMS
       # ============================================================
       - name: Sync claude-labeled issues to D1
         env:
@@ -357,7 +407,7 @@ jobs:
           EOF
 
       # ============================================================
-      # 7. AUTO-COMMIT CHANGES
+      # 9. AUTO-COMMIT CHANGES
       # ============================================================
       - name: Commit updated data
         uses: stefanzweifel/git-auto-commit-action@v5

@@ -364,6 +364,13 @@ body { min-height: 100vh; }
   font-weight: 500;
 }
 
+.badge-site-error {
+  border-color: rgba(251, 146, 60, 0.6);
+  background: rgba(251, 146, 60, 0.14);
+  color: #fb923c;
+  font-weight: 600;
+}
+
 /* Description */
 .repo-description { font-size: 13px; color: var(--text-muted); margin: 0; }
 

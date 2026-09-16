@@ -1027,7 +1027,12 @@ function renderRepos() {
       : "";
 
     const homepageBadge = repo.homepage
-      ? `<a href="${escapeText(repo.homepage)}" target="_blank" rel="noopener noreferrer" class="badge badge-homepage" aria-label="Visit live site for ${escapeText(repo.name)}">↗ site</a>`
+      ? `<a href="${escapeText(repo.homepage)}" target="_blank" rel="noopener noreferrer"
+            class="badge ${repo.site_error ? 'badge-site-error' : 'badge-homepage'}"
+            title="${repo.site_error ? 'Live site returned an error' : 'View live site'}"
+            aria-label="${repo.site_error ? 'Site error for ' : 'Visit live site for '}${escapeText(repo.name)}">
+           ${repo.site_error ? '⚠ site error' : '↗ site'}
+         </a>`
       : "";
 
     const topicsHtml = topics.length

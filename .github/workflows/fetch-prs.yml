@@ -134,9 +134,56 @@ jobs:
           })();
           EOF
 
-      - name: Commit PR data
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "chore: update pull_requests.json"
-          file_pattern: public/data/pull_requests.json
-          commit_author: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+      - name: Commit PR data via GitHub Contents API
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node << 'EOF'
+          // Commits created via the GitHub Contents API are automatically
+          // signed/verified by GitHub, satisfying "Require signed commits"
+          // rulesets without needing a local GPG key or git-auto-commit-action.
+          (async () => {
+            const fs = require('fs');
+            const content = fs.readFileSync('public/data/pull_requests.json', 'utf8');
+            const encoded = Buffer.from(content).toString('base64');
+
+            const headers = {
+              'Authorization': `token ${process.env.GITHUB_TOKEN}`,
+              'Accept': 'application/vnd.github.v3+json',
+              'Content-Type': 'application/json',
+              'User-Agent': 'repo-dashboard/1.0',
+            };
+
+            // Fetch the current file SHA (required by the Contents API for updates)
+            const getRes = await fetch(
+              'https://api.github.com/repos/asiakay/repo-dashboard/contents/public/data/pull_requests.json',
+              { headers }
+            );
+            const existing = await getRes.json();
+            if (!existing.sha) {
+              console.error('Could not get current file SHA:', JSON.stringify(existing));
+              process.exit(1);
+            }
+
+            const putRes = await fetch(
+              'https://api.github.com/repos/asiakay/repo-dashboard/contents/public/data/pull_requests.json',
+              {
+                method: 'PUT',
+                headers,
+                body: JSON.stringify({
+                  message: 'chore: update pull_requests.json',
+                  content: encoded,
+                  sha: existing.sha,
+                  branch: 'main',
+                }),
+              }
+            );
+            const result = await putRes.json();
+            if (result.commit) {
+              console.log(`Committed ${result.commit.sha.slice(0, 7)}: ${result.commit.html_url}`);
+            } else {
+              console.error('Commit failed:', JSON.stringify(result));
+              process.exit(1);
+            }
+          })();
+          EOF

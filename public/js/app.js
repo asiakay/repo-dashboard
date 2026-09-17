@@ -274,6 +274,12 @@ async function retryPriority() {
   renderPriority();
 }
 
+async function retryCollegeDeadlines() {
+  collegeError = null;
+  await loadCollegeDeadlines();
+  renderPriority();
+}
+
 async function loadOkrStats() {
   try {
     const res = await fetch("/api/okr-stats");
@@ -1519,13 +1525,17 @@ function renderPriority() {
     html += `</ul></div>`;
   }
 
-  // Academic deadlines panel
-  if (collegeDeadlines.length > 0) {
+  // Academic deadlines panel — always shown (error / empty / data)
+  {
     const urgent = collegeDeadlines.filter(a => {
       const days = a.due_date ? Math.ceil((new Date(a.due_date) - new Date()) / 86400000) : 999;
       return days <= 7;
     });
-    const panelClass = urgent.length > 0 ? "bottleneck-panel bottleneck-panel-college" : "bottleneck-panel bottleneck-panel-college bottleneck-panel-calm";
+    const panelClass = collegeError
+      ? "bottleneck-panel bottleneck-panel-college bottleneck-panel-calm"
+      : urgent.length > 0
+        ? "bottleneck-panel bottleneck-panel-college"
+        : "bottleneck-panel bottleneck-panel-college bottleneck-panel-calm";
     const sorted = collegeDeadlines.slice().sort((a, b) => (a.due_date || "").localeCompare(b.due_date || ""));
     html += `<div class="${panelClass}" role="region" aria-label="Academic deadlines">
       <div class="bottleneck-header">
@@ -1534,25 +1544,36 @@ function renderPriority() {
         <span class="bottleneck-count">${sorted.length}</span>
       </div>
       <ul class="bottleneck-list">`;
-    for (const a of sorted) {
-      const days = a.due_date ? Math.ceil((new Date(a.due_date) - new Date()) / 86400000) : null;
-      const isOverdue = days !== null && days <= 0;
-      const daysLabel = days === null ? "" : isOverdue
-        ? `<strong class="text-urgent">OVERDUE</strong>`
-        : `<strong class="${days <= 3 ? "text-urgent" : ""}">${days}d remaining</strong>`;
+    if (collegeError) {
       html += `<li class="bottleneck-item">
-        <span class="bottleneck-title">${escapeText(a.title)}</span>
-        <span class="bottleneck-meta">
-          · ${escapeText(a.course_name || a.course_id)}
-          ${a.due_date ? ` · due ${escapeText(a.due_date)}` : ""}
-          ${daysLabel ? ` · ${daysLabel}` : ""}
-          ${a.weight_pct ? ` · <span class="pipeline-chip">${a.weight_pct}%</span>` : ""}
-        </span>
-        <span class="bottleneck-repos">
-          <span class="badge badge-college-type badge-college-${escapeText((a.deliverable_type || "Project").toLowerCase())}">${escapeText(a.deliverable_type || "Project")}</span>
-          ${escapeText(a.objective || a.okr_id || "")}
-        </span>
+        <span class="bottleneck-meta text-urgent">Could not load college deadlines — ${escapeText(collegeError)}</span>
+        <span class="bottleneck-repos"><button class="btn-link" onclick="retryCollegeDeadlines()">Retry</button></span>
       </li>`;
+    } else if (sorted.length === 0) {
+      html += `<li class="bottleneck-item">
+        <span class="bottleneck-meta">No upcoming assignments in the next 14 days.</span>
+      </li>`;
+    } else {
+      for (const a of sorted) {
+        const days = a.due_date ? Math.ceil((new Date(a.due_date) - new Date()) / 86400000) : null;
+        const isOverdue = days !== null && days <= 0;
+        const daysLabel = days === null ? "" : isOverdue
+          ? `<strong class="text-urgent">OVERDUE</strong>`
+          : `<strong class="${days <= 3 ? "text-urgent" : ""}">${days}d remaining</strong>`;
+        html += `<li class="bottleneck-item">
+          <span class="bottleneck-title">${escapeText(a.title)}</span>
+          <span class="bottleneck-meta">
+            · ${escapeText(a.course_name || a.course_id)}
+            ${a.due_date ? ` · due ${escapeText(a.due_date)}` : ""}
+            ${daysLabel ? ` · ${daysLabel}` : ""}
+            ${a.weight_pct ? ` · <span class="pipeline-chip">${a.weight_pct}%</span>` : ""}
+          </span>
+          <span class="bottleneck-repos">
+            <span class="badge badge-college-type badge-college-${escapeText((a.deliverable_type || "Project").toLowerCase())}">${escapeText(a.deliverable_type || "Project")}</span>
+            ${escapeText(a.objective || a.okr_id || "")}
+          </span>
+        </li>`;
+      }
     }
     html += `</ul></div>`;
   }

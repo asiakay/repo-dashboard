@@ -394,7 +394,12 @@ body { min-height: 100vh; }
 .tab-nav {
   border-bottom: 1px solid var(--border-subtle);
   background: rgba(0, 0, 0, 0.4);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
+
+.tab-nav::-webkit-scrollbar { display: none; }
 
 .tab-nav-inner {
   max-width: 1120px;
@@ -402,6 +407,7 @@ body { min-height: 100vh; }
   padding: 0 20px;
   display: flex;
   gap: 4px;
+  min-width: max-content;
 }
 
 .tab-btn {
@@ -415,6 +421,8 @@ body { min-height: 100vh; }
   cursor: pointer;
   transition: color 0.15s, border-color 0.15s;
   margin-bottom: -1px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .tab-btn:hover { color: var(--text-main); }

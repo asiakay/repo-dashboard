@@ -2303,6 +2303,18 @@ function renderPullRequests() {
     return seg;
   });
 
+  const history = prData.history || [];
+  let dateRangeLabel = "";
+  if (history.length) {
+    const dates = history.map(p => new Date(p.created_at)).filter(d => !isNaN(d));
+    if (dates.length) {
+      const earliest = new Date(Math.min(...dates));
+      const latest = new Date(Math.max(...dates));
+      const fmt = d => d.toLocaleDateString(undefined, { year: "numeric", month: "short" });
+      dateRangeLabel = ` · All time (${fmt(earliest)} – ${fmt(latest)})`;
+    }
+  }
+
   const freshness = prData.generated_at
     ? `<span class="pr-freshness">Updated ${new Date(prData.generated_at).toLocaleString()}</span>`
     : "";
@@ -2363,7 +2375,7 @@ function renderPullRequests() {
   ).join("");
 
   el.innerHTML = `
-    <div class="pr-meta-row">${freshness} <span class="pr-total-label">${totalPRs} total PRs across ${repos.length} repos</span></div>
+    <div class="pr-meta-row">${freshness} <span class="pr-total-label">${totalPRs} total PRs across ${repos.length} repos${dateRangeLabel}</span></div>
     <div class="pr-chart-wrap">
       <svg viewBox="0 0 240 240" class="pr-donut-svg" role="img" aria-label="Donut chart showing PR share by repository">
         ${svgSlices}

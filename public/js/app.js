@@ -1833,8 +1833,9 @@ function renderOkrProgress() {
       const cached = okrTaskCache[okr.id];
       if (!cached || cached === "loading") {
         taskListHtml = `<div class="okr-task-list"><p class="okr-task-list-empty">Loading…</p></div>`;
-      } else if (cached === "error") {
-        taskListHtml = `<div class="okr-task-list"><p class="okr-task-list-empty">Failed to load tasks.</p></div>`;
+      } else if (cached === "error" || (typeof cached === "string" && cached.startsWith("error:"))) {
+        const detail = cached.startsWith("error:") ? cached.slice(6).trim() : "";
+        taskListHtml = `<div class="okr-task-list"><p class="okr-task-list-empty" title="${escapeText(detail)}">Failed to load tasks${detail ? " — see title for details" : ""}.</p></div>`;
       } else if (!cached.length) {
         taskListHtml = `<div class="okr-task-list"><p class="okr-task-list-empty">No tasks yet — use <code>log_task</code> via MCP.</p></div>`;
       } else {
@@ -2177,12 +2178,23 @@ document.getElementById("okr-progress-list").addEventListener("click", async e =
     return;
   }
   expandedOkrIds.add(okrId);
-  if (!okrTaskCache[okrId]) {
+  if (okrTaskCache[okrId] === undefined) {
     okrTaskCache[okrId] = "loading";
     renderOkrProgress();
     try {
       const res = await fetch(`/api/tasks?okr_id=${encodeURIComponent(okrId)}`);
-      okrTaskCache[okrId] = res.ok ? await res.json() : "error";
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          okrTaskCache[okrId] = data;
+        } else if (data._assignmentError) {
+          okrTaskCache[okrId] = `error: ${data._assignmentError}`;
+        } else {
+          okrTaskCache[okrId] = data.items || [];
+        }
+      } else {
+        okrTaskCache[okrId] = "error";
+      }
     } catch {
       okrTaskCache[okrId] = "error";
     }

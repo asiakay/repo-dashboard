@@ -47,7 +47,7 @@ export async function onRequest({ request, env }) {
 
     const { results } = await env.DB.prepare(sql).bind(...binds).all();
 
-    // When filtering by OKR, also return assignments linked to that OKR (soft-fail)
+    // When filtering by OKR, also return assignments linked to that OKR
     if (filterOkr) {
       let asnRows = [];
       try {
@@ -58,11 +58,15 @@ export async function onRequest({ request, env }) {
           FROM assignments a
           LEFT JOIN courses c ON c.id = a.course_id
           WHERE a.okr_id = ?
-          ORDER BY a.due_date ASC NULLS LAST
+          ORDER BY a.due_date ASC
         `).bind(filterOkr).all();
         asnRows = asns;
-      } catch {
-        // assignments table not present
+      } catch (err) {
+        // Surface error so the frontend can display it instead of silently showing "No tasks"
+        return new Response(
+          JSON.stringify({ _assignmentError: String(err), items: results }),
+          { headers: CORS }
+        );
       }
       return new Response(JSON.stringify([...asnRows, ...results]), { headers: CORS });
     }

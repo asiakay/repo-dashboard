@@ -2311,7 +2311,7 @@ function renderPullRequests() {
       const earliest = new Date(Math.min(...dates));
       const latest = new Date(Math.max(...dates));
       const fmt = d => d.toLocaleDateString(undefined, { year: "numeric", month: "short" });
-      dateRangeLabel = ` · All time (${fmt(earliest)} – ${fmt(latest)})`;
+      dateRangeLabel = ` · ${fmt(earliest)} – ${fmt(latest)}`;
     }
   }
 

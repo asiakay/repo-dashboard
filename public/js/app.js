@@ -2303,10 +2303,10 @@ function renderPullRequests() {
     return seg;
   });
 
-  const history = prData.history || [];
   let dateRangeLabel = "";
-  if (history.length) {
-    const dates = history.map(p => new Date(p.created_at)).filter(d => !isNaN(d));
+  const allPrHistory = prData.history || [];
+  if (allPrHistory.length) {
+    const dates = allPrHistory.map(p => new Date(p.created_at)).filter(d => !isNaN(d));
     if (dates.length) {
       const earliest = new Date(Math.min(...dates));
       const latest = new Date(Math.max(...dates));

@@ -371,6 +371,54 @@ jobs:
           EOF
 
       # ============================================================
+      # 6c. COMMIT pull_requests.json VIA GITHUB CONTENTS API
+      # Uses REPOS_PAT (asiakay = owner with bypass for the
+      # "Changes must be made through a pull request" branch protection
+      # rule). git-auto-commit-action sees "nothing to commit" for
+      # runtime-generated files; the Contents API bypasses that.
+      # ============================================================
+      - name: Commit pull_requests.json via Contents API
+        env:
+          REPOS_PAT: ${{ secrets.REPOS_PAT }}
+        run: |
+          node << 'EOF'
+          (async () => {
+            const fs = require('fs');
+            const content = fs.readFileSync('public/data/pull_requests.json', 'utf8');
+            const encoded = Buffer.from(content).toString('base64');
+            const headers = {
+              'Authorization': `token ${process.env.REPOS_PAT}`,
+              'Accept': 'application/vnd.github.v3+json',
+              'Content-Type': 'application/json',
+              'User-Agent': 'repo-dashboard/1.0',
+            };
+            // Get current SHA (needed for updates; absent on first create)
+            const getRes = await fetch(
+              'https://api.github.com/repos/asiakay/repo-dashboard/contents/public/data/pull_requests.json',
+              { headers }
+            );
+            const existing = getRes.ok ? await getRes.json() : {};
+            const body = {
+              message: 'chore: update pull_requests.json [skip ci]',
+              content: encoded,
+              branch: 'main',
+            };
+            if (existing.sha) body.sha = existing.sha;
+            const putRes = await fetch(
+              'https://api.github.com/repos/asiakay/repo-dashboard/contents/public/data/pull_requests.json',
+              { method: 'PUT', headers, body: JSON.stringify(body) }
+            );
+            const result = await putRes.json();
+            if (result.commit) {
+              console.log(`Committed pull_requests.json at ${result.commit.sha.slice(0, 7)}`);
+            } else {
+              console.error('Commit failed:', JSON.stringify(result));
+              // Non-fatal: log and continue so the rest of the workflow isn't blocked
+            }
+          })();
+          EOF
+
+      # ============================================================
       # 7. SYNC GITHUB ISSUES LABELED "claude" → D1 WORK ITEMS
       # ============================================================
       - name: Sync claude-labeled issues to D1

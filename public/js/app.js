@@ -1403,11 +1403,12 @@ function openPriorityEdit(id) {
     if (f.id !== `priority-card-form-${id}`) f.classList.add("hidden");
   });
 
-  // Desktop: toggle the <tr> below the item row
+  // Desktop: toggle the <tr> below the item row (only when the table is actually visible)
   const rowEl = document.getElementById(`priority-form-row-${id}`);
-  if (rowEl) {
+  const tableVisible = rowEl && rowEl.offsetParent !== null;
+  if (tableVisible) {
     rowEl.classList.toggle("hidden");
-    if (!rowEl.classList.contains("hidden")) return;
+    return;
   }
 
   // Mobile: render into the card form div

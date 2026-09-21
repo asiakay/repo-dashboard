@@ -26,7 +26,7 @@ export async function onRequest(context) {
       return new Response(JSON.stringify({ error: "Invalid JSON" }), { status: 400, headers: CORS });
     }
 
-    const allowed = ["status", "notes", "started_at", "completed_at", "task_description", "assigned_to", "depends_on_repo", "manual_consequence_override"];
+    const allowed = ["status", "notes", "blocker", "started_at", "completed_at", "task_description", "assigned_to", "depends_on_repo", "manual_consequence_override"];
     const fields = Object.keys(body).filter(k => allowed.includes(k));
 
     if (!fields.length) {

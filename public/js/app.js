@@ -1394,6 +1394,99 @@ async function saveEdit(id) {
 }
 
 // ============================================================
+// Priority tab inline edit for repo work items
+
+function openPriorityEdit(id) {
+  // Close any other open priority form rows
+  document.querySelectorAll(".priority-form-row").forEach(r => {
+    if (r.id !== `priority-form-row-${id}`) r.classList.add("hidden");
+  });
+  document.querySelectorAll("[id^='priority-card-form-']").forEach(f => {
+    if (f.id !== `priority-card-form-${id}`) f.classList.add("hidden");
+  });
+
+  // Desktop: toggle the <tr> below the item row
+  const rowEl = document.getElementById(`priority-form-row-${id}`);
+  if (rowEl) {
+    rowEl.classList.toggle("hidden");
+    if (!rowEl.classList.contains("hidden")) return;
+  }
+
+  // Mobile: render into the card form div
+  const cardFormEl = document.getElementById(`priority-card-form-${id}`);
+  if (!cardFormEl) return;
+  if (!cardFormEl.classList.contains("hidden")) {
+    cardFormEl.classList.add("hidden");
+    return;
+  }
+  const item = workItems.find(w => w.id === id);
+  if (!item) return;
+  cardFormEl.innerHTML = `
+    <div class="work-form-grid">
+      <div class="control">
+        <label>Status</label>
+        <select id="pef-status-mobile-${id}">
+          <option value="not_started" ${item.status === "not_started" ? "selected" : ""}>Not started</option>
+          <option value="in_progress" ${item.status === "in_progress" ? "selected" : ""}>In progress</option>
+          <option value="blocked" ${item.status === "blocked" ? "selected" : ""}>Blocked</option>
+          <option value="done" ${item.status === "done" ? "selected" : ""}>Done</option>
+        </select>
+      </div>
+      <div class="control">
+        <label>Notes</label>
+        <input id="pef-notes-mobile-${id}" type="text" value="${escapeText(item.notes || "")}" placeholder="One-line summary..." />
+      </div>
+      <div class="control">
+        <label>Blocker</label>
+        <input id="pef-blocker-mobile-${id}" type="text" value="${escapeText(item.blocker || "")}" placeholder="What's blocking this? (clear when resolved)" />
+      </div>
+    </div>
+    <div class="work-form-actions">
+      <button class="btn-primary" onclick="savePriorityEdit(${id})">Save</button>
+      <button class="btn-ghost" onclick="document.getElementById('priority-card-form-${id}').classList.add('hidden')">Cancel</button>
+    </div>`;
+  cardFormEl.classList.remove("hidden");
+}
+
+async function savePriorityEdit(id) {
+  const status   = document.getElementById(`pef-status-${id}`)?.value
+                ?? document.getElementById(`pef-status-mobile-${id}`)?.value;
+  const notes    = document.getElementById(`pef-notes-${id}`)?.value
+                ?? document.getElementById(`pef-notes-mobile-${id}`)?.value ?? null;
+  const blocker  = document.getElementById(`pef-blocker-${id}`)?.value
+                ?? document.getElementById(`pef-blocker-mobile-${id}`)?.value ?? null;
+
+  const item = workItems.find(w => w.id === id);
+  const started_at = status === "in_progress" && !item?.started_at ? new Date().toISOString() : undefined;
+  const completed_at = status === "done" ? new Date().toISOString() : undefined;
+
+  const body = { status, notes, blocker: blocker || null };
+  if (started_at !== undefined) body.started_at = started_at;
+  if (completed_at !== undefined) body.completed_at = completed_at;
+
+  const doSave = async () => {
+    const res = await fetch(`/api/work-items/${id}`, {
+      method: "PUT",
+      headers: writeHeaders(),
+      body: JSON.stringify(body),
+    });
+    return handleWriteResponse(res, doSave);
+  };
+
+  try {
+    const updated = await doSave();
+    const idx = workItems.findIndex(w => w.id === id);
+    if (idx !== -1) workItems[idx] = updated;
+    document.getElementById(`priority-form-row-${id}`)?.classList.add("hidden");
+    document.getElementById(`priority-card-form-${id}`)?.classList.add("hidden");
+    renderPriority();
+    renderActiveWork();
+  } catch (err) {
+    alert("Failed to save: " + err.message);
+  }
+}
+
+// ============================================================
 // Academic deadline inline edit
 // ============================================================
 function openEditAssignment(id) {
@@ -1718,6 +1811,7 @@ function renderPriority() {
       <td>
         ${escapeText(item.task_description)}
         ${item.blocker ? `<span class="blocker-line"><span class="badge badge-work-blocked">Blocked</span>${escapeText(item.blocker)}</span>` : ""}
+        <button class="btn-link" onclick="openPriorityEdit(${item.id})">Edit</button>
       </td>
       <td class="score-cell"><span class="impact-score">${item.impact_score}</span><span class="impact-max">/25</span></td>
       <td>${drivingHtml}</td>
@@ -1725,6 +1819,33 @@ function renderPriority() {
         <input type="number" class="override-input" min="1" max="5" value="${escapeText(overrideVal)}"
           placeholder="1–5" title="Override consequence severity (1–5). Clears when a deadline signal is linked."
           data-id="${item.id}" />
+      </td>
+    </tr>
+    <tr id="priority-form-row-${item.id}" class="priority-form-row hidden">
+      <td colspan="6">
+        <div class="work-form-grid">
+          <div class="control">
+            <label>Status</label>
+            <select id="pef-status-${item.id}">
+              <option value="not_started" ${item.status === "not_started" ? "selected" : ""}>Not started</option>
+              <option value="in_progress" ${item.status === "in_progress" ? "selected" : ""}>In progress</option>
+              <option value="blocked" ${item.status === "blocked" ? "selected" : ""}>Blocked</option>
+              <option value="done" ${item.status === "done" ? "selected" : ""}>Done</option>
+            </select>
+          </div>
+          <div class="control">
+            <label>Notes</label>
+            <input id="pef-notes-${item.id}" type="text" value="${escapeText(item.notes || "")}" placeholder="One-line summary..." />
+          </div>
+          <div class="control">
+            <label>Blocker</label>
+            <input id="pef-blocker-${item.id}" type="text" value="${escapeText(item.blocker || "")}" placeholder="What's blocking this? (clear when resolved)" />
+          </div>
+        </div>
+        <div class="work-form-actions">
+          <button class="btn-primary" onclick="savePriorityEdit(${item.id})">Save</button>
+          <button class="btn-ghost" onclick="document.getElementById('priority-form-row-${item.id}').classList.add('hidden')">Cancel</button>
+        </div>
       </td>
     </tr>`;
   }).join("");
@@ -1745,8 +1866,10 @@ function renderPriority() {
         <span class="badge badge-tier badge-tier-${item.tier_num}" title="${escapeText(item.tier_label)}">${item.tier_num}</span>
         <a href="https://github.com/asiakay/${escapeText(item.repo_name)}" target="_blank" rel="noopener noreferrer" class="work-repo">${escapeText(item.repo_name)}</a>
         <span class="work-task">${escapeText(item.task_description)}</span>
+        <button class="btn-link" onclick="openPriorityEdit(${item.id})">Edit</button>
       </div>
       ${item.blocker ? `<span class="blocker-line"><span class="badge badge-work-blocked">Blocked</span>${escapeText(item.blocker)}</span>` : ""}
+      <div id="priority-card-form-${item.id}" class="work-inline-form hidden"></div>
       <div class="priority-card-meta">
         <span>Score: <strong>${item.impact_score}</strong>/25</span>
         ${drivingHtml}

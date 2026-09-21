@@ -1182,6 +1182,8 @@ body { min-height: 100vh; }
 .priority-table-wrap { display: block; }
 .priority-cards { display: none; flex-direction: column; gap: 8px; }
 
+.priority-form-row td { padding: 0 0.5rem 0.75rem; background: var(--surface); border: none; }
+
 .priority-card-meta {
   margin-top: 6px;
   font-size: 12px;

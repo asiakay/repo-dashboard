@@ -134,6 +134,52 @@ body { min-height: 100vh; }
   backdrop-filter: blur(8px);
 }
 
+/* Corner ribbon — quick link to open a new GitHub issue */
+.corner-banner {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 120px;
+  height: 120px;
+  overflow: hidden;
+  z-index: 50;
+  pointer-events: none;
+}
+
+.corner-banner__link {
+  position: absolute;
+  top: 46px;
+  right: -20px;
+  width: 160px;
+  padding: 7px 0;
+  background: var(--accent);
+  color: #060711;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transform: rotate(-45deg);
+  pointer-events: all;
+  box-shadow: 0 2px 10px rgba(79, 209, 197, 0.45);
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.corner-banner__link:hover {
+  background: var(--accent-strong);
+  box-shadow: 0 4px 16px rgba(79, 209, 197, 0.65);
+}
+
+.corner-banner__link:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+
+@media (max-width: 400px) {
+  .corner-banner { display: none; }
+}
+
 .auth-refresh-btn {
   background: none;
   border: none;

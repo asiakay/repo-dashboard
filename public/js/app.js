@@ -8,6 +8,13 @@ function writeHeaders() {
   return headers;
 }
 
+function collegeWriteHeaders() {
+  const token = localStorage.getItem("collegeWriteToken");
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  return headers;
+}
+
 function showSessionExpiredBanner() {
   let banner = document.getElementById("auth-expired-banner");
   if (banner) return;
@@ -1382,6 +1389,93 @@ async function saveEdit(id) {
 }
 
 // ============================================================
+// Academic deadline inline edit
+// ============================================================
+function openEditAssignment(id) {
+  const a = collegeDeadlines.find(x => x.id === id);
+  if (!a) return;
+
+  document.querySelectorAll("[id^='asn-form-']").forEach(f => {
+    if (f.id !== `asn-form-${id}`) f.classList.add("hidden");
+  });
+
+  const formEl = document.getElementById(`asn-form-${id}`);
+  if (!formEl) return;
+  if (!formEl.classList.contains("hidden")) {
+    formEl.classList.add("hidden");
+    return;
+  }
+
+  const statusOptions = ["Not Started", "In Progress", "Submitted", "Graded"]
+    .map(s => `<option value="${s}"${s === (a.status || "Not Started") ? " selected" : ""}>${s}</option>`)
+    .join("");
+
+  formEl.innerHTML = `
+    <div class="work-form-grid">
+      <div class="control">
+        <label>Status</label>
+        <select id="asn-status-${id}">${statusOptions}</select>
+      </div>
+      <div class="control">
+        <label>Due Date</label>
+        <input id="asn-due-${id}" type="date" value="${escapeText(a.due_date || "")}" />
+      </div>
+      <div class="control">
+        <label>Notes</label>
+        <input id="asn-notes-${id}" type="text" value="${escapeText(a.notes || "")}" placeholder="Optional notes" />
+      </div>
+    </div>
+    <div class="work-form-actions">
+      <button class="btn-primary" onclick="saveAssignmentEdit(${JSON.stringify(id)})">Save</button>
+      <button class="btn-ghost" onclick="document.getElementById('asn-form-${id}').classList.add('hidden')">Cancel</button>
+    </div>`;
+
+  formEl.classList.remove("hidden");
+}
+
+async function saveAssignmentEdit(id) {
+  const a = collegeDeadlines.find(x => x.id === id);
+  if (!a) return;
+
+  const status   = document.getElementById(`asn-status-${id}`)?.value;
+  const due_date = document.getElementById(`asn-due-${id}`)?.value || null;
+  const notes    = document.getElementById(`asn-notes-${id}`)?.value || null;
+
+  const body = {};
+  if (status   !== undefined) body.status   = status;
+  if (due_date !== undefined) body.due_date  = due_date;
+  if (notes    !== undefined) body.notes     = notes;
+
+  const doSave = async () => {
+    const res = await fetch(`${COLLEGE_TRACKER_URL}/api/assignments/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      headers: collegeWriteHeaders(),
+      body: JSON.stringify(body),
+    });
+    if (res.status === 401) {
+      const token = prompt("Enter college-tracker write token (MCP_SECRET_TOKEN):");
+      if (token) {
+        localStorage.setItem("collegeWriteToken", token.trim());
+        return doSave();
+      }
+      return;
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    Object.assign(a, body);
+    if (["Submitted", "Graded"].includes(status)) {
+      collegeDeadlines = collegeDeadlines.filter(x => x.id !== id);
+    }
+    renderPriority();
+  };
+
+  try {
+    await doSave();
+  } catch (err) {
+    alert("Failed to save: " + err.message);
+  }
+}
+
+// ============================================================
 // Agent Tasks view
 // ============================================================
 function renderAgentTasks() {
@@ -1560,7 +1654,7 @@ function renderPriority() {
         const daysLabel = days === null ? "" : isOverdue
           ? `<strong class="text-urgent">OVERDUE</strong>`
           : `<strong class="${days <= 3 ? "text-urgent" : ""}">${days}d remaining</strong>`;
-        html += `<li class="bottleneck-item">
+        html += `<li class="bottleneck-item" id="asn-item-${escapeText(a.id)}">
           <span class="bottleneck-title">${escapeText(a.title)}</span>
           <span class="bottleneck-meta">
             · ${escapeText(a.course_name || a.course_id)}
@@ -1571,7 +1665,9 @@ function renderPriority() {
           <span class="bottleneck-repos">
             <span class="badge badge-college-type badge-college-${escapeText((a.deliverable_type || "Project").toLowerCase())}">${escapeText(a.deliverable_type || "Project")}</span>
             ${escapeText(a.objective || a.okr_id || "")}
+            <button class="btn-link" onclick="openEditAssignment(${JSON.stringify(a.id)})">Edit</button>
           </span>
+          <div id="asn-form-${escapeText(a.id)}" class="work-inline-form hidden"></div>
         </li>`;
       }
     }

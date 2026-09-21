@@ -354,6 +354,17 @@ body { min-height: 100vh; }
   color: #fff;
 }
 
+.badge-issues.badge-issues-zero {
+  border-color: rgba(160, 174, 192, 0.4);
+  background: rgba(160, 174, 192, 0.08);
+  color: #a0aec0;
+}
+
+.badge-issues.badge-issues-zero:hover {
+  background: rgba(160, 174, 192, 0.18);
+  color: #e2e8f0;
+}
+
 /* Topic chips */
 .repo-topics {
   display: flex;

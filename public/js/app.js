@@ -1031,9 +1031,7 @@ function renderRepos() {
     const forks = repo.forks || 0;
     const topics = (repo.topics || []).slice(0, 5);
 
-    const issuesBadge = issues > 0
-      ? `<a href="${escapeText(repo.url)}/issues" target="_blank" rel="noopener noreferrer" class="badge badge-issues">${issues} issue${issues !== 1 ? "s" : ""}</a>`
-      : "";
+    const issuesBadge = `<a href="${escapeText(repo.url)}/issues" target="_blank" rel="noopener noreferrer" class="badge badge-issues${issues === 0 ? " badge-issues-zero" : ""}">${issues} issue${issues !== 1 ? "s" : ""}</a>`;
 
     const langBadge = repo.language
       ? `<span class="badge badge-language">${escapeText(repo.language)}</span>`

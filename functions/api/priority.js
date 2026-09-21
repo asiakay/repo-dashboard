@@ -116,6 +116,8 @@ export async function onRequest(context) {
       task_description: item.task_description,
       status: item.status,
       assigned_to: item.assigned_to,
+      notes: item.notes ?? null,
+      blocker: item.blocker ?? null,
       impact_score: impactScore,
       tier_num: tierInfo.num,
       tier_label: tierInfo.label,

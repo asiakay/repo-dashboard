@@ -1426,7 +1426,7 @@ function openEditAssignment(id) {
       </div>
     </div>
     <div class="work-form-actions">
-      <button class="btn-primary" onclick="saveAssignmentEdit(${JSON.stringify(id)})">Save</button>
+      <button class="btn-primary" onclick="saveAssignmentEdit('${escapeText(id)}')">Save</button>
       <button class="btn-ghost" onclick="document.getElementById('asn-form-${id}').classList.add('hidden')">Cancel</button>
     </div>`;
 
@@ -1665,7 +1665,7 @@ function renderPriority() {
           <span class="bottleneck-repos">
             <span class="badge badge-college-type badge-college-${escapeText((a.deliverable_type || "Project").toLowerCase())}">${escapeText(a.deliverable_type || "Project")}</span>
             ${escapeText(a.objective || a.okr_id || "")}
-            <button class="btn-link" onclick="openEditAssignment(${JSON.stringify(a.id)})">Edit</button>
+            <button class="btn-link" onclick="openEditAssignment('${escapeText(a.id)}')">Edit</button>
           </span>
           <div id="asn-form-${escapeText(a.id)}" class="work-inline-form hidden"></div>
         </li>`;

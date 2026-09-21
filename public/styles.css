@@ -491,6 +491,15 @@ body { min-height: 100vh; }
   color: #ecc94b;
 }
 
+.blocker-line {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
 .badge-work-done {
   border-color: rgba(72, 187, 120, 0.5);
   background: rgba(72, 187, 120, 0.1);

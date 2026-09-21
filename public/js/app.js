@@ -1343,6 +1343,10 @@ function openEditForm(id) {
         <label>Notes</label>
         <input id="ef-notes-${id}" type="text" value="${escapeText(item.notes || "")}" placeholder="One-line summary..." />
       </div>
+      <div class="control">
+        <label>Blocker</label>
+        <input id="ef-blocker-${id}" type="text" value="${escapeText(item.blocker || "")}" placeholder="What's blocking this? (clear when resolved)" />
+      </div>
     </div>
     <div class="work-form-actions">
       <button class="btn-primary" onclick="saveEdit(${id})">Save</button>
@@ -1356,6 +1360,7 @@ async function saveEdit(id) {
   const status = document.getElementById(`ef-status-${id}`).value;
   const assigned_to = document.getElementById(`ef-assigned-${id}`).value;
   const notes = document.getElementById(`ef-notes-${id}`).value;
+  const blocker = document.getElementById(`ef-blocker-${id}`)?.value || null;
 
   const started_at = status === "in_progress" && !workItems.find(w => w.id === id)?.started_at
     ? new Date().toISOString()
@@ -1364,7 +1369,7 @@ async function saveEdit(id) {
     ? new Date().toISOString()
     : undefined;
 
-  const body = { status, assigned_to, notes };
+  const body = { status, assigned_to, notes, blocker };
   if (started_at !== undefined) body.started_at = started_at;
   if (completed_at !== undefined) body.completed_at = completed_at;
 
@@ -1424,6 +1429,10 @@ function openEditAssignment(id) {
         <label>Notes</label>
         <input id="asn-notes-${id}" type="text" value="${escapeText(a.notes || "")}" placeholder="Optional notes" />
       </div>
+      <div class="control">
+        <label>Blocker</label>
+        <input id="asn-blocker-${id}" type="text" value="${escapeText(a.blocker || "")}" placeholder="What's blocking this? (clear when resolved)" />
+      </div>
     </div>
     <div class="work-form-actions">
       <button class="btn-primary" onclick="saveAssignmentEdit('${escapeText(id)}')">Save</button>
@@ -1440,11 +1449,13 @@ async function saveAssignmentEdit(id) {
   const status   = document.getElementById(`asn-status-${id}`)?.value;
   const due_date = document.getElementById(`asn-due-${id}`)?.value || null;
   const notes    = document.getElementById(`asn-notes-${id}`)?.value || null;
+  const blocker  = document.getElementById(`asn-blocker-${id}`)?.value || null;
 
   const body = {};
   if (status   !== undefined) body.status   = status;
   if (due_date !== undefined) body.due_date  = due_date;
   if (notes    !== undefined) body.notes     = notes;
+  body.blocker = blocker;
 
   const doSave = async () => {
     const res = await fetch(`${COLLEGE_TRACKER_URL}/api/assignments/${encodeURIComponent(id)}`, {
@@ -1667,6 +1678,7 @@ function renderPriority() {
             ${escapeText(a.objective || a.okr_id || "")}
             <button class="btn-link" onclick="openEditAssignment('${escapeText(a.id)}')">Edit</button>
           </span>
+          ${a.blocker ? `<span class="blocker-line"><span class="badge badge-work-blocked">Blocked</span>${escapeText(a.blocker)}</span>` : ""}
           <div id="asn-form-${escapeText(a.id)}" class="work-inline-form hidden"></div>
         </li>`;
       }
@@ -1703,7 +1715,10 @@ function renderPriority() {
     return `<tr data-id="${item.id}">
       <td><span class="badge badge-tier ${tierClass}" title="${escapeText(item.tier_label)}">${item.tier_num}</span></td>
       <td><a href="https://github.com/asiakay/${escapeText(item.repo_name)}" target="_blank" rel="noopener noreferrer">${escapeText(item.repo_name)}</a></td>
-      <td>${escapeText(item.task_description)}</td>
+      <td>
+        ${escapeText(item.task_description)}
+        ${item.blocker ? `<span class="blocker-line"><span class="badge badge-work-blocked">Blocked</span>${escapeText(item.blocker)}</span>` : ""}
+      </td>
       <td class="score-cell"><span class="impact-score">${item.impact_score}</span><span class="impact-max">/25</span></td>
       <td>${drivingHtml}</td>
       <td>
@@ -1731,6 +1746,7 @@ function renderPriority() {
         <a href="https://github.com/asiakay/${escapeText(item.repo_name)}" target="_blank" rel="noopener noreferrer" class="work-repo">${escapeText(item.repo_name)}</a>
         <span class="work-task">${escapeText(item.task_description)}</span>
       </div>
+      ${item.blocker ? `<span class="blocker-line"><span class="badge badge-work-blocked">Blocked</span>${escapeText(item.blocker)}</span>` : ""}
       <div class="priority-card-meta">
         <span>Score: <strong>${item.impact_score}</strong>/25</span>
         ${drivingHtml}

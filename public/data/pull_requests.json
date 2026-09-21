@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-09-21T04:44:43.163Z",
-  "total_prs": 546,
+  "generated_at": "2026-09-21T10:31:45.140Z",
+  "total_prs": 553,
   "repos": [
     {
       "name": "asiagrady",
@@ -67,10 +67,10 @@
     },
     {
       "name": "leverage-list",
-      "open": 0,
-      "merged": 23,
+      "open": 1,
+      "merged": 25,
       "closed": 0,
-      "total": 23
+      "total": 26
     },
     {
       "name": "pitch-engine",
@@ -143,6 +143,13 @@
       "total": 11
     },
     {
+      "name": "bridge-marketplace",
+      "open": 0,
+      "merged": 9,
+      "closed": 0,
+      "total": 9
+    },
+    {
       "name": "wave-portal-app",
       "open": 0,
       "merged": 9,
@@ -190,13 +197,6 @@
       "merged": 6,
       "closed": 0,
       "total": 6
-    },
-    {
-      "name": "bridge-marketplace",
-      "open": 0,
-      "merged": 5,
-      "closed": 0,
-      "total": 5
     },
     {
       "name": "climasphere-global-climate-event-tracker",
@@ -333,6 +333,83 @@
     }
   ],
   "history": [
+    {
+      "repo": "leverage-list",
+      "number": 30,
+      "title": "fix(auth): secure first passkey enrollment",
+      "state": "merged",
+      "url": "https://github.com/asiakay/leverage-list/pull/30",
+      "created_at": "2026-09-21T10:04:48Z",
+      "merged_at": "2026-09-21T10:05:47Z",
+      "closed_at": "2026-09-21T10:05:47Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "leverage-list",
+      "number": 29,
+      "title": "fix(auth): make the GitHub-deployed app accessible when passkeys fail",
+      "state": "merged",
+      "url": "https://github.com/asiakay/leverage-list/pull/29",
+      "created_at": "2026-09-21T09:17:55Z",
+      "merged_at": "2026-09-21T09:19:04Z",
+      "closed_at": "2026-09-21T09:19:04Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "leverage-list",
+      "number": 28,
+      "title": "feat: add private Sites MVP prototype",
+      "state": "open",
+      "url": "https://github.com/asiakay/leverage-list/pull/28",
+      "created_at": "2026-09-21T08:32:18Z",
+      "merged_at": null,
+      "closed_at": null,
+      "author": "asiakay"
+    },
+    {
+      "repo": "bridge-marketplace",
+      "number": 9,
+      "title": "align branch",
+      "state": "merged",
+      "url": "https://github.com/asiakay/bridge-marketplace/pull/9",
+      "created_at": "2026-09-21T07:30:35Z",
+      "merged_at": "2026-09-21T07:30:44Z",
+      "closed_at": "2026-09-21T07:30:44Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "bridge-marketplace",
+      "number": 8,
+      "title": "Main",
+      "state": "merged",
+      "url": "https://github.com/asiakay/bridge-marketplace/pull/8",
+      "created_at": "2026-09-21T07:29:17Z",
+      "merged_at": "2026-09-21T07:29:29Z",
+      "closed_at": "2026-09-21T07:29:29Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "bridge-marketplace",
+      "number": 7,
+      "title": "fix: route pending sellers to /selling after verification",
+      "state": "merged",
+      "url": "https://github.com/asiakay/bridge-marketplace/pull/7",
+      "created_at": "2026-09-21T07:28:00Z",
+      "merged_at": "2026-09-21T07:28:21Z",
+      "closed_at": "2026-09-21T07:28:21Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "bridge-marketplace",
+      "number": 6,
+      "title": "fix: route pending sellers to onboarding checklist + preserve fetch state",
+      "state": "merged",
+      "url": "https://github.com/asiakay/bridge-marketplace/pull/6",
+      "created_at": "2026-09-21T07:19:05Z",
+      "merged_at": "2026-09-21T07:27:04Z",
+      "closed_at": "2026-09-21T07:27:04Z",
+      "author": "asiakay"
+    },
     {
       "repo": "bridge-marketplace",
       "number": 5,
@@ -3554,83 +3631,6 @@
       "created_at": "2026-06-07T10:51:40Z",
       "merged_at": "2026-06-07T10:52:02Z",
       "closed_at": "2026-06-07T10:52:02Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "grant-manager-tool-demo",
-      "number": 157,
-      "title": "Claude/charming dirac wk4 sw",
-      "state": "merged",
-      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/157",
-      "created_at": "2026-06-07T10:40:20Z",
-      "merged_at": "2026-06-07T10:40:35Z",
-      "closed_at": "2026-06-07T10:40:35Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "grant-manager-tool-demo",
-      "number": 156,
-      "title": "Remove API key requirement from agents-starter env config",
-      "state": "merged",
-      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/156",
-      "created_at": "2026-06-07T10:34:44Z",
-      "merged_at": "2026-06-07T10:34:57Z",
-      "closed_at": "2026-06-07T10:34:57Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "grant-manager-tool-demo",
-      "number": 155,
-      "title": "Switch from Anthropic to Cloudflare Workers AI provider",
-      "state": "merged",
-      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/155",
-      "created_at": "2026-06-07T10:31:04Z",
-      "merged_at": "2026-06-07T10:31:35Z",
-      "closed_at": "2026-06-07T10:31:35Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "grant-manager-tool-demo",
-      "number": 153,
-      "title": "Add /api/ai-status endpoint and proactive AI banner check",
-      "state": "merged",
-      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/153",
-      "created_at": "2026-06-07T08:36:21Z",
-      "merged_at": "2026-06-07T08:36:35Z",
-      "closed_at": "2026-06-07T08:36:35Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "grant-manager-tool-demo",
-      "number": 152,
-      "title": "Switch AI provider from OpenAI to Anthropic Claude",
-      "state": "merged",
-      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/152",
-      "created_at": "2026-06-07T08:25:50Z",
-      "merged_at": "2026-06-07T08:26:26Z",
-      "closed_at": "2026-06-07T08:26:26Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "grant-manager-tool-demo",
-      "number": 147,
-      "title": "Claude/busy darwin nf kj q",
-      "state": "merged",
-      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/147",
-      "created_at": "2026-06-07T02:38:21Z",
-      "merged_at": "2026-06-07T02:38:31Z",
-      "closed_at": "2026-06-07T02:38:31Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "grant-manager-tool-demo",
-      "number": 146,
-      "title": "Fix notes saving with a dedicated /api/notes endpoint",
-      "state": "merged",
-      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/146",
-      "created_at": "2026-06-07T02:05:26Z",
-      "merged_at": "2026-06-07T02:07:31Z",
-      "closed_at": "2026-06-07T02:07:31Z",
       "author": "asiakay"
     }
   ]

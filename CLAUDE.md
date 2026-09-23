@@ -237,6 +237,10 @@ A strip under the topbar (`#focus-strip`, `renderFocusStrip()` in `public/js/app
 - Attention signals (interactive only): pointer proximity to the header sets `window.headerAttention.level`, which `public/js/tunnel.js` reads to speed up/brighten the rings; idle >90s makes the strip "breathe"; returning to the tab after >60s plays a wave and a tunnel flare (`headerAttention.pulseAt`). CSS animations respect `prefers-reduced-motion`.
 - Any code that reloads `pipelineTasks` should call `renderFocusStrip()` afterwards.
 
+## Task search modal
+
+OKR/Pipeline micro-task text (Today tab OKR rows, OKR Progress task lists and "today" list, Pipeline cards) is rendered with `taskLink(text, id)` in `public/js/app.js`. Clicking one opens `#task-search-modal` (a native `<dialog>` in `public/index.html`), which searches the data the page has already loaded (OKR tasks, OKRs, work items, repos, resources). It runs fully client-side with no API call. Matching is per-word with stopwords removed and prefix matching (≥4 chars). The clicked task is left out of its own results. Clicking a result switches to the relevant tab, or opens the repo on GitHub. Styles live under "Task search" in `public/styles.css`. The focus strip keeps its own click behavior and is not linked.
+
 ## What's NOT built yet (as of last update)
 
 - Open PR/branch data is not surfaced on repo cards — only manually-logged `work_items` rows.

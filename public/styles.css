@@ -228,6 +228,156 @@ body { min-height: 100vh; }
   background: var(--accent-soft);
 }
 
+/* Focus strip — current priority micro-task in the header (#106) */
+.focus-strip {
+  --focus-x: 50%;
+  --focus-level: 0;
+  position: relative;
+  z-index: 1;
+  border-top: 1px solid var(--border-subtle);
+}
+.focus-strip[hidden] { display: none; }
+
+.focus-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 6px 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.focus-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: none;
+  padding: 4px 0;
+  color: var(--text-main);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.focus-main:hover .focus-desc { color: var(--accent); }
+
+.focus-label {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #0a0d20;
+  background: var(--accent-strong);
+  border-radius: var(--radius-pill);
+  padding: 2px 8px;
+}
+.focus-label--next { background: var(--text-muted); }
+
+.focus-okr {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.focus-desc {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+
+.focus-elapsed {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.focus-elapsed::before { content: "· "; }
+
+.focus-cycle { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.focus-count { font-size: 11px; color: var(--text-muted); min-width: 28px; text-align: center; }
+
+.focus-btn {
+  flex-shrink: 0;
+  background: rgba(6, 10, 28, 0.85);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  color: var(--text-main);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.focus-btn:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); }
+.focus-btn:disabled { opacity: 0.6; cursor: wait; }
+.focus-advance { color: var(--accent); border-color: rgba(79, 209, 197, 0.35); }
+.focus-mode-toggle { color: var(--text-muted); padding: 5px 8px; }
+
+/* Interactive design: glow follows the pointer, strength = attention level */
+.focus-strip--interactive::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    420px 80px at var(--focus-x) 50%,
+    rgba(79, 209, 197, calc(0.05 + var(--focus-level) * 0.18)),
+    transparent 70%
+  );
+  transition: background 0.2s;
+}
+.focus-strip--interactive .focus-label {
+  box-shadow: 0 0 calc(4px + var(--focus-level) * 14px) rgba(99, 179, 237, 0.8);
+}
+
+/* Idle: the strip slowly breathes to pull attention back */
+.focus-strip--drifting .focus-label { animation: focus-breathe 4s ease-in-out infinite; }
+.focus-strip--drifting .focus-desc { animation: focus-shimmer 4s ease-in-out infinite; }
+
+/* Returning to the tab after a while: one bright wave across the strip */
+.focus-strip--welcome::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(99, 179, 237, 0.35), transparent);
+  animation: focus-wave 1.4s ease-out forwards;
+}
+
+@keyframes focus-breathe {
+  0%, 100% { box-shadow: 0 0 4px rgba(99, 179, 237, 0.5); transform: scale(1); }
+  50%      { box-shadow: 0 0 22px rgba(236, 201, 75, 0.9); transform: scale(1.06); }
+}
+@keyframes focus-shimmer {
+  0%, 100% { color: var(--text-main); }
+  50%      { color: var(--warning); }
+}
+@keyframes focus-wave {
+  from { transform: translateX(-100%); opacity: 1; }
+  to   { transform: translateX(100%);  opacity: 0; }
+}
+
+@media (max-width: 640px) {
+  .focus-inner { padding: 6px 12px; flex-wrap: wrap; }
+  .focus-strip--interactive .focus-main { flex-basis: 100%; }
+  .focus-okr { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .focus-strip--interactive::before { transition: none; }
+  .focus-strip--drifting .focus-label,
+  .focus-strip--drifting .focus-desc,
+  .focus-strip--welcome::after { animation: none; }
+}
+
 /* Page layout */
 .page { max-width: 1120px; margin: 0 auto; padding: 20px; }
 

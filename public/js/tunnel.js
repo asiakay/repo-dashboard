@@ -22,8 +22,24 @@
     cy = H / 2;
   }
 
+  // Attention response (set by the focus strip in app.js, interactive mode only):
+  // rings travel faster and glow brighter as attention nears the header, and
+  // flare briefly on pulseAt (task advanced / returning to the tab).
+  let energy = 0;
+  let travel = 0;
+  let lastTs = 0;
+
   function draw(ts) {
     const t = ts * 0.001; // seconds
+    const dt = lastTs ? Math.min(0.1, t - lastTs) : 0;
+    lastTs = t;
+
+    const att = window.headerAttention || { level: 0, pulseAt: 0 };
+    energy += (att.level - energy) * Math.min(1, dt * 2.5); // ease toward target
+    const sincePulse = (ts - (att.pulseAt || 0)) / 1000;
+    const pulse = att.pulseAt && sincePulse < 1.6 ? Math.sin((sincePulse / 1.6) * Math.PI) : 0;
+    travel += dt * 0.10 * (1 + energy * 1.5 + pulse * 2);
+    const glow = 1 + energy * 1.2 + pulse * 1.5;
 
     ctx.clearRect(0, 0, W, H);
 
@@ -31,7 +47,7 @@
 
     for (let i = 0; i < RINGS; i++) {
       // Each ring travels outward; stagger them evenly in a loop
-      const phase = ((i / RINGS) + t * 0.10) % 1; // 0 → 1 continuously
+      const phase = ((i / RINGS) + travel) % 1; // 0 → 1 continuously
 
       // Fade in near centre, fade out near edge
       let alpha;
@@ -64,7 +80,7 @@
       }
       ctx.closePath();
 
-      ctx.strokeStyle = `rgba(${rc},${gc},${bc},${alpha.toFixed(3)})`;
+      ctx.strokeStyle = `rgba(${rc},${gc},${bc},${Math.min(0.6, alpha * glow).toFixed(3)})`;
       // Thicker lines nearer the centre (just emerging), thinner at the edge
       ctx.lineWidth = Math.max(0.4, (1 - phase) * 1.8);
       ctx.stroke();

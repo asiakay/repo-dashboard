@@ -2915,7 +2915,12 @@ function searchCorpus() {
       key: "tasks", label: "OKR tasks",
       items: [...tasksById.values()].map(t => ({
         id: t.id, title: t.description, detail: t.notes, meta: [t.okr_id, t.status].filter(Boolean).join(" · "),
-        action: () => switchTab("pipeline"),
+        action: () => {
+          // Clear an OKR filter that would hide the chosen task.
+          const filterEl = document.getElementById("pipeline-okr-filter");
+          if (filterEl.value && filterEl.value !== t.okr_id) filterEl.value = "";
+          switchTab("pipeline");
+        },
       })),
     },
     {

@@ -323,6 +323,7 @@ async function retryPipeline() {
   pipelineError = null;
   await loadPipelineTasks();
   renderPipeline();
+  renderFocusStrip();
 }
 
 async function loadCollegeDeadlines() {
@@ -2398,6 +2399,7 @@ function renderPipeline() {
         await doSave();
         await loadPipelineTasks();
         renderPipeline();
+        renderFocusStrip();
       } catch (err) {
         alert("Failed to update task: " + err.message);
         btn.disabled = false;
@@ -2657,12 +2659,213 @@ function renderPullRequests() {
 }
 
 // ============================================================
+// Focus strip — current priority micro-task in the header (#106)
+// ============================================================
+// Source: OKR micro-tasks (pipelineTasks). "Current" = In Progress tasks, oldest
+// start first; if none are in progress, falls back to the next unblocked To Do.
+//
+// Two designs under test, switchable via ?header=simple|interactive or the
+// toggle button in the strip (remembered per browser):
+//   simple      — read-only line; click jumps to the Pipeline tab.
+//   interactive — adds ‹ › cycling, an inline Advance button, and art that
+//                 responds to attention: a glow that follows the pointer, a
+//                 tunnel canvas that quickens as the pointer nears the header,
+//                 and a slow "breathing" pulse after idle or on returning to
+//                 the tab, to draw focus back to the task.
+const FOCUS_MODES = ["simple", "interactive"];
+const FOCUS_IDLE_MS = 90 * 1000;
+const FOCUS_AWAY_MS = 60 * 1000;
+let focusMode = initialFocusMode();
+let focusIndex = 0;
+let focusLastActivity = Date.now();
+let focusHiddenAt = null;
+
+// Shared with tunnel.js: level 0..1 = how much attention is on the header.
+window.headerAttention = { level: 0, pulseAt: 0 };
+
+function initialFocusMode() {
+  const param = new URLSearchParams(location.search).get("header");
+  if (FOCUS_MODES.includes(param)) return param;
+  try {
+    const saved = localStorage.getItem("focusStripMode");
+    if (FOCUS_MODES.includes(saved)) return saved;
+  } catch { /* storage unavailable — use default */ }
+  return "simple";
+}
+
+function setFocusMode(mode) {
+  focusMode = mode;
+  try { localStorage.setItem("focusStripMode", mode); } catch { /* ignore */ }
+  renderFocusStrip();
+}
+
+function focusCandidates() {
+  const inProgress = pipelineTasks
+    .filter(t => t.status === "In Progress" && !t.is_assignment)
+    .sort((a, b) => (a.started_at || "~").localeCompare(b.started_at || "~"));
+  if (inProgress.length) return { tasks: inProgress, fallback: false };
+  const next = pipelineTasks.find(t =>
+    t.status === "To Do" && !t.is_assignment &&
+    (!t.blocked_by_status || t.blocked_by_status === "Done"));
+  return { tasks: next ? [next] : [], fallback: true };
+}
+
+function focusElapsed(startedAt) {
+  if (!startedAt) return "";
+  const iso = /[zZ]|[+-]\d\d:?\d\d$/.test(startedAt) ? startedAt : startedAt.replace(" ", "T") + "Z";
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return "";
+  const mins = Math.floor(ms / 60000);
+  if (mins < 1) return "just started";
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ${mins % 60}m`;
+  return `${Math.floor(hrs / 24)}d ${hrs % 24}h`;
+}
+
+function renderFocusStrip() {
+  const strip = document.getElementById("focus-strip");
+  if (!strip) return;
+  const { tasks, fallback } = focusCandidates();
+  if (pipelineError || !tasks.length) {
+    strip.hidden = true;
+    return;
+  }
+  focusIndex = ((focusIndex % tasks.length) + tasks.length) % tasks.length;
+  const t = tasks[focusIndex];
+  const interactive = focusMode === "interactive";
+  const label = fallback ? "Up next" : "Now";
+  const elapsed = fallback ? "" : focusElapsed(t.started_at);
+  const next = NEXT_STATUS[t.status];
+
+  const cycle = interactive && tasks.length > 1 ? `
+    <div class="focus-cycle">
+      <button class="focus-btn" data-focus-action="prev" aria-label="Previous in-progress task">‹</button>
+      <span class="focus-count">${focusIndex + 1}/${tasks.length}</span>
+      <button class="focus-btn" data-focus-action="next" aria-label="Next in-progress task">›</button>
+    </div>` : "";
+  const advance = interactive && next ? `
+    <button class="focus-btn focus-advance" data-focus-action="advance" data-task-id="${t.id}" data-next="${escapeText(next)}">
+      ${next === "Done" ? "✓ Done" : "▶ Start"}
+    </button>` : "";
+  const toggleTo = interactive ? "simple" : "interactive";
+
+  strip.hidden = false;
+  strip.className = `focus-strip focus-strip--${focusMode}`;
+  strip.innerHTML = `
+    <div class="focus-inner">
+      <button class="focus-main" data-focus-action="open" title="Open in Pipeline">
+        <span class="focus-label${fallback ? " focus-label--next" : ""}">${label}</span>
+        <span class="focus-okr">${escapeText(t.okr_id)}</span>
+        <span class="focus-desc">${escapeText(t.description)}</span>
+        ${elapsed ? `<span class="focus-elapsed" data-started="${escapeText(t.started_at)}">${elapsed}</span>` : ""}
+      </button>
+      ${cycle}
+      ${advance}
+      <button class="focus-btn focus-mode-toggle" data-focus-action="mode" data-mode="${toggleTo}"
+        title="Switch header design to ${toggleTo}" aria-label="Switch header design to ${toggleTo}">
+        ${interactive ? "◐" : "◑"}
+      </button>
+    </div>`;
+  if (!interactive) window.headerAttention.level = 0;
+}
+
+document.getElementById("focus-strip").addEventListener("click", async e => {
+  const btn = e.target.closest("[data-focus-action]");
+  if (!btn) return;
+  const action = btn.dataset.focusAction;
+  if (action === "open") {
+    switchTab("pipeline");
+  } else if (action === "mode") {
+    setFocusMode(btn.dataset.mode);
+  } else if (action === "prev" || action === "next") {
+    focusIndex += action === "next" ? 1 : -1;
+    renderFocusStrip();
+  } else if (action === "advance") {
+    const nextStatus = btn.dataset.next;
+    btn.disabled = true;
+    btn.textContent = "Saving…";
+    const doSave = async () => {
+      const res = await fetch(`/api/tasks/${btn.dataset.taskId}`, {
+        method: "PUT",
+        headers: writeHeaders(),
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      return handleWriteResponse(res, doSave);
+    };
+    try {
+      await doSave();
+      await loadPipelineTasks();
+      renderFocusStrip();
+      if (!document.getElementById("view-pipeline").classList.contains("hidden")) renderPipeline();
+      if (!document.getElementById("view-today").classList.contains("hidden")) renderToday();
+      window.headerAttention.pulseAt = performance.now();
+    } catch (err) {
+      alert("Failed to update task: " + err.message);
+      renderFocusStrip();
+    }
+  }
+});
+
+// Attention tracking — only drives visuals in interactive mode.
+(function trackFocusAttention() {
+  const header = document.querySelector(".topbar");
+  const strip = document.getElementById("focus-strip");
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  function markActive() {
+    focusLastActivity = Date.now();
+    strip.classList.remove("focus-strip--drifting");
+  }
+
+  document.addEventListener("pointermove", e => {
+    markActive();
+    if (focusMode !== "interactive") return;
+    const rect = header.getBoundingClientRect();
+    // Attention fades from 1 inside the header to 0 at ~240px below it.
+    const dist = Math.max(0, e.clientY - rect.bottom);
+    window.headerAttention.level = Math.max(0, 1 - dist / 240);
+    strip.style.setProperty("--focus-x", `${((e.clientX - rect.left) / rect.width) * 100}%`);
+    strip.style.setProperty("--focus-level", window.headerAttention.level.toFixed(2));
+  }, { passive: true });
+  ["keydown", "scroll", "pointerdown"].forEach(ev =>
+    document.addEventListener(ev, markActive, { passive: true }));
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      focusHiddenAt = Date.now();
+      return;
+    }
+    const away = focusHiddenAt && Date.now() - focusHiddenAt > FOCUS_AWAY_MS;
+    focusHiddenAt = null;
+    renderFocusStrip();
+    if (away && focusMode === "interactive" && !reduceMotion.matches) {
+      strip.classList.remove("focus-strip--welcome");
+      void strip.offsetWidth; // restart the animation
+      strip.classList.add("focus-strip--welcome");
+      window.headerAttention.pulseAt = performance.now();
+    }
+  });
+
+  // Tick: refresh elapsed times; enter the idle "drift" state.
+  setInterval(() => {
+    strip.querySelectorAll(".focus-elapsed[data-started]").forEach(el => {
+      el.textContent = focusElapsed(el.dataset.started);
+    });
+    const idle = Date.now() - focusLastActivity > FOCUS_IDLE_MS;
+    strip.classList.toggle("focus-strip--drifting",
+      idle && focusMode === "interactive" && !reduceMotion.matches);
+  }, 15 * 1000);
+})();
+
+// ============================================================
 // Init
 // ============================================================
 async function init() {
   await Promise.all([loadRepos(), loadWorkItems(), loadPriorityData(), loadOkrStats(), loadRepoTaskData(), loadPipelineTasks(), loadResources(), loadIdentity(), loadCollegeDeadlines(), loadCollegeDailyTasks(), loadPullRequests()]);
   renderToday();   // Today is the landing view
   renderRepos();   // pre-render repos with work items overlaid
+  renderFocusStrip();
 }
 
 init();

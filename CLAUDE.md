@@ -229,6 +229,14 @@ The **Pipeline** tab shows OKR micro-tasks (`tasks` table) as a Kanban board: **
 - The OKR filter dropdown at top-right filters all three columns simultaneously.
 - Migration `db/migrations/0003_task_timestamps.sql` (applied to production D1) adds `started_at TEXT` and `completed_at TEXT` to the `tasks` table.
 
+## Header focus strip (current priority micro-task)
+
+A strip under the topbar (`#focus-strip`, `renderFocusStrip()` in `public/js/app.js`) shows the current OKR micro-task from `pipelineTasks`: In Progress tasks (oldest `started_at` first), falling back to the next unblocked To Do ("Up next"). Hidden when there is nothing to show or `/api/tasks` failed.
+
+- Two designs under test: `simple` (read-only; click → Pipeline tab) and `interactive` (‹ › cycling, inline Start/Done via `PUT /api/tasks/:id`, attention-responsive visuals). Pick with `?header=simple|interactive` or the ◐ toggle; the choice is remembered in `localStorage.focusStripMode`.
+- Attention signals (interactive only): pointer proximity to the header sets `window.headerAttention.level`, which `public/js/tunnel.js` reads to speed up/brighten the rings; idle >90s makes the strip "breathe"; returning to the tab after >60s plays a wave and a tunnel flare (`headerAttention.pulseAt`). CSS animations respect `prefers-reduced-motion`.
+- Any code that reloads `pipelineTasks` should call `renderFocusStrip()` afterwards.
+
 ## What's NOT built yet (as of last update)
 
 - Open PR/branch data is not surfaced on repo cards — only manually-logged `work_items` rows.

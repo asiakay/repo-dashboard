@@ -72,7 +72,7 @@
       for (let s = 0; s <= sides; s++) {
         const angle = (s / sides) * Math.PI * 2 + spin;
         // Subtle radial wave gives the organic / fractal wobble
-        const wave = 1 + 0.055 * Math.sin(s * 3.9 + t * 0.6 + i * 1.4);
+        const wave = 1 + 0.055 * Math.sin(s * 2.1 + t * 0.12 + i * 1.4);
         // Slightly elliptical so it doesn't feel perfectly mechanical
         const px = cx + Math.cos(angle) * r * wave;
         const py = cy + Math.sin(angle) * r * wave * (H / W) * 1.15;

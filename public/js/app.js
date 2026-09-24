@@ -432,7 +432,7 @@ function renderToday() {
         <div class="today-row-main">
           <span class="badge badge-work badge-work-in_progress">In Progress</span>
           <a href="https://github.com/asiakay/${escapeText(item.repo_name)}" target="_blank" rel="noopener noreferrer" class="work-repo">${escapeText(item.repo_name)}</a>
-          <span class="work-task">${escapeText(item.task_description)}</span>
+          <span class="work-task">${taskLink(item.task_description, item.id, "work")}</span>
         </div>
         <div class="today-row-meta">
           ${startedAgo ? `<span class="work-time">Started ${startedAgo}</span>` : ""}
@@ -451,7 +451,7 @@ function renderToday() {
         <div class="today-row-main">
           <span class="badge badge-work badge-work-blocked">Blocked</span>
           <a href="https://github.com/asiakay/${escapeText(item.repo_name)}" target="_blank" rel="noopener noreferrer" class="work-repo">${escapeText(item.repo_name)}</a>
-          <span class="work-task">${escapeText(item.task_description)}</span>
+          <span class="work-task">${taskLink(item.task_description, item.id, "work")}</span>
         </div>
         ${item.notes ? `<div class="today-row-notes">${escapeText(item.notes)}</div>` : ""}
         <div class="today-row-meta">
@@ -520,7 +520,7 @@ function renderToday() {
         <div class="today-row-main">
           <span class="badge badge-tier badge-tier-${item.tier_num}">${item.tier_num}</span>
           <a href="https://github.com/asiakay/${escapeText(item.repo_name)}" target="_blank" rel="noopener noreferrer" class="work-repo">${escapeText(item.repo_name)}</a>
-          <span class="work-task">${escapeText(item.task_description)}</span>
+          <span class="work-task">${taskLink(item.task_description, item.id, "work")}</span>
         </div>
         <div class="today-row-meta">
           <span class="impact-score">${item.impact_score}</span><span class="impact-max">/25</span>
@@ -870,7 +870,7 @@ function renderCapacity() {
         <div class="today-row-main">
           <span class="badge badge-work badge-work-not_started">Not started</span>
           <a href="https://github.com/asiakay/${escapeText(item.repo_name)}" target="_blank" rel="noopener noreferrer" class="work-repo">${escapeText(item.repo_name)}</a>
-          <span class="work-task">${escapeText(item.task_description)}</span>
+          <span class="work-task">${taskLink(item.task_description, item.id, "work")}</span>
         </div>
         <div class="today-row-meta">
           ${item.depends_on_repo ? `<span class="work-dep">→ needs ${escapeText(item.depends_on_repo)}</span>` : ""}
@@ -1225,7 +1225,7 @@ function renderActiveWorkItems(container) {
           <div class="work-card-top">
             <span class="badge badge-work badge-work-${item.status}">${escapeText(WORK_STATUS_LABELS[item.status] || item.status)}</span>
             <a href="https://github.com/asiakay/${escapeText(item.repo_name)}" target="_blank" rel="noopener noreferrer" class="work-repo">${escapeText(item.repo_name)}</a>
-            <span class="work-task">${escapeText(item.task_description)}</span>
+            <span class="work-task">${taskLink(item.task_description, item.id, "work")}</span>
           </div>
           <div class="work-card-meta">
             <span class="work-assigned badge-assigned-${item.assigned_to}">${escapeText(item.assigned_to)}</span>
@@ -1284,7 +1284,7 @@ function renderCompletedWork(container) {
         <div class="work-card-top">
           <span class="badge badge-work badge-work-done">Done</span>
           <a href="https://github.com/asiakay/${escapeText(item.repo_name)}" target="_blank" rel="noopener noreferrer" class="work-repo">${escapeText(item.repo_name)}</a>
-          <span class="work-task">${escapeText(item.task_description)}</span>
+          <span class="work-task">${taskLink(item.task_description, item.id, "work")}</span>
         </div>
         <div class="work-card-meta">
           <span class="work-assigned badge-assigned-${item.assigned_to}">${escapeText(item.assigned_to)}</span>
@@ -1619,7 +1619,7 @@ function renderAgentTasks() {
     return `
     <tr>
       <td><a href="https://github.com/asiakay/${escapeText(item.repo_name)}" target="_blank" rel="noopener noreferrer">${escapeText(item.repo_name)}</a></td>
-      <td>${escapeText(item.task_description)}</td>
+      <td>${taskLink(item.task_description, item.id, "work")}</td>
       <td><span class="badge badge-work badge-work-${item.status}">${escapeText(WORK_STATUS_LABELS[item.status] || item.status)}</span></td>
       <td>${sourceBadge}${issueLink}</td>
       <td ${startedFull ? `title="${escapeText(startedFull)}"` : ""}>${startedAgo || "—"}</td>
@@ -1654,7 +1654,7 @@ function renderAgentTasks() {
           ${sourceBadge}${issueLink}
         </div>
       </div>
-      <p class="agent-card-task">${escapeText(item.task_description)}</p>
+      <p class="agent-card-task">${taskLink(item.task_description, item.id, "work")}</p>
       ${metaParts.length ? `<div class="agent-card-meta">${metaParts.map(p => `<span>${p}</span>`).join("")}</div>` : ""}
       ${notesHtml}
     </div>`;
@@ -1809,7 +1809,7 @@ function renderPriority() {
       <td><span class="badge badge-tier ${tierClass}" title="${escapeText(item.tier_label)}">${item.tier_num}</span></td>
       <td><a href="https://github.com/asiakay/${escapeText(item.repo_name)}" target="_blank" rel="noopener noreferrer">${escapeText(item.repo_name)}</a></td>
       <td>
-        ${escapeText(item.task_description)}
+        ${taskLink(item.task_description, item.id, "work")}
         ${item.blocker ? `<span class="blocker-line"><span class="badge badge-work-blocked">Blocked</span>${escapeText(item.blocker)}</span>` : ""}
         <button class="btn-link" onclick="openPriorityEdit(${item.id})">Edit</button>
       </td>
@@ -1865,7 +1865,7 @@ function renderPriority() {
       <div class="work-card-top">
         <span class="badge badge-tier badge-tier-${item.tier_num}" title="${escapeText(item.tier_label)}">${item.tier_num}</span>
         <a href="https://github.com/asiakay/${escapeText(item.repo_name)}" target="_blank" rel="noopener noreferrer" class="work-repo">${escapeText(item.repo_name)}</a>
-        <span class="work-task">${escapeText(item.task_description)}</span>
+        <span class="work-task">${taskLink(item.task_description, item.id, "work")}</span>
         <button class="btn-link" onclick="openPriorityEdit(${item.id})">Edit</button>
       </div>
       ${item.blocker ? `<span class="blocker-line"><span class="badge badge-work-blocked">Blocked</span>${escapeText(item.blocker)}</span>` : ""}
@@ -2870,8 +2870,10 @@ const SEARCH_STOPWORDS = new Set(("the and for with from into onto that this the
   "are was were been being have has had not but all any can will just its our your their them " +
   "out off over under about after before via per get got use using make made add new").split(" "));
 
-function taskLink(text, taskId) {
-  const idAttr = taskId != null ? ` data-task-id="${Number(taskId)}"` : "";
+// kind is the search group the item belongs to ("tasks" or "work"), so the
+// clicked item can be left out of its own results.
+function taskLink(text, id, kind = "tasks") {
+  const idAttr = id != null ? ` data-search-exclude="${kind}:${Number(id)}"` : "";
   return `<button type="button" class="task-link"${idAttr} title="Search the dashboard for this task">${escapeText(text)}</button>`;
 }
 
@@ -2934,7 +2936,12 @@ function searchCorpus() {
       key: "work", label: "Work items",
       items: workItems.map(w => ({
         title: w.task_description, detail: w.notes, meta: [w.repo_name, WORK_STATUS_LABELS[w.status] || w.status].filter(Boolean).join(" · "),
-        action: () => switchTab("active-work"),
+        id: w.id,
+        action: () => {
+          // Show the list the item is in: done items live under "Completed".
+          activeWorkView = w.status === "done" ? "completed" : "active";
+          switchTab("active-work");
+        },
       })),
     },
     {
@@ -2954,12 +2961,12 @@ function searchCorpus() {
   ];
 }
 
-function runTaskSearch(query, excludeTaskId) {
+function runTaskSearch(query, exclude) {
   const terms = searchTerms(query);
   if (!terms.length) return { terms, groups: [] };
   const groups = searchCorpus().map(group => {
     const hits = group.items
-      .filter(item => !(group.key === "tasks" && excludeTaskId != null && item.id === excludeTaskId))
+      .filter(item => !(exclude && group.key === exclude.kind && item.id === exclude.id))
       .map(item => ({ item, hits: matchedTerms(terms, `${item.title} ${item.detail || ""} ${item.meta || ""}`).length }))
       .filter(r => r.hits > 0)
       .sort((a, b) => b.hits - a.hits)
@@ -2970,12 +2977,12 @@ function runTaskSearch(query, excludeTaskId) {
 }
 
 let taskSearchResults = [];
-let taskSearchExcludeId = null;
+let taskSearchExclude = null; // { kind, id } of the item that opened the search
 
 function renderTaskSearch() {
   const query = document.getElementById("task-search-input").value;
   const body = document.getElementById("task-search-results");
-  const { terms, groups } = runTaskSearch(query, taskSearchExcludeId);
+  const { terms, groups } = runTaskSearch(query, taskSearchExclude);
   taskSearchResults = [];
 
   if (!terms.length) {
@@ -3002,10 +3009,10 @@ function renderTaskSearch() {
     </section>`).join("");
 }
 
-function openTaskSearch(query, excludeTaskId) {
+function openTaskSearch(query, exclude) {
   const modal = document.getElementById("task-search-modal");
   const input = document.getElementById("task-search-input");
-  taskSearchExcludeId = excludeTaskId;
+  taskSearchExclude = exclude;
   input.value = query;
   renderTaskSearch();
   if (!modal.open) modal.showModal();
@@ -3017,8 +3024,8 @@ document.addEventListener("click", e => {
   const link = e.target.closest(".task-link");
   if (!link) return;
   e.stopPropagation();
-  const id = link.dataset.taskId != null ? Number(link.dataset.taskId) : null;
-  openTaskSearch(link.textContent.trim(), id);
+  const [kind, id] = (link.dataset.searchExclude || "").split(":");
+  openTaskSearch(link.textContent.trim(), kind ? { kind, id: Number(id) } : null);
 });
 
 (function initTaskSearchModal() {

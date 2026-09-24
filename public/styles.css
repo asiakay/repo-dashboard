@@ -1388,6 +1388,9 @@ body { min-height: 100vh; }
 /* Responsive */
 @media (max-width: 880px) {
   .controls-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* Stacked header + focus strip is too tall to pin on small screens —
+     sticky here hid the tab nav and most of the viewport (#111). */
+  .topbar { position: relative; }
   .topbar-inner { flex-direction: column; align-items: flex-start; }
   .top-stats { justify-content: flex-start; }
   .view-header { flex-direction: column; align-items: flex-start; }

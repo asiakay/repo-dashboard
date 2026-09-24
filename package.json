@@ -4,6 +4,7 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
     "dev": "wrangler pages dev ./public --d1 DB=repo-dashboard-work-items",
     "dev:remote": "wrangler pages dev ./public --d1 DB=repo-dashboard-work-items --remote",
     "seed": "wrangler d1 execute repo-dashboard-work-items --local --file=db/schema.sql",
@@ -11,6 +12,8 @@
     "seed:remote": "wrangler d1 execute repo-dashboard-work-items --remote --file=db/schema.sql"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "serve": "^14.2.6",
     "vitest": "^2.0.0"
   }
 }

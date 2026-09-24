@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { requireWriteAuth } from "../functions/_shared/auth.js";
 import { onRequest as priorityHandler } from "../functions/api/priority.js";
 import { onRequest as workItemsHandler } from "../functions/api/work-items.js";
@@ -7,7 +7,10 @@ import { onRequest as closeIssueHandler } from "../functions/api/work-items/clos
 import { onRequest as mcpHandler } from "../functions/api/mcp.js";
 import { onRequest as okrStatsHandler } from "../functions/api/okr-stats.js";
 import { onRequest as tasksHandler } from "../functions/api/tasks.js";
+import { onRequest as taskByIdHandler } from "../functions/api/tasks/[id].js";
 import { onRequest as repoTaskSummaryHandler } from "../functions/api/repo-task-summary.js";
+import { onRequest as meHandler } from "../functions/api/me.js";
+import { onRequest as reposHandler } from "../functions/api/repos.js";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -401,26 +404,38 @@ describe("MCP handler", () => {
     expect(res.status).toBe(401);
   });
 
-  it("tools/list returns all four tools when auth passes", async () => {
+  it("tools/list returns all 16 tools when auth passes", async () => {
     const res = await mcpHandler(mcpCtx(
       { jsonrpc: "2.0", id: 1, method: "tools/list" },
       { env: { DB: makeMcpDB(), MCP_SECRET_TOKEN: "secret" }, token: "secret" }
     ));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.result.tools).toHaveLength(4);
+    expect(body.result.tools).toHaveLength(16);
     const names = body.result.tools.map((t) => t.name);
     expect(names).toContain("log_task");
     expect(names).toContain("get_okr_progress");
     expect(names).toContain("get_daily_summary");
     expect(names).toContain("register_okr");
+    expect(names).toContain("list_agent_tasks");
+    expect(names).toContain("start_task");
+    expect(names).toContain("finish_task");
+    expect(names).toContain("list_okr_tasks");
+    expect(names).toContain("start_okr_task");
+    expect(names).toContain("finish_okr_task");
+    expect(names).toContain("list_service_tokens");
+    expect(names).toContain("create_service_token");
+    expect(names).toContain("rotate_service_token");
+    expect(names).toContain("delete_service_token");
+    expect(names).toContain("list_resources");
+    expect(names).toContain("upsert_resource");
   });
 
   it("tools/list works when MCP_SECRET_TOKEN is not configured (open)", async () => {
     const res = await mcpHandler(mcpCtx({ jsonrpc: "2.0", id: 2, method: "tools/list" }));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.result.tools).toHaveLength(4);
+    expect(body.result.tools).toHaveLength(16);
   });
 
   it("unknown method returns -32601", async () => {
@@ -685,6 +700,7 @@ describe("tasks", () => {
       prepare(sql) {
         const stmt = {
           bind() { return stmt; },
+          all() { return Promise.resolve({ results: [] }); },
           first() {
             if (sql.includes("SELECT id FROM okrs")) {
               return okrExists ? Promise.resolve({ id: "KR-1.1" }) : Promise.resolve(null);
@@ -739,9 +755,11 @@ describe("tasks", () => {
     expect(body.error).toMatch(/not found/);
   });
 
-  it("GET returns 405", async () => {
+  it("GET returns 200 with task list", async () => {
     const res = await tasksHandler({ request: req("GET"), env: { DB: makeTasksDB() } });
-    expect(res.status).toBe(405);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(Array.isArray(body)).toBe(true);
   });
 
   it("wrong WRITE_TOKEN returns 401", async () => {
@@ -812,5 +830,234 @@ describe("repo-task-summary", () => {
   it("POST returns 405", async () => {
     const res = await repoTaskSummaryHandler({ request: req("POST"), env: { DB: makeRTSDB() } });
     expect(res.status).toBe(405);
+  });
+});
+
+// ─── tasks/[id] handler (PUT) ──────────────────────────────────────────────
+
+describe("tasks/[id] handler", () => {
+  function makeTaskByIdDB({ current = null, updated = null } = {}) {
+    const defaultCurrent = {
+      id: 1, description: "Draft grant", okr_id: "KR-1.1", status: "To Do",
+      notes: null, time_spent: null, started_at: null, completed_at: null,
+    };
+    const defaultUpdated = {
+      ...defaultCurrent, objective: "Anchor Funding", key_result: "Submit grant",
+    };
+    let firstCallCount = 0;
+    return {
+      prepare() {
+        return {
+          bind() { return this; },
+          first() {
+            firstCallCount++;
+            if (firstCallCount === 1) return Promise.resolve(current ?? defaultCurrent);
+            return Promise.resolve(updated ?? { ...(current ?? defaultCurrent), ...defaultUpdated });
+          },
+          run() { return Promise.resolve({ meta: { changes: 1 } }); },
+        };
+      },
+    };
+  }
+
+  function taskCtx(method, { body = null, headers = {}, env = {}, params = { id: "1" } } = {}) {
+    return { request: req(method, { body, headers }), env: { DB: makeTaskByIdDB(), ...env }, params };
+  }
+
+  it("OPTIONS returns 204", async () => {
+    const res = await taskByIdHandler(taskCtx("OPTIONS"));
+    expect(res.status).toBe(204);
+  });
+
+  it("GET returns 405", async () => {
+    const res = await taskByIdHandler(taskCtx("GET"));
+    expect(res.status).toBe(405);
+  });
+
+  it("PUT with invalid status returns 400", async () => {
+    const res = await taskByIdHandler(taskCtx("PUT", { body: { status: "Finished" } }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/invalid status/i);
+  });
+
+  it("PUT returns 404 when task does not exist", async () => {
+    const db = makeTaskByIdDB({ current: null });
+    // Override first() to always return null
+    db.prepare = () => ({ bind() { return this; }, first() { return Promise.resolve(null); }, run() { return Promise.resolve({}); } });
+    const res = await taskByIdHandler({ request: req("PUT", { body: { status: "In Progress" } }), env: { DB: db }, params: { id: "99" } });
+    expect(res.status).toBe(404);
+  });
+
+  it("PUT with no recognised fields returns the current task unchanged", async () => {
+    const res = await taskByIdHandler(taskCtx("PUT", { body: {} }));
+    expect(res.status).toBe(200);
+  });
+
+  it("PUT status 'In Progress' stamps started_at when not already set", async () => {
+    let updateSQL = "";
+    const db = {
+      prepare(sql) {
+        return {
+          bind(...args) { return this; },
+          first() { return Promise.resolve({ id: 1, description: "T", okr_id: "KR-1.1", status: "To Do", notes: null, time_spent: null, started_at: null, completed_at: null }); },
+          run() { if (sql.startsWith("UPDATE")) updateSQL = sql; return Promise.resolve({ meta: { changes: 1 } }); },
+        };
+      },
+    };
+    const res = await taskByIdHandler({ request: req("PUT", { body: { status: "In Progress" } }), env: { DB: db }, params: { id: "1" } });
+    expect(res.status).toBe(200);
+    expect(updateSQL).toMatch(/started_at/);
+    expect(updateSQL).not.toMatch(/completed_at/);
+  });
+
+  it("PUT status 'Done' stamps both started_at and completed_at when task was not started", async () => {
+    let lastUpdateSQL = "";
+    let lastUpdateValues = [];
+    const db = {
+      prepare(sql) {
+        return {
+          bind(...args) {
+            if (sql.startsWith("UPDATE")) { lastUpdateSQL = sql; lastUpdateValues = args; }
+            return this;
+          },
+          first() { return Promise.resolve({ id: 1, description: "T", okr_id: "KR-1.1", status: "To Do", notes: null, time_spent: null, started_at: null, completed_at: null }); },
+          run() { return Promise.resolve({ meta: { changes: 1 } }); },
+        };
+      },
+    };
+    const res = await taskByIdHandler({ request: req("PUT", { body: { status: "Done" } }), env: { DB: db }, params: { id: "1" } });
+    expect(res.status).toBe(200);
+    expect(lastUpdateSQL).toMatch(/started_at/);
+    expect(lastUpdateSQL).toMatch(/completed_at/);
+  });
+
+  it("PUT status 'To Do' clears both timestamps", async () => {
+    let lastUpdateSQL = "";
+    let lastUpdateValues = [];
+    const db = {
+      prepare(sql) {
+        return {
+          bind(...args) {
+            if (sql.startsWith("UPDATE")) { lastUpdateSQL = sql; lastUpdateValues = args; }
+            return this;
+          },
+          first() { return Promise.resolve({ id: 1, description: "T", okr_id: "KR-1.1", status: "In Progress", notes: null, time_spent: null, started_at: "2026-09-01T10:00:00Z", completed_at: null }); },
+          run() { return Promise.resolve({ meta: { changes: 1 } }); },
+        };
+      },
+    };
+    const res = await taskByIdHandler({ request: req("PUT", { body: { status: "To Do" } }), env: { DB: db }, params: { id: "1" } });
+    expect(res.status).toBe(200);
+    // Both columns should be set to null
+    expect(lastUpdateSQL).toMatch(/started_at/);
+    expect(lastUpdateSQL).toMatch(/completed_at/);
+    const nullCount = lastUpdateValues.filter((v) => v === null).length;
+    expect(nullCount).toBeGreaterThanOrEqual(2);
+  });
+
+  it("PUT notes appends to existing notes", async () => {
+    let capturedNotes = null;
+    const db = {
+      prepare(sql) {
+        return {
+          bind(...args) {
+            if (sql.startsWith("UPDATE")) capturedNotes = args[0];
+            return this;
+          },
+          first() { return Promise.resolve({ id: 1, description: "T", okr_id: "KR-1.1", status: "To Do", notes: "existing note", time_spent: null, started_at: null, completed_at: null }); },
+          run() { return Promise.resolve({ meta: { changes: 1 } }); },
+        };
+      },
+    };
+    await taskByIdHandler({ request: req("PUT", { body: { notes: "new note" } }), env: { DB: db }, params: { id: "1" } });
+    expect(capturedNotes).toBe("existing note\nnew note");
+  });
+
+  it("PUT returns 401 when WRITE_TOKEN is set and token is absent", async () => {
+    const res = await taskByIdHandler(taskCtx("PUT", { body: { status: "Done" }, env: { DB: makeTaskByIdDB(), WRITE_TOKEN: "secret" } }));
+    expect(res.status).toBe(401);
+  });
+});
+
+// ─── me handler ────────────────────────────────────────────────────────────
+
+describe("me handler", () => {
+  it("GET returns authenticated:false when no CF Access header is present", async () => {
+    const res = await meHandler({ request: req("GET") });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.authenticated).toBe(false);
+    expect(body.email).toBeNull();
+  });
+
+  it("GET returns authenticated:true with email when CF Access header is present", async () => {
+    const request = new Request("http://localhost/api/me", {
+      method: "GET",
+      headers: { "Cf-Access-Authenticated-User-Email": "asia@example.com" },
+    });
+    const res = await meHandler({ request });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.authenticated).toBe(true);
+    expect(body.email).toBe("asia@example.com");
+  });
+
+  it("OPTIONS returns 204", async () => {
+    const res = await meHandler({ request: req("OPTIONS") });
+    expect(res.status).toBe(204);
+  });
+
+  it("POST returns 405", async () => {
+    const res = await meHandler({ request: req("POST") });
+    expect(res.status).toBe(405);
+  });
+});
+
+// ─── repos handler (normalization guard) ──────────────────────────────────
+
+describe("repos handler — stale-cache normalization", () => {
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  function makeAssetsBinding(payload) {
+    return {
+      fetch: async () => new Response(JSON.stringify(payload), { status: 200, headers: { "Content-Type": "application/json" } }),
+    };
+  }
+
+  it("falls back to static snapshot and handles envelope object ({ generated_at, repos: [] })", async () => {
+    vi.stubGlobal("fetch", async () => new Response(JSON.stringify([]), { status: 200 }));
+    const envelope = { generated_at: "2026-09-01T00:00:00Z", repos: [{ name: "test-repo", full_name: "asiakay/test-repo", html_url: "https://github.com/asiakay/test-repo", description: "desc", updated_at: new Date().toISOString(), open_issues_count: 0, topics: [] }] };
+    const res = await reposHandler({
+      request: new Request("http://localhost/api/repos"),
+      env: { ASSETS: makeAssetsBinding(envelope) },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.stale).toBe(true);
+    expect(body.repos).toHaveLength(1);
+    expect(body.count).toBe(1);
+  });
+
+  it("falls back to static snapshot and handles bare array", async () => {
+    vi.stubGlobal("fetch", async () => new Response(JSON.stringify([]), { status: 200 }));
+    const bare = [{ name: "repo-a", full_name: "asiakay/repo-a", html_url: "https://github.com/asiakay/repo-a", description: null, updated_at: new Date().toISOString(), open_issues_count: 0, topics: [] }];
+    const res = await reposHandler({
+      request: new Request("http://localhost/api/repos"),
+      env: { ASSETS: makeAssetsBinding(bare) },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.stale).toBe(true);
+    expect(body.repos).toHaveLength(1);
+  });
+
+  it("returns 502 when GitHub is empty and no static snapshot is available", async () => {
+    vi.stubGlobal("fetch", async () => new Response(JSON.stringify([]), { status: 200 }));
+    const res = await reposHandler({
+      request: new Request("http://localhost/api/repos"),
+      env: { ASSETS: { fetch: async () => new Response("not found", { status: 404 }) } },
+    });
+    expect(res.status).toBe(502);
   });
 });

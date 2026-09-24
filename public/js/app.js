@@ -540,7 +540,7 @@ function renderToday() {
         <div class="today-row-main">
           <span class="badge badge-work badge-work-in_progress">In Progress</span>
           <span class="okr-id">${escapeText(t.okr_id)}</span>
-          <span class="work-task">${escapeText(t.description)}</span>
+          <span class="work-task">${taskLink(t.description, t.id)}</span>
         </div>
         <div class="today-row-meta">
           ${t.time_spent ? `<span class="pipeline-chip">${escapeText(t.time_spent)}</span>` : ""}
@@ -562,7 +562,7 @@ function renderToday() {
       html += `<div class="today-row today-row-done">
         <div class="today-row-main">
           <span class="okr-id">${escapeText(t.okr_id)}</span>
-          <span class="work-task">${escapeText(t.description)}</span>
+          <span class="work-task">${taskLink(t.description, t.id)}</span>
         </div>
         ${t.time_spent ? `<div class="today-row-meta"><span class="pipeline-chip">${escapeText(t.time_spent)}</span></div>` : ""}
       </div>`;
@@ -2126,7 +2126,7 @@ function renderOkrProgress() {
             <div class="okr-task-row${t.status === "Done" ? " okr-task-row-done" : ""}">
               <div class="okr-task-row-main">
                 <span class="badge badge-work ${tBadgeClass}">${escapeText(t.status || "To Do")}</span>
-                <span class="okr-task-desc">${escapeText(t.description)}</span>
+                <span class="okr-task-desc">${taskLink(t.description, t.id)}</span>
                 ${timeSpent}
                 ${taskDate}
               </div>
@@ -2200,7 +2200,7 @@ function renderOkrProgress() {
               ${statusBadge}
               ${timeSpent}
             </div>
-            <div class="okr-today-desc">${escapeText(t.description)}</div>
+            <div class="okr-today-desc">${taskLink(t.description, t.id)}</div>
             ${t.notes ? `<div class="okr-today-notes">${escapeText(t.notes)}</div>` : ""}
           </div>`;
       }).join("")
@@ -2361,7 +2361,7 @@ function renderPipeline() {
       return `
         <div class="pipeline-card${col.status === "Done" ? " pipeline-card-done" : ""}">
           <div class="pipeline-card-okr">${escapeText(t.okr_id)}</div>
-          <div class="pipeline-card-desc">${escapeText(t.description)}</div>
+          <div class="pipeline-card-desc">${taskLink(t.description, t.id)}</div>
           <div class="pipeline-card-meta">${timeChip}${started}${completed}</div>
           ${t.notes ? `<div class="pipeline-card-notes">${escapeText(t.notes)}</div>` : ""}
           <div class="pipeline-card-actions">${advanceBtn}</div>
@@ -2861,6 +2861,191 @@ document.getElementById("focus-strip").addEventListener("click", async e => {
 // ============================================================
 // Init
 // ============================================================
+// ============================================================
+// Task search — OKR / Pipeline task text opens a modal that
+// searches the rest of the dashboard's loaded data for it.
+// ============================================================
+
+const SEARCH_STOPWORDS = new Set(("the and for with from into onto that this these those then than " +
+  "are was were been being have has had not but all any can will just its our your their them " +
+  "out off over under about after before via per get got use using make made add new").split(" "));
+
+function taskLink(text, taskId) {
+  const idAttr = taskId != null ? ` data-task-id="${Number(taskId)}"` : "";
+  return `<button type="button" class="task-link"${idAttr} title="Search the dashboard for this task">${escapeText(text)}</button>`;
+}
+
+function searchTerms(query) {
+  const seen = new Set();
+  return (query || "").toLowerCase().split(/[^a-z0-9]+/)
+    .filter(w => w.length >= 3 && !SEARCH_STOPWORDS.has(w) && !seen.has(w) && seen.add(w));
+}
+
+// A query term matches a word when either is a prefix of the other
+// (min 4 chars), so "deploy" matches "deployment" and "deploys".
+function termMatchesWord(term, word) {
+  if (term === word) return true;
+  if (term.length < 4 || word.length < 4) return false;
+  return word.startsWith(term) || term.startsWith(word);
+}
+
+function matchedTerms(terms, text) {
+  const words = (text || "").toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  return terms.filter(t => words.some(w => termMatchesWord(t, w)));
+}
+
+function highlightTerms(text, terms) {
+  return (text || "").split(/([A-Za-z0-9]+)/).map((piece, i) => {
+    if (i % 2 === 1 && terms.some(t => termMatchesWord(t, piece.toLowerCase()))) {
+      return `<mark>${escapeText(piece)}</mark>`;
+    }
+    return escapeText(piece);
+  }).join("");
+}
+
+function searchCorpus() {
+  const tasksById = new Map();
+  const addTask = t => { if (t && t.id != null && !t.is_assignment && !tasksById.has(t.id)) tasksById.set(t.id, t); };
+  pipelineTasks.forEach(addTask);
+  Object.values(okrTaskCache).forEach(v => { if (Array.isArray(v)) v.forEach(addTask); });
+  ((okrStats && okrStats.today && okrStats.today.tasks) || []).forEach(addTask);
+
+  return [
+    {
+      key: "tasks", label: "OKR tasks",
+      items: [...tasksById.values()].map(t => ({
+        id: t.id, title: t.description, detail: t.notes, meta: [t.okr_id, t.status].filter(Boolean).join(" · "),
+        action: () => {
+          // Clear an OKR filter that would hide the chosen task.
+          const filterEl = document.getElementById("pipeline-okr-filter");
+          if (filterEl.value && filterEl.value !== t.okr_id) filterEl.value = "";
+          switchTab("pipeline");
+        },
+      })),
+    },
+    {
+      key: "okrs", label: "OKRs",
+      items: ((okrStats && okrStats.okrs) || []).map(o => ({
+        title: o.objective, detail: o.key_result, meta: [o.id, o.status].filter(Boolean).join(" · "),
+        action: () => switchTab("okr-progress"),
+      })),
+    },
+    {
+      key: "work", label: "Work items",
+      items: workItems.map(w => ({
+        title: w.task_description, detail: w.notes, meta: [w.repo_name, WORK_STATUS_LABELS[w.status] || w.status].filter(Boolean).join(" · "),
+        action: () => switchTab("active-work"),
+      })),
+    },
+    {
+      key: "repos", label: "Repos",
+      items: allRepos.map(r => ({
+        title: r.name, detail: r.description, meta: r.language || "",
+        url: r.url || `https://github.com/asiakay/${r.name}`,
+      })),
+    },
+    {
+      key: "resources", label: "Resources",
+      items: resources.map(r => ({
+        title: r.name, detail: r.notes, meta: [(r.category || "").replace("_", " "), r.utilization].filter(Boolean).join(" · "),
+        action: () => switchTab("capacity"),
+      })),
+    },
+  ];
+}
+
+function runTaskSearch(query, excludeTaskId) {
+  const terms = searchTerms(query);
+  if (!terms.length) return { terms, groups: [] };
+  const groups = searchCorpus().map(group => {
+    const hits = group.items
+      .filter(item => !(group.key === "tasks" && excludeTaskId != null && item.id === excludeTaskId))
+      .map(item => ({ item, hits: matchedTerms(terms, `${item.title} ${item.detail || ""} ${item.meta || ""}`).length }))
+      .filter(r => r.hits > 0)
+      .sort((a, b) => b.hits - a.hits)
+      .slice(0, 8);
+    return { ...group, results: hits };
+  }).filter(g => g.results.length);
+  return { terms, groups };
+}
+
+let taskSearchResults = [];
+let taskSearchExcludeId = null;
+
+function renderTaskSearch() {
+  const query = document.getElementById("task-search-input").value;
+  const body = document.getElementById("task-search-results");
+  const { terms, groups } = runTaskSearch(query, taskSearchExcludeId);
+  taskSearchResults = [];
+
+  if (!terms.length) {
+    body.innerHTML = `<p class="empty-state">Type a few words to search.</p>`;
+    return;
+  }
+  if (!groups.length) {
+    body.innerHTML = `<p class="empty-state">Nothing else on the dashboard matches “${escapeText(query)}”.</p>`;
+    return;
+  }
+
+  body.innerHTML = groups.map(g => `
+    <section class="task-search-group">
+      <h3 class="task-search-group-label">${escapeText(g.label)} <span class="work-group-count">${g.results.length}</span></h3>
+      ${g.results.map(({ item }) => {
+        const idx = taskSearchResults.push(item) - 1;
+        return `
+          <button type="button" class="task-search-result" data-result-idx="${idx}">
+            <span class="task-search-result-title">${highlightTerms(item.title, terms)}</span>
+            ${item.detail ? `<span class="task-search-result-detail">${highlightTerms(item.detail, terms)}</span>` : ""}
+            ${item.meta ? `<span class="task-search-result-meta">${escapeText(item.meta)}${item.url ? " · GitHub ↗" : ""}</span>` : ""}
+          </button>`;
+      }).join("")}
+    </section>`).join("");
+}
+
+function openTaskSearch(query, excludeTaskId) {
+  const modal = document.getElementById("task-search-modal");
+  const input = document.getElementById("task-search-input");
+  taskSearchExcludeId = excludeTaskId;
+  input.value = query;
+  renderTaskSearch();
+  if (!modal.open) modal.showModal();
+  input.focus();
+  input.select();
+}
+
+document.addEventListener("click", e => {
+  const link = e.target.closest(".task-link");
+  if (!link) return;
+  e.stopPropagation();
+  const id = link.dataset.taskId != null ? Number(link.dataset.taskId) : null;
+  openTaskSearch(link.textContent.trim(), id);
+});
+
+(function initTaskSearchModal() {
+  const modal = document.getElementById("task-search-modal");
+  if (!modal) return;
+  const input = document.getElementById("task-search-input");
+  input.addEventListener("input", renderTaskSearch);
+  // type="search" swallows the first Escape to clear its text; close instead.
+  input.addEventListener("keydown", e => {
+    if (e.key === "Escape") { e.preventDefault(); modal.close(); }
+  });
+  document.getElementById("task-search-close").addEventListener("click", () => modal.close());
+  modal.addEventListener("click", e => {
+    if (e.target === modal) { modal.close(); return; } // backdrop
+    const btn = e.target.closest("[data-result-idx]");
+    if (!btn) return;
+    const item = taskSearchResults[Number(btn.dataset.resultIdx)];
+    if (!item) return;
+    if (item.url) {
+      window.open(item.url, "_blank", "noopener,noreferrer");
+    } else {
+      modal.close();
+      item.action();
+    }
+  });
+})();
+
 async function init() {
   await Promise.all([loadRepos(), loadWorkItems(), loadPriorityData(), loadOkrStats(), loadRepoTaskData(), loadPipelineTasks(), loadResources(), loadIdentity(), loadCollegeDeadlines(), loadCollegeDailyTasks(), loadPullRequests()]);
   renderToday();   // Today is the landing view

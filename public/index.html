@@ -264,6 +264,15 @@
     </p>
   </footer>
 
+  <dialog id="task-search-modal" class="task-search-modal" aria-labelledby="task-search-title">
+    <div class="task-search-header">
+      <h2 id="task-search-title" class="visually-hidden">Search the dashboard</h2>
+      <input id="task-search-input" type="search" class="task-search-input" aria-label="Search the dashboard" autocomplete="off" />
+      <button type="button" id="task-search-close" class="btn-ghost btn-sm" aria-label="Close search">✕</button>
+    </div>
+    <div id="task-search-results" class="task-search-results" aria-live="polite"></div>
+  </dialog>
+
   <script src="js/tunnel.js" defer></script>
   <script src="js/app.js" defer></script>
 </body>

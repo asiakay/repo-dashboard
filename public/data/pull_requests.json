@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-09-30T22:56:13.486Z",
-  "total_prs": 553,
+  "generated_at": "2026-10-01T01:55:26.482Z",
+  "total_prs": 539,
   "repos": [
     {
       "name": "asiagrady",
@@ -113,13 +113,6 @@
       "merged": 15,
       "closed": 0,
       "total": 15
-    },
-    {
-      "name": "admin-wizard-tracker",
-      "open": 0,
-      "merged": 14,
-      "closed": 0,
-      "total": 14
     },
     {
       "name": "receipt-logger",
@@ -2732,17 +2725,6 @@
       "author": "asiakay"
     },
     {
-      "repo": "admin-wizard-tracker",
-      "number": 14,
-      "title": "Add Cloudflare Access authentication middleware",
-      "state": "merged",
-      "url": "https://github.com/asiakay/admin-wizard-tracker/pull/14",
-      "created_at": "2026-07-02T23:59:06Z",
-      "merged_at": "2026-07-02T23:59:44Z",
-      "closed_at": "2026-07-02T23:59:44Z",
-      "author": "asiakay"
-    },
-    {
       "repo": "fairfoods-schedule",
       "number": 1,
       "title": "Add GitHub Actions deploy workflow for Cloudflare Workers",
@@ -2751,149 +2733,6 @@
       "created_at": "2026-06-30T20:41:44Z",
       "merged_at": "2026-06-30T20:44:38Z",
       "closed_at": "2026-06-30T20:44:38Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "admin-wizard-tracker",
-      "number": 13,
-      "title": "Add inline editing for tracks and deadlines with audit trail",
-      "state": "merged",
-      "url": "https://github.com/asiakay/admin-wizard-tracker/pull/13",
-      "created_at": "2026-06-30T01:37:30Z",
-      "merged_at": "2026-06-30T01:49:01Z",
-      "closed_at": "2026-06-30T01:49:01Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "admin-wizard-tracker",
-      "number": 12,
-      "title": "Fix end-to-end data flow: CORS, raw-fetch mutations, diagnostics, tests",
-      "state": "merged",
-      "url": "https://github.com/asiakay/admin-wizard-tracker/pull/12",
-      "created_at": "2026-06-30T00:28:24Z",
-      "merged_at": "2026-06-30T00:28:34Z",
-      "closed_at": "2026-06-30T00:28:34Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "admin-wizard-tracker",
-      "number": 11,
-      "title": "Fix end-to-end data flow: CORS, mutations, diagnostics, tests",
-      "state": "merged",
-      "url": "https://github.com/asiakay/admin-wizard-tracker/pull/11",
-      "created_at": "2026-06-30T00:26:58Z",
-      "merged_at": "2026-06-30T00:27:02Z",
-      "closed_at": "2026-06-30T00:27:02Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "admin-wizard-tracker",
-      "number": 10,
-      "title": "fix: set correct worker URL and add initial D1 schema migration",
-      "state": "merged",
-      "url": "https://github.com/asiakay/admin-wizard-tracker/pull/10",
-      "created_at": "2026-06-29T23:49:02Z",
-      "merged_at": "2026-06-29T23:49:13Z",
-      "closed_at": "2026-06-29T23:49:13Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "admin-wizard-tracker",
-      "number": 9,
-      "title": "fix: use VITE_API_URL secret and allow Pages preview origins in CORS",
-      "state": "merged",
-      "url": "https://github.com/asiakay/admin-wizard-tracker/pull/9",
-      "created_at": "2026-06-29T23:29:08Z",
-      "merged_at": "2026-06-29T23:29:23Z",
-      "closed_at": "2026-06-29T23:29:23Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "admin-wizard-tracker",
-      "number": 8,
-      "title": "Add track detail page with editing and deadline linking",
-      "state": "merged",
-      "url": "https://github.com/asiakay/admin-wizard-tracker/pull/8",
-      "created_at": "2026-06-29T23:05:16Z",
-      "merged_at": "2026-06-29T23:05:56Z",
-      "closed_at": "2026-06-29T23:05:56Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "admin-wizard-tracker",
-      "number": 7,
-      "title": "Claude/GitHub actions cloudflare pages 13h67s",
-      "state": "merged",
-      "url": "https://github.com/asiakay/admin-wizard-tracker/pull/7",
-      "created_at": "2026-06-29T22:53:51Z",
-      "merged_at": "2026-06-29T22:54:03Z",
-      "closed_at": "2026-06-29T22:54:03Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "admin-wizard-tracker",
-      "number": 6,
-      "title": "fix(api): apply Hono Variables generic and strict TS fixes to invento…",
-      "state": "merged",
-      "url": "https://github.com/asiakay/admin-wizard-tracker/pull/6",
-      "created_at": "2026-06-29T22:43:11Z",
-      "merged_at": "2026-06-29T22:43:20Z",
-      "closed_at": "2026-06-29T22:43:20Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "admin-wizard-tracker",
-      "number": 5,
-      "title": "Fix API TypeScript errors blocking tsc typecheck in CI",
-      "state": "merged",
-      "url": "https://github.com/asiakay/admin-wizard-tracker/pull/5",
-      "created_at": "2026-06-29T20:45:16Z",
-      "merged_at": "2026-06-29T20:45:27Z",
-      "closed_at": "2026-06-29T20:45:27Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "admin-wizard-tracker",
-      "number": 4,
-      "title": "Claude/GitHub actions cloudflare pages 13h67s",
-      "state": "merged",
-      "url": "https://github.com/asiakay/admin-wizard-tracker/pull/4",
-      "created_at": "2026-06-29T00:02:23Z",
-      "merged_at": "2026-06-29T00:32:55Z",
-      "closed_at": "2026-06-29T00:32:55Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "admin-wizard-tracker",
-      "number": 3,
-      "title": "Add observability config to wrangler.toml for consistent deployments",
-      "state": "merged",
-      "url": "https://github.com/asiakay/admin-wizard-tracker/pull/3",
-      "created_at": "2026-06-28T23:51:15Z",
-      "merged_at": "2026-06-30T01:09:16Z",
-      "closed_at": "2026-06-30T01:09:16Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "admin-wizard-tracker",
-      "number": 2,
-      "title": "Add package-lock.json and upgrade vitest to 2.x",
-      "state": "merged",
-      "url": "https://github.com/asiakay/admin-wizard-tracker/pull/2",
-      "created_at": "2026-06-28T23:23:51Z",
-      "merged_at": "2026-06-28T23:24:07Z",
-      "closed_at": "2026-06-28T23:24:07Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "admin-wizard-tracker",
-      "number": 1,
-      "title": "Add GitHub Actions worker deploy + Cloudflare Pages SPA redirect",
-      "state": "merged",
-      "url": "https://github.com/asiakay/admin-wizard-tracker/pull/1",
-      "created_at": "2026-06-28T23:14:02Z",
-      "merged_at": "2026-06-28T23:14:13Z",
-      "closed_at": "2026-06-28T23:14:13Z",
       "author": "asiakay"
     },
     {
@@ -3631,6 +3470,160 @@
       "created_at": "2026-06-07T10:51:40Z",
       "merged_at": "2026-06-07T10:52:02Z",
       "closed_at": "2026-06-07T10:52:02Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 157,
+      "title": "Claude/charming dirac wk4 sw",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/157",
+      "created_at": "2026-06-07T10:40:20Z",
+      "merged_at": "2026-06-07T10:40:35Z",
+      "closed_at": "2026-06-07T10:40:35Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 156,
+      "title": "Remove API key requirement from agents-starter env config",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/156",
+      "created_at": "2026-06-07T10:34:44Z",
+      "merged_at": "2026-06-07T10:34:57Z",
+      "closed_at": "2026-06-07T10:34:57Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 155,
+      "title": "Switch from Anthropic to Cloudflare Workers AI provider",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/155",
+      "created_at": "2026-06-07T10:31:04Z",
+      "merged_at": "2026-06-07T10:31:35Z",
+      "closed_at": "2026-06-07T10:31:35Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 153,
+      "title": "Add /api/ai-status endpoint and proactive AI banner check",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/153",
+      "created_at": "2026-06-07T08:36:21Z",
+      "merged_at": "2026-06-07T08:36:35Z",
+      "closed_at": "2026-06-07T08:36:35Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 152,
+      "title": "Switch AI provider from OpenAI to Anthropic Claude",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/152",
+      "created_at": "2026-06-07T08:25:50Z",
+      "merged_at": "2026-06-07T08:26:26Z",
+      "closed_at": "2026-06-07T08:26:26Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 147,
+      "title": "Claude/busy darwin nf kj q",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/147",
+      "created_at": "2026-06-07T02:38:21Z",
+      "merged_at": "2026-06-07T02:38:31Z",
+      "closed_at": "2026-06-07T02:38:31Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 146,
+      "title": "Fix notes saving with a dedicated /api/notes endpoint",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/146",
+      "created_at": "2026-06-07T02:05:26Z",
+      "merged_at": "2026-06-07T02:07:31Z",
+      "closed_at": "2026-06-07T02:07:31Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 145,
+      "title": "Claude/busy darwin nf kj q",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/145",
+      "created_at": "2026-06-07T01:57:26Z",
+      "merged_at": "2026-06-07T01:57:37Z",
+      "closed_at": "2026-06-07T01:57:37Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 144,
+      "title": "Add filter to show only saved grants (candidates + watchlist)",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/144",
+      "created_at": "2026-06-07T01:46:46Z",
+      "merged_at": "2026-06-07T01:48:58Z",
+      "closed_at": "2026-06-07T01:48:58Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 142,
+      "title": "Claude/relaxed keller qs8mw",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/142",
+      "created_at": "2026-06-07T01:06:45Z",
+      "merged_at": "2026-06-07T01:18:48Z",
+      "closed_at": "2026-06-07T01:18:48Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 141,
+      "title": "Fix keyword matching: expand profile selections into real search terms",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/141",
+      "created_at": "2026-06-06T23:46:58Z",
+      "merged_at": "2026-06-06T23:48:30Z",
+      "closed_at": "2026-06-06T23:48:30Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 140,
+      "title": "Fix match score consistency: summary card and table now use same score",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/140",
+      "created_at": "2026-06-06T23:35:32Z",
+      "merged_at": "2026-06-06T23:36:51Z",
+      "closed_at": "2026-06-06T23:36:51Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 139,
+      "title": "Add welcome page with profile summary and personalized match banner",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/139",
+      "created_at": "2026-06-06T23:19:52Z",
+      "merged_at": "2026-06-06T23:25:56Z",
+      "closed_at": "2026-06-06T23:25:56Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 138,
+      "title": "Fix Pages function: add /signup and D1 login support",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/138",
+      "created_at": "2026-06-06T22:59:23Z",
+      "merged_at": "2026-06-06T22:59:37Z",
+      "closed_at": "2026-06-06T22:59:37Z",
       "author": "asiakay"
     }
   ]

@@ -6,6 +6,17 @@
       "headers": {
         "Authorization": "Bearer ${COLLEGE_TRACKER_MCP_TOKEN}"
       }
+    },
+    "github": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GH_PERSONAL_ACCESS_TOKEN}"
+      }
     }
   }
 }

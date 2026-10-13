@@ -119,6 +119,9 @@ wrangler secret put MCP_SECRET_TOKEN
 JSON-RPC 2.0 transport. All requests must include `Content-Type: application/json`. When `MCP_SECRET_TOKEN` is configured, include `Authorization: Bearer <token>`.
 
 **Methods:**
+- `initialize` — MCP handshake; returns `protocolVersion` (echoes the client's), `capabilities: { tools: {} }`, `serverInfo`
+- `ping` — returns `{}`
+- `notifications/*` (or any message without an `id`) — acknowledged with HTTP 202, no body
 - `tools/list` — enumerate available tools
 - `tools/call` — invoke a tool by name
 

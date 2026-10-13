@@ -692,6 +692,23 @@ export async function onRequest(context) {
     return jsonRpcError(id, -32600, "Invalid Request: jsonrpc must be '2.0'");
   }
 
+  // Notifications (e.g. notifications/initialized) carry no id and get no response body.
+  if (!("id" in body) || (typeof method === "string" && method.startsWith("notifications/"))) {
+    return new Response(null, { status: 202, headers: CORS });
+  }
+
+  if (method === "initialize") {
+    return jsonRpc(id, {
+      protocolVersion: params.protocolVersion || "2025-06-18",
+      capabilities: { tools: {} },
+      serverInfo: { name: "repo-dashboard", version: "1.0.0" },
+    });
+  }
+
+  if (method === "ping") {
+    return jsonRpc(id, {});
+  }
+
   if (method === "tools/list") {
     return jsonRpc(id, { tools: TOOLS });
   }

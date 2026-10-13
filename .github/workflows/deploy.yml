@@ -1,14 +1,30 @@
-name: Deploy Cloudflare Worker MCP
+name: Deploy to Cloudflare Pages
+
+# Deploys the repo-dashboard Pages site (static ./public + ./functions) on every
+# push to main, after re-applying db/schema.sql to the production D1 database.
+#
+# schema.sql is safe to re-run: every CREATE uses IF NOT EXISTS and the seed
+# rows are only inserted into an empty work_items table. Incremental schema
+# changes still go through db/migrations/ + their own migrate-*.yml workflows.
+#
+# Required GitHub secrets:
+#   CLOUDFLARE_API_TOKEN  — Cloudflare API token with D1 + Pages edit access
+#   CLOUDFLARE_ACCOUNT_ID — Cloudflare account ID
 
 on:
   push:
     branches:
       - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-pages
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    name: Deploy to Cloudflare
+    name: Deploy to Cloudflare Pages
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -16,25 +32,19 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: 'npm'
+          node-version: "22"
 
-      - name: Install Dependencies
-        run: npm ci
-
-      - name: Execute D1 Migration (Remote)
-        run: npx wrangler d1 execute agency-mcp-db --remote --file=./db/schema.sql
+      # Must match the database_name of the DB binding in wrangler.jsonc —
+      # wrangler resolves the name through that config.
+      - name: Apply schema to D1 (remote)
+        run: npx wrangler@latest d1 execute repo-dashboard-work-items --remote --file=./db/schema.sql
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-      - name: Deploy Worker to Cloudflare
-        uses: cloudflare/wrangler-action@v4
+      - name: Deploy Pages project
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy
-        env:
-          THIRDWEB_CLIENT_ID: ${{ secrets.THIRDWEB_CLIENT_ID }}
-          THIRDWEB_SECRET_KEY: ${{ secrets.THIRDWEB_SECRET_KEY }}
-          RELAYER_PRIVATE_KEY: ${{ secrets.RELAYER_PRIVATE_KEY }}
+          command: pages deploy ./public --project-name=repo-dashboard --branch=main

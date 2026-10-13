@@ -16,8 +16,12 @@ const CORS = {
   "Content-Type": "application/json",
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, MCP-Protocol-Version",
 };
+
+// Protocol revisions this endpoint can speak (it only uses tools/list + tools/call,
+// which are unchanged across these). Newest first; the first is the counteroffer.
+const SUPPORTED_PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"];
 
 function jsonRpc(id, result) {
   return new Response(JSON.stringify({ jsonrpc: "2.0", id, result }), { headers: CORS });
@@ -699,7 +703,9 @@ export async function onRequest(context) {
 
   if (method === "initialize") {
     return jsonRpc(id, {
-      protocolVersion: params.protocolVersion || "2025-06-18",
+      protocolVersion: SUPPORTED_PROTOCOL_VERSIONS.includes(params.protocolVersion)
+        ? params.protocolVersion
+        : SUPPORTED_PROTOCOL_VERSIONS[0],
       capabilities: { tools: {} },
       serverInfo: { name: "repo-dashboard", version: "1.0.0" },
     });

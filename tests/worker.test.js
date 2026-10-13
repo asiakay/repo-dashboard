@@ -456,6 +456,22 @@ describe("MCP handler", () => {
     expect(body.result.capabilities.tools).toEqual({});
   });
 
+  it("initialize counteroffers a supported version for an unknown one", async () => {
+    const res = await mcpHandler(mcpCtx({
+      jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2099-01-01" },
+    }));
+    const body = await res.json();
+    expect(body.result.protocolVersion).toBe("2025-06-18");
+  });
+
+  it("CORS allows the MCP-Protocol-Version header", async () => {
+    const res = await mcpHandler({
+      request: new Request("http://localhost/api/mcp", { method: "OPTIONS" }),
+      env: {},
+    });
+    expect(res.headers.get("Access-Control-Allow-Headers")).toContain("MCP-Protocol-Version");
+  });
+
   it("ping returns an empty result", async () => {
     const res = await mcpHandler(mcpCtx({ jsonrpc: "2.0", id: 4, method: "ping" }));
     const body = await res.json();

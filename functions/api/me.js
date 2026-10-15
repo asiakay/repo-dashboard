@@ -8,7 +8,7 @@ const CORS = {
 };
 
 export async function onRequest(context) {
-  const { request } = context;
+  const { request, env } = context;
 
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: CORS });
@@ -18,7 +18,7 @@ export async function onRequest(context) {
     return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405, headers: CORS });
   }
 
-  const email = getCallerIdentity(request);
+  const email = await getCallerIdentity(request, env || {});
   return new Response(
     JSON.stringify({ email: email || null, authenticated: !!email }),
     { headers: CORS }

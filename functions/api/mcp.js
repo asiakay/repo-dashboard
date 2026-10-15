@@ -1,7 +1,10 @@
 /**
  * MCP (Model Context Protocol) endpoint — JSON-RPC 2.0 over HTTP POST /api/mcp
  *
- * Auth: Bearer token matching env.MCP_SECRET_TOKEN (opt-in; open when unset).
+ * Auth: Bearer token matching env.MCP_SECRET_TOKEN, or a verified Cloudflare Access
+ *       JWT (see functions/_shared/auth.js). Open only when neither MCP_SECRET_TOKEN
+ *       nor Access verification is configured (local dev). Service token tools
+ *       always require an authenticated caller.
  * D1 binding: DB (same as the rest of the API).
  *
  * Supported methods:
@@ -11,6 +14,8 @@
  * Tools: log_task, get_okr_progress, get_daily_summary, register_okr,
  *         list_agent_tasks, start_task, finish_task
  */
+
+import { accessConfigured, bearerMatches, getCallerIdentity } from "../_shared/auth.js";
 
 const CORS = {
   "Content-Type": "application/json",
@@ -579,10 +584,10 @@ async function handleToolCall(name, args, db, env, isAuthenticated = false) {
     return { content: [{ type: "text", text: JSON.stringify(row) }] };
   }
 
-  const CF_AUTH_ERR = "Service token tools require authentication. Set MCP_SECRET_TOKEN or access via Cloudflare Access.";
+  const CF_AUTH_ERR = "Service token tools require authentication: a valid MCP_SECRET_TOKEN bearer token or a verified Cloudflare Access session.";
 
   if (name === "list_service_tokens") {
-    if (env.CF_API_TOKEN && !isAuthenticated) {
+    if (!isAuthenticated) {
       return { isError: true, content: [{ type: "text", text: CF_AUTH_ERR }] };
     }
     const tokens = await cfAccessFetchAll(env);
@@ -594,7 +599,7 @@ async function handleToolCall(name, args, db, env, isAuthenticated = false) {
   }
 
   if (name === "create_service_token") {
-    if (env.CF_API_TOKEN && !isAuthenticated) {
+    if (!isAuthenticated) {
       return { isError: true, content: [{ type: "text", text: CF_AUTH_ERR }] };
     }
     const { name: tokenName, duration = "8760h" } = args || {};
@@ -611,7 +616,7 @@ async function handleToolCall(name, args, db, env, isAuthenticated = false) {
   }
 
   if (name === "rotate_service_token") {
-    if (env.CF_API_TOKEN && !isAuthenticated) {
+    if (!isAuthenticated) {
       return { isError: true, content: [{ type: "text", text: CF_AUTH_ERR }] };
     }
     const { token_id, duration = "8760h" } = args || {};
@@ -631,7 +636,7 @@ async function handleToolCall(name, args, db, env, isAuthenticated = false) {
   }
 
   if (name === "delete_service_token") {
-    if (env.CF_API_TOKEN && !isAuthenticated) {
+    if (!isAuthenticated) {
       return { isError: true, content: [{ type: "text", text: CF_AUTH_ERR }] };
     }
     const { token_id } = args || {};
@@ -658,26 +663,15 @@ export async function onRequest(context) {
     return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405, headers: CORS });
   }
 
-  // Resolve caller identity before applying any gate.
-  // cfAccessEmail is set by Cloudflare Access on authenticated requests.
-  const cfAccessEmail = request.headers.get("Cf-Access-Authenticated-User-Email");
-  const authHeader = request.headers.get("Authorization") || "";
-  const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  // Caller is authenticated by a verified Cloudflare Access JWT or the MCP bearer token.
+  // The unsigned Cf-Access-Authenticated-User-Email header is never trusted on its own.
+  const accessIdentity = await getCallerIdentity(request, env);
+  const isAuthenticated = !!accessIdentity || bearerMatches(request, env.MCP_SECRET_TOKEN);
 
-  // Bearer token auth — opt-in: open when MCP_SECRET_TOKEN is not configured.
-  // CF Access identity is accepted as an alternative to the bearer token so that
-  // callers authenticated by Cloudflare Access aren't rejected even when
-  // MCP_SECRET_TOKEN is also configured.
-  if (env.MCP_SECRET_TOKEN) {
-    if (!cfAccessEmail && bearerToken !== env.MCP_SECRET_TOKEN) {
-      return jsonRpcError(null, -32000, "Unauthorized", 401);
-    }
+  // Open only for local dev, when no auth mechanism is configured at all.
+  if (!isAuthenticated && (env.MCP_SECRET_TOKEN || accessConfigured(env))) {
+    return jsonRpcError(null, -32000, "Unauthorized", 401);
   }
-
-  // isAuthenticated: used by privileged tools (service token management) to enforce
-  // auth even when MCP_SECRET_TOKEN is not configured.
-  const isAuthenticated = !!(cfAccessEmail) ||
-    !!(env.MCP_SECRET_TOKEN && bearerToken === env.MCP_SECRET_TOKEN);
 
   let body;
   try {

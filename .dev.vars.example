@@ -17,3 +17,9 @@ WRITE_TOKEN=local-dev-write-token
 
 # Guards POST on /api/mcp. Leave blank to keep the endpoint open (fine for local dev).
 MCP_SECRET_TOKEN=local-dev-mcp-token
+
+# Cloudflare Access JWT verification (production). Leave unset for local dev.
+# When set, write endpoints and /api/mcp require a valid Access JWT or the bearer token.
+# AUD tag: Zero Trust dashboard → Access → Applications → <app> → Overview.
+# CF_ACCESS_TEAM_DOMAIN=myteam.cloudflareaccess.com
+# CF_ACCESS_AUD=

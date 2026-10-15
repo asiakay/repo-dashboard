@@ -13,7 +13,7 @@ Static Cloudflare Pages site — no build step, no package.json, vanilla HTML/CS
 - `public/data/repos.json` — repo health data, committed hourly by a GitHub Actions workflow; fetched directly by the frontend (not via an API function).
 - `functions/api/repos.js` — a Cloudflare Pages Function; exists but is not currently used by the frontend for repo data (frontend reads the static JSON directly instead).
 - `functions/api/work-items.js` / `functions/api/work-items/[id].js` — API for the D1-backed work-items tracker (GET/POST list+create, PUT update by id). The PUT handler auto-stamps `started_at`/`completed_at` based on status transitions (server-side).
-- `functions/api/me.js` — GET `/api/me`; returns `{ email, authenticated }` from the `Cf-Access-Authenticated-User-Email` header injected by Cloudflare Access.
+- `functions/api/me.js` — GET `/api/me`; returns `{ email, authenticated }` from the verified Cloudflare Access JWT (see "Auth" below).
 - `wrangler.jsonc` — config; includes a `d1_databases` binding named `DB` pointing at the `repo-dashboard-work-items` database.
 - `db/schema.sql` — the `work_items` table definition + seed data.
 - `public/js/app.js` — all frontend logic: tab switching, repo rendering, work-item rendering, dependency-warning logic, inline edit forms.
@@ -105,7 +105,9 @@ wrangler d1 execute repo-dashboard-work-items --local \
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `MCP_SECRET_TOKEN` | No (opt-in) | Bearer token protecting `/api/mcp`. When unset, the endpoint is open (safe for local dev). |
+| `MCP_SECRET_TOKEN` | No (opt-in) | Bearer token protecting `/api/mcp`. The endpoint is open only when this AND Access verification (`CF_ACCESS_TEAM_DOMAIN` + `CF_ACCESS_AUD`) are both unset (local dev). |
+| `CF_ACCESS_TEAM_DOMAIN` | Production | Access team domain, e.g. `myteam.cloudflareaccess.com`. Used to fetch signing certs. |
+| `CF_ACCESS_AUD` | Production | Access application AUD tag. With the team domain set, writes and `/api/mcp` fail closed without a valid JWT or bearer token. |
 
 Set via Wrangler:
 ```bash
@@ -244,4 +246,14 @@ OKR/Pipeline micro-task text (Today tab OKR rows, OKR Progress task lists and "t
 ## What's NOT built yet (as of last update)
 
 - Open PR/branch data is not surfaced on repo cards — only manually-logged `work_items` rows.
-- Write auth uses `WRITE_TOKEN` (local dev) and Cloudflare Access (production). `functions/_shared/auth.js` checks the `Cf-Access-Authenticated-User-Email` header first; if present, the user is considered authenticated. If absent (local dev), it falls back to `WRITE_TOKEN` bearer-token check. Read endpoints remain open.
+
+## Auth
+
+`functions/_shared/auth.js` is the single source of auth logic.
+
+- **Identity = verified Cloudflare Access JWT only.** `getCallerIdentity(request, env)` verifies `Cf-Access-Jwt-Assertion` (RS256 against `https://<CF_ACCESS_TEAM_DOMAIN>/cdn-cgi/access/certs`, cached 1h, refetched on unknown `kid`; checks `aud` = `CF_ACCESS_AUD`, `iss`, `exp`, `nbf`). Returns the email, or the service token's `common_name`. The unsigned `Cf-Access-Authenticated-User-Email` header is **never** trusted — it can be forged on any route that bypasses Access (e.g. `*.pages.dev`).
+- **Write endpoints** (`requireWriteAuth`, async — always `await` it): pass with a verified JWT or `WRITE_TOKEN` bearer. Open only when neither `WRITE_TOKEN` nor Access verification is configured (local dev).
+- **`/api/mcp`**: same rule with `MCP_SECRET_TOKEN`. Service token tools (`list/create/rotate/delete_service_token`) always require an authenticated caller, even in local dev.
+- Bearer tokens are compared in constant time (`timingSafeEqual`).
+- Read endpoints remain open.
+- Tests: `tests/auth.test.js` signs real RS256 JWTs and stubs the certs fetch.

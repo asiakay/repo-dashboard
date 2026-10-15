@@ -16,7 +16,7 @@ export async function onRequest(context) {
   }
 
   if (request.method === "PUT") {
-    const authError = requireWriteAuth(request, env);
+    const authError = await requireWriteAuth(request, env);
     if (authError) return authError;
 
     let body;

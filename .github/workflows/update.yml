@@ -104,10 +104,18 @@ jobs:
           while true; do
             echo "---- Fetching page $PAGE ----"
 
-            curl -s \
+            HTTP_STATUS=$(curl -s -w "%{http_code}" \
               -H "Authorization: token ${{ secrets.REPOS_PAT }}" \
               "https://api.github.com/user/repos?type=all&per_page=$PER_PAGE&page=$PAGE" \
-              -o page.json
+              -o page.json)
+
+            # Fail loudly on an error response (e.g. expired REPOS_PAT) instead of
+            # trying to merge an error object into the repo list.
+            if [ "$HTTP_STATUS" != "200" ] || [ "$(jq -r 'type' page.json)" != "array" ]; then
+              echo "::error::GitHub API returned HTTP $HTTP_STATUS on page $PAGE — check that the REPOS_PAT secret is valid and not expired."
+              jq -c '{message, documentation_url}' page.json 2>/dev/null || head -c 500 page.json
+              exit 1
+            fi
 
             COUNT=$(jq '. | length' page.json)
             echo "Items on page $PAGE: $COUNT"

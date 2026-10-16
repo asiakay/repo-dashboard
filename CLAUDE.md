@@ -10,7 +10,7 @@ A live GitHub repo health dashboard for github.com/asiakay, with an added "Activ
 
 Static Cloudflare Pages site — no build step, no package.json, vanilla HTML/CSS/JS.
 
-- `public/data/repos.json` — repo health data, committed hourly by a GitHub Actions workflow; fetched directly by the frontend (not via an API function).
+- `public/data/repos.json` — repo health data, regenerated hourly by `.github/workflows/update.yml`; fetched directly by the frontend (not via an API function). Note: as of 2026-10 the regenerated file is **not** reaching `main` (see "Where things can go wrong"), so the committed copy dates from 2025-11.
 - `functions/api/repos.js` — a Cloudflare Pages Function; exists but is not currently used by the frontend for repo data (frontend reads the static JSON directly instead).
 - `functions/api/work-items.js` / `functions/api/work-items/[id].js` — API for the D1-backed work-items tracker (GET/POST list+create, PUT update by id). The PUT handler auto-stamps `started_at`/`completed_at` based on status transitions (server-side).
 - `functions/api/me.js` — GET `/api/me`; returns `{ email, authenticated }` from the `Cf-Access-Authenticated-User-Email` header injected by Cloudflare Access.
@@ -46,6 +46,8 @@ One row per task, not per repo — a repo accumulates history over time rather t
 ## Where things can go wrong
 
 - The repo-health data pipeline (GitHub Actions → repos.json) has previously broken silently when a processing script's expected file path drifted from where the fetch step actually wrote its output. If repo counts ever show as 0 or stuck on "Loading…" again, check for a path mismatch between the fetch step and the processing step before assuming a frontend bug.
+- `main` has a "changes must be made through a pull request" protection rule, so the workflow's `git-auto-commit-action` step reports success but commits nothing. Only `pull_requests.json` gets through (via the Contents API with `REPOS_PAT`); `repos.json` has not been committed since 2025-11-19. Check the newest `updated_at` in `repos.json` (or `generated_at`, once the wrapped format lands) before trusting it.
+- `REPOS_PAT` expiring breaks both the repo fetch and the `pull_requests.json` commit. Since 2026-10-01 every run has failed at the fetch step; it now fails with an explicit `::error::` naming `REPOS_PAT`.
 - The frontend should always handle an error/empty-data response gracefully (show a message, don't just silently render zero) — this was added defensively after the above.
 
 ## OKR & Task Tracker (MCP integration)

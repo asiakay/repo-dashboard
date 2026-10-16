@@ -135,6 +135,7 @@ JSON-RPC 2.0 transport. All requests must include `Content-Type: application/jso
 | `list_okr_tasks` | _(none)_ | Return OKR micro-tasks from the `tasks` table. Optional: `okr_id`, `status`, `include_done` |
 | `start_okr_task` | `task_id` | Advance an OKR micro-task to In Progress; stamps `started_at`. Idempotent |
 | `finish_okr_task` | `task_id` | Advance an OKR micro-task to Done; stamps `completed_at`. Optional: `notes`, `time_spent` |
+| `list_repos` | _(none)_ | Read-only. Repo list + health from `public/data/repos.json` (via the `ASSETS` binding): `repo_name`, `description`, `url`, `homepage` (live site), `health`, `site_error`, `open_issues`, `updated_at`, `language`. Other tools' `repo_name` values must match these exactly |
 
 **Error codes:**
 

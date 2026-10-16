@@ -31,7 +31,7 @@ export async function onRequest({ request, env }) {
     return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405, headers: CORS });
   }
 
-  const authError = requireWriteAuth(request, env);
+  const authError = await requireWriteAuth(request, env);
   if (authError) return authError;
 
   let body;

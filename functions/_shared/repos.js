@@ -1,9 +1,11 @@
 /**
  * Live repo health data for asiakay, shared by /api/repos and the MCP list_repos tool.
  *
- * Fetches public repos from the GitHub API (GITHUB_TOKEN raises the rate limit),
- * caches the result at the edge for CACHE_TTL seconds, and falls back to the
+ * Fetches public repos from the GitHub API, caches the result at the edge for
+ * CACHE_TTL seconds where the Cache API is available, and falls back to the
  * committed public/data/repos.json snapshot (marked stale) if GitHub fails.
+ * Behind Cloudflare Access there is no cache, so set GITHUB_TOKEN in production
+ * (5,000 GitHub requests/hour instead of 60).
  */
 
 const CACHE_TTL = 300;
@@ -19,6 +21,8 @@ function health(repo) {
   return score < 2 ? "green" : score < 4 ? "yellow" : "red";
 }
 
+// Returns the full repo list, or null if any page fails — a partial list must
+// never be served (or cached) as if it were complete.
 async function fetchAllRepos(token) {
   const all = [];
   let page = 1;
@@ -29,14 +33,35 @@ async function fetchAllRepos(token) {
       `https://api.github.com/users/asiakay/repos?per_page=100&page=${page}&sort=updated&direction=desc`,
       { headers }
     );
-    if (!res.ok) break;
-    const batch = await res.json();
-    if (!Array.isArray(batch) || batch.length === 0) break;
+    if (!res.ok) return null;
+    const batch = await res.json().catch(() => null);
+    if (!Array.isArray(batch)) return null;
     all.push(...batch);
     if (batch.length < 100) break;
     page++;
   }
-  return all;
+  return all.length ? all : null;
+}
+
+// The Cache API is unavailable for Workers fronted by Cloudflare Access (which
+// production uses), so every cache operation is best-effort and never throws.
+async function cacheGet() {
+  try {
+    if (typeof caches === "undefined") return null;
+    const hit = await caches.default.match(CACHE_KEY);
+    return hit ? await hit.json() : null;
+  } catch {
+    return null;
+  }
+}
+
+async function cachePut(data) {
+  try {
+    if (typeof caches === "undefined") return;
+    await caches.default.put(CACHE_KEY, new Response(JSON.stringify(data), {
+      headers: { "Content-Type": "application/json", "Cache-Control": `max-age=${CACHE_TTL}` },
+    }));
+  } catch {}
 }
 
 async function loadSnapshot(env, requestUrl) {
@@ -56,14 +81,11 @@ async function loadSnapshot(env, requestUrl) {
  * Returns { count, generated_at, repos, stale? } or { error: true, message }.
  */
 export async function getRepos(env, requestUrl) {
-  const cache = typeof caches !== "undefined" ? caches.default : null;
-  if (cache) {
-    const hit = await cache.match(CACHE_KEY);
-    if (hit) return hit.json();
-  }
+  const hit = await cacheGet();
+  if (hit) return hit;
 
   const raw = await fetchAllRepos(env.GITHUB_TOKEN);
-  if (!raw.length) {
+  if (!raw) {
     // GitHub rate-limited or unreachable — serve the committed static snapshot
     return (await loadSnapshot(env, requestUrl)) ||
       { error: true, message: "GitHub API returned no repos" };
@@ -87,10 +109,6 @@ export async function getRepos(env, requestUrl) {
   }));
 
   const data = { count: repos.length, generated_at: new Date().toISOString(), repos };
-  if (cache) {
-    await cache.put(CACHE_KEY, new Response(JSON.stringify(data), {
-      headers: { "Content-Type": "application/json", "Cache-Control": `max-age=${CACHE_TTL}` },
-    }));
-  }
+  await cachePut(data);
   return data;
 }

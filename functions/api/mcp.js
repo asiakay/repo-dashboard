@@ -12,6 +12,8 @@
  *         list_agent_tasks, start_task, finish_task, list_repos (read-only)
  */
 
+import { getRepos } from "../_shared/repos.js";
+
 const CORS = {
   "Content-Type": "application/json",
   "Access-Control-Allow-Origin": "*",
@@ -175,7 +177,7 @@ const TOOLS = [
   // ── Repo health (read-only) ──────────────────────────────────────────────
   {
     name: "list_repos",
-    description: "Read-only. List all GitHub repos from the dashboard's repo health snapshot (public/data/repos.json, refreshed hourly), with each repo's exact repo_name, description, GitHub URL, live site URL if present, and health fields. The repo_name values used by other tools (e.g. list_agent_tasks, work items) must match these names exactly, including case.",
+    description: "Read-only. List all GitHub repos from the dashboard's live repo health data (same source as /api/repos: GitHub API, cached ~5 min, falling back to the committed snapshot with stale=true), with each repo's exact repo_name, description, GitHub URL, live site URL if present, and health fields. The repo_name values used by other tools (e.g. list_agent_tasks, work items) must match these names exactly, including case.",
     inputSchema: { type: "object", properties: {}, required: [] },
   },
   // ── Cloudflare Access service token tools ────────────────────────────────
@@ -303,16 +305,11 @@ async function cfAccessFetchAll(env) {
 
 async function handleToolCall(name, args, db, env, isAuthenticated = false, request = null) {
   if (name === "list_repos") {
-    const assetRes = await env.ASSETS.fetch(new Request(new URL("/data/repos.json", request.url)));
-    if (!assetRes.ok) {
-      return {
-        isError: true,
-        content: [{ type: "text", text: `Could not load repos.json (HTTP ${assetRes.status})` }],
-      };
+    const data = await getRepos(env, request.url);
+    if (data.error) {
+      return { isError: true, content: [{ type: "text", text: `Could not load repos: ${data.message}` }] };
     }
-    const data = await assetRes.json();
-    // The snapshot may be a bare array or a { generated_at, repos: [] } envelope.
-    const repos = Array.isArray(data) ? data : (data.repos || []);
+    const repos = data.repos;
     const result = repos.map(r => ({
       repo_name: r.name,
       full_name: r.full_name || null,
@@ -329,7 +326,8 @@ async function handleToolCall(name, args, db, env, isAuthenticated = false, requ
       content: [{
         type: "text",
         text: JSON.stringify({
-          generated_at: Array.isArray(data) ? null : (data.generated_at || null),
+          generated_at: data.generated_at || null,
+          stale: !!data.stale,
           count: result.length,
           repos: result,
         }),

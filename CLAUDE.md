@@ -10,8 +10,9 @@ A live GitHub repo health dashboard for github.com/asiakay, with an added "Activ
 
 Static Cloudflare Pages site — no build step, no package.json, vanilla HTML/CSS/JS.
 
-- `public/data/repos.json` — repo health data, regenerated hourly by `.github/workflows/update.yml`; fetched directly by the frontend (not via an API function). Note: as of 2026-10 the regenerated file is **not** reaching `main` (see "Where things can go wrong"), so the committed copy dates from 2025-11.
-- `functions/api/repos.js` — a Cloudflare Pages Function; exists but is not currently used by the frontend for repo data (frontend reads the static JSON directly instead).
+- `functions/_shared/repos.js` — `getRepos(env, requestUrl)`: the single source of live repo health data. Fetches public repos from the GitHub API (`GITHUB_TOKEN` raises the rate limit), computes `health`, caches the result at the edge for 5 minutes (`caches.default`), and falls back to the committed `public/data/repos.json` snapshot (marked `stale: true`) if GitHub fails. Used by `/api/repos` and the MCP `list_repos` tool.
+- `functions/api/repos.js` — GET `/api/repos`; thin wrapper over `getRepos`. The frontend (`loadRepos()` in `public/js/app.js`) calls this first and only reads `/data/repos.json` directly if the request itself throws.
+- `public/data/repos.json` — static fallback snapshot only. `.github/workflows/update.yml` regenerates it each run (later steps in the same run read it), but branch protection keeps the regenerated copy from reaching `main`, so the committed file dates from 2025-11. This is accepted: the live path above is the real source. `site_error` (live-site probe) only exists in the workflow's copy, so it is currently absent in the dashboard.
 - `functions/api/work-items.js` / `functions/api/work-items/[id].js` — API for the D1-backed work-items tracker (GET/POST list+create, PUT update by id). The PUT handler auto-stamps `started_at`/`completed_at` based on status transitions (server-side).
 - `functions/api/me.js` — GET `/api/me`; returns `{ email, authenticated }` from the `Cf-Access-Authenticated-User-Email` header injected by Cloudflare Access.
 - `wrangler.jsonc` — config; includes a `d1_databases` binding named `DB` pointing at the `repo-dashboard-work-items` database.
@@ -41,12 +42,12 @@ One row per task, not per repo — a repo accumulates history over time rather t
 
 - **Dependency warnings are soft, not hard blocks.** If a work item's `depends_on_repo` has any open (not_started/in_progress/blocked) items, show a warning banner — but still allow the status change. The person (or agent) may have a good reason to proceed anyway.
 - **Repo health data and work-item data are separate systems** that get joined client-side (by `repo_name` matching) — don't conflate them into one table or one fetch path.
-- `functions/api/repos.js` has a known normalization issue: it can call `.length` on the envelope object (`{ generated_at, repos: [] }`) instead of the array inside it. Any edit touching this file should normalize with `Array.isArray(repos) ? repos : (repos.repos || [])` before using `.length`.
+- The snapshot fallback in `functions/_shared/repos.js` must normalize the file with `Array.isArray(data) ? data : (data.repos || [])` — it has been both a bare array and a `{ generated_at, repos: [] }` envelope.
 
 ## Where things can go wrong
 
 - The repo-health data pipeline (GitHub Actions → repos.json) has previously broken silently when a processing script's expected file path drifted from where the fetch step actually wrote its output. If repo counts ever show as 0 or stuck on "Loading…" again, check for a path mismatch between the fetch step and the processing step before assuming a frontend bug.
-- `main` has a "changes must be made through a pull request" protection rule, so the workflow's `git-auto-commit-action` step reports success but commits nothing. Only `pull_requests.json` gets through (via the Contents API with `REPOS_PAT`); `repos.json` has not been committed since 2025-11-19. Check the newest `updated_at` in `repos.json` (or `generated_at`, once the wrapped format lands) before trusting it.
+- `main` has a "changes must be made through a pull request" protection rule, so the workflow's `git-auto-commit-action` step reports success but commits nothing. Only `pull_requests.json` gets through (via the Contents API with `REPOS_PAT`). `repos.json` is deliberately not committed that way (it would mean an hourly branch-protection bypass); repo data comes live from `/api/repos` instead. If the dashboard shows "using cached data", GitHub failed and the 2025-11 snapshot is being served — check `GITHUB_TOKEN` in the Cloudflare Pages settings.
 - `REPOS_PAT` expiring breaks both the repo fetch and the `pull_requests.json` commit. Since 2026-10-01 every run has failed at the fetch step; it now fails with an explicit `::error::` naming `REPOS_PAT`.
 - The frontend should always handle an error/empty-data response gracefully (show a message, don't just silently render zero) — this was added defensively after the above.
 
@@ -137,7 +138,7 @@ JSON-RPC 2.0 transport. All requests must include `Content-Type: application/jso
 | `list_okr_tasks` | _(none)_ | Return OKR micro-tasks from the `tasks` table. Optional: `okr_id`, `status`, `include_done` |
 | `start_okr_task` | `task_id` | Advance an OKR micro-task to In Progress; stamps `started_at`. Idempotent |
 | `finish_okr_task` | `task_id` | Advance an OKR micro-task to Done; stamps `completed_at`. Optional: `notes`, `time_spent` |
-| `list_repos` | _(none)_ | Read-only. Repo list + health from `public/data/repos.json` (via the `ASSETS` binding): `repo_name`, `description`, `url`, `homepage` (live site), `health`, `site_error`, `open_issues`, `updated_at`, `language`. Other tools' `repo_name` values must match these exactly |
+| `list_repos` | _(none)_ | Read-only. Live repo list + health via `getRepos` (same source as `/api/repos`): `repo_name`, `description`, `url`, `homepage` (live site), `health`, `site_error`, `open_issues`, `updated_at`, `language`, plus `generated_at` and `stale`. Other tools' `repo_name` values must match these exactly |
 
 **Error codes:**
 

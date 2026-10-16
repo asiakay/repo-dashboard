@@ -58,8 +58,10 @@ CREATE TABLE IF NOT EXISTS tasks (
 
 CREATE INDEX IF NOT EXISTS idx_tasks_okr_id ON tasks(okr_id);
 
--- Seed data
-INSERT INTO work_items (repo_name, task_description, status, assigned_to, depends_on_repo) VALUES
+-- Seed data — only inserted into an empty work_items table, so re-running this
+-- file (e.g. from the deploy workflow) never duplicates rows in production.
+INSERT INTO work_items (repo_name, task_description, status, assigned_to, depends_on_repo)
+SELECT * FROM (VALUES
   ('hemp-pilot-ops-dashboard', 'Fix /deal-room 404', 'not_started', 'agent', NULL),
   ('moving-agent', 'Audit: active vs dormant, confirm purpose', 'not_started', 'agent', NULL),
   ('commonground', 'Audit: active vs dormant, confirm purpose', 'not_started', 'agent', NULL),
@@ -71,4 +73,6 @@ INSERT INTO work_items (repo_name, task_description, status, assigned_to, depend
   ('front-porch-economics', 'Build shared auth/data layer', 'not_started', 'asia', NULL),
   ('solar-roots', 'Design cohort/program shape', 'not_started', 'asia', NULL),
   ('grantmatch', 'Decide funding-match framing', 'not_started', 'asia', NULL),
-  ('pwse', 'Decide public vs. gated', 'not_started', 'asia', NULL);
+  ('pwse', 'Decide public vs. gated', 'not_started', 'asia', NULL)
+)
+WHERE NOT EXISTS (SELECT 1 FROM work_items);

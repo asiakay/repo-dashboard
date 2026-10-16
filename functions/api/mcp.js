@@ -9,8 +9,10 @@
  *   tools/call   → invoke a tool by name
  *
  * Tools: log_task, get_okr_progress, get_daily_summary, register_okr,
- *         list_agent_tasks, start_task, finish_task
+ *         list_agent_tasks, start_task, finish_task, list_repos (read-only)
  */
+
+import { getRepos } from "../_shared/repos.js";
 
 const CORS = {
   "Content-Type": "application/json",
@@ -176,6 +178,12 @@ const TOOLS = [
       required: ["task_id"],
     },
   },
+  // ── Repo health (read-only) ──────────────────────────────────────────────
+  {
+    name: "list_repos",
+    description: "Read-only. List all GitHub repos from the dashboard's live repo health data (same source as /api/repos: GitHub API, cached ~5 min, falling back to the committed snapshot with stale=true), with each repo's exact repo_name, description, GitHub URL, live site URL if present, and health fields. The repo_name values used by other tools (e.g. list_agent_tasks, work items) must match these names exactly, including case.",
+    inputSchema: { type: "object", properties: {}, required: [] },
+  },
   // ── Cloudflare Access service token tools ────────────────────────────────
   {
     name: "list_service_tokens",
@@ -299,7 +307,38 @@ async function cfAccessFetchAll(env) {
   return all;
 }
 
-async function handleToolCall(name, args, db, env, isAuthenticated = false) {
+async function handleToolCall(name, args, db, env, isAuthenticated = false, request = null) {
+  if (name === "list_repos") {
+    const data = await getRepos(env, request.url);
+    if (data.error) {
+      return { isError: true, content: [{ type: "text", text: `Could not load repos: ${data.message}` }] };
+    }
+    const repos = data.repos;
+    const result = repos.map(r => ({
+      repo_name: r.name,
+      full_name: r.full_name || null,
+      description: r.description || null,
+      url: r.url || null,
+      homepage: r.homepage || null,
+      health: r.health || null,
+      site_error: r.site_error ?? null,
+      open_issues: r.open_issues ?? null,
+      updated_at: r.updated_at || null,
+      language: r.language || null,
+    }));
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify({
+          generated_at: data.generated_at || null,
+          stale: !!data.stale,
+          count: result.length,
+          repos: result,
+        }),
+      }],
+    };
+  }
+
   if (name === "log_task") {
     const { description, okr_id, time_spent = null, status = "Done", notes = null } = args || {};
 
@@ -723,7 +762,7 @@ export async function onRequest(context) {
     const { name, arguments: args = {} } = params;
     let result;
     try {
-      result = await handleToolCall(name, args, env.DB, env, isAuthenticated);
+      result = await handleToolCall(name, args, env.DB, env, isAuthenticated, request);
     } catch (err) {
       return jsonRpcError(id, -32603, `Internal error: ${err.message}`);
     }

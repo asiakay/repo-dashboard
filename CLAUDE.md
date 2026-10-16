@@ -15,7 +15,8 @@ Static Cloudflare Pages site — no build step, no package.json, vanilla HTML/CS
 - `functions/api/work-items.js` / `functions/api/work-items/[id].js` — API for the D1-backed work-items tracker (GET/POST list+create, PUT update by id). The PUT handler auto-stamps `started_at`/`completed_at` based on status transitions (server-side).
 - `functions/api/me.js` — GET `/api/me`; returns `{ email, authenticated }` from the `Cf-Access-Authenticated-User-Email` header injected by Cloudflare Access.
 - `wrangler.jsonc` — config; includes a `d1_databases` binding named `DB` pointing at the `repo-dashboard-work-items` database.
-- `db/schema.sql` — the `work_items` table definition + seed data.
+- `db/schema.sql` — the `work_items` table definition + seed data. Must stay idempotent: it is re-applied to production D1 on every deploy (all `CREATE ... IF NOT EXISTS`; seed rows only insert into an empty `work_items`).
+- `.github/workflows/deploy.yml` — on push to `main`: applies `./db/schema.sql` to `repo-dashboard-work-items` (remote). It does **not** deploy the site — Cloudflare Pages' Git integration builds and deploys on push; don't add a `pages deploy` step or every push deploys twice. The D1 name used by any `wrangler d1 execute` must match `database_name` in `wrangler.jsonc`, or wrangler fails with "Couldn't find DB with name …".
 - `public/js/app.js` — all frontend logic: tab switching, repo rendering, work-item rendering, dependency-warning logic, inline edit forms.
 - `public/styles.css` — dark theme; badge colors map to work-item status (gray = not_started, blue = in_progress, amber = blocked, green = done).
 
@@ -118,6 +119,9 @@ wrangler secret put MCP_SECRET_TOKEN
 JSON-RPC 2.0 transport. All requests must include `Content-Type: application/json`. When `MCP_SECRET_TOKEN` is configured, include `Authorization: Bearer <token>`.
 
 **Methods:**
+- `initialize` — MCP handshake; returns `protocolVersion` (the client's if in `SUPPORTED_PROTOCOL_VERSIONS`, else the newest supported), `capabilities: { tools: {} }`, `serverInfo`
+- `ping` — returns `{}`
+- `notifications/*` (or any message without an `id`) — acknowledged with HTTP 202, no body
 - `tools/list` — enumerate available tools
 - `tools/call` — invoke a tool by name
 

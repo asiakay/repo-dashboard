@@ -439,9 +439,49 @@ describe("MCP handler", () => {
   });
 
   it("unknown method returns -32601", async () => {
-    const res = await mcpHandler(mcpCtx({ jsonrpc: "2.0", id: 3, method: "ping" }));
+    const res = await mcpHandler(mcpCtx({ jsonrpc: "2.0", id: 3, method: "resources/list" }));
     const body = await res.json();
     expect(body.error.code).toBe(-32601);
+  });
+
+  it("initialize returns serverInfo and tools capability", async () => {
+    const res = await mcpHandler(mcpCtx({
+      jsonrpc: "2.0", id: 0, method: "initialize",
+      params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "test", version: "0" } },
+    }));
+    const body = await res.json();
+    expect(body.id).toBe(0);
+    expect(body.result.protocolVersion).toBe("2025-03-26");
+    expect(body.result.serverInfo.name).toBe("repo-dashboard");
+    expect(body.result.capabilities.tools).toEqual({});
+  });
+
+  it("initialize counteroffers a supported version for an unknown one", async () => {
+    const res = await mcpHandler(mcpCtx({
+      jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2099-01-01" },
+    }));
+    const body = await res.json();
+    expect(body.result.protocolVersion).toBe("2025-06-18");
+  });
+
+  it("CORS allows the MCP-Protocol-Version header", async () => {
+    const res = await mcpHandler({
+      request: new Request("http://localhost/api/mcp", { method: "OPTIONS" }),
+      env: {},
+    });
+    expect(res.headers.get("Access-Control-Allow-Headers")).toContain("MCP-Protocol-Version");
+  });
+
+  it("ping returns an empty result", async () => {
+    const res = await mcpHandler(mcpCtx({ jsonrpc: "2.0", id: 4, method: "ping" }));
+    const body = await res.json();
+    expect(body.result).toEqual({});
+  });
+
+  it("notifications/initialized returns 202 with no body", async () => {
+    const res = await mcpHandler(mcpCtx({ jsonrpc: "2.0", method: "notifications/initialized" }));
+    expect(res.status).toBe(202);
+    expect(await res.text()).toBe("");
   });
 
   it("tools/call with unknown tool returns -32601", async () => {

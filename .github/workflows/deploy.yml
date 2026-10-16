@@ -1,0 +1,44 @@
+name: Apply D1 schema
+
+# Re-applies db/schema.sql to the production D1 database on every push to main.
+# The site itself (static ./public + ./functions) is deployed by Cloudflare
+# Pages' own Git integration, not by this workflow.
+#
+# schema.sql is safe to re-run: every CREATE uses IF NOT EXISTS and the seed
+# rows are only inserted into an empty work_items table. Incremental schema
+# changes still go through db/migrations/ + their own migrate-*.yml workflows.
+#
+# Required GitHub secrets:
+#   CLOUDFLARE_API_TOKEN  — Cloudflare API token with D1 edit access
+#   CLOUDFLARE_ACCOUNT_ID — Cloudflare account ID
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: apply-d1-schema
+  cancel-in-progress: false
+
+jobs:
+  schema:
+    runs-on: ubuntu-latest
+    name: Apply schema to D1
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # Must match the database_name of the DB binding in wrangler.jsonc —
+      # wrangler resolves the name through that config.
+      - name: Apply schema to D1 (remote)
+        run: npx wrangler@latest d1 execute repo-dashboard-work-items --remote --file=./db/schema.sql
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

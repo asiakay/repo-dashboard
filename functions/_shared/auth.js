@@ -12,8 +12,9 @@
 //   WRITE_TOKEN           – bearer token for write endpoints (local dev / scripts)
 
 const CERT_TTL_MS = 60 * 60 * 1000;
+const FORCED_REFRESH_COOLDOWN_MS = 60 * 1000; // caps unknown-kid refetches (forged tokens)
 const CLOCK_SKEW_S = 60;
-const certCache = new Map(); // teamDomain → { keys: Map<kid, CryptoKey>, expires }
+const certCache = new Map(); // teamDomain → { keys: Map<kid, CryptoKey>, expires, fetchedAt }
 
 function unauthorized() {
   return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -70,7 +71,9 @@ function decodeJson(s) {
 
 async function loadCerts(team, force = false) {
   const cached = certCache.get(team);
-  if (!force && cached && cached.expires > Date.now()) return cached.keys;
+  if (cached && cached.expires > Date.now()) {
+    if (!force || Date.now() - cached.fetchedAt < FORCED_REFRESH_COOLDOWN_MS) return cached.keys;
+  }
 
   const res = await fetch(`https://${team}/cdn-cgi/access/certs`);
   if (!res.ok) throw new Error(`Access certs fetch failed: ${res.status}`);
@@ -83,7 +86,7 @@ async function loadCerts(team, force = false) {
     );
     map.set(jwk.kid, key);
   }
-  certCache.set(team, { keys: map, expires: Date.now() + CERT_TTL_MS });
+  certCache.set(team, { keys: map, expires: Date.now() + CERT_TTL_MS, fetchedAt: Date.now() });
   return map;
 }
 

@@ -147,10 +147,26 @@ describe("verifyAccessJwt", () => {
     }
   });
 
-  it("refetches certs once on an unknown kid, then rejects", async () => {
-    const token = await sign(claims(), { kid: "rotated-away" });
-    expect(await verifyAccessJwt(reqWith({ "Cf-Access-Jwt-Assertion": token }), ENV)).toBeNull();
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+  it("does not refetch certs for an unknown kid within the cooldown", async () => {
+    const token = await sign(claims(), { kid: "unknown" });
+    for (let i = 0; i < 5; i++) {
+      expect(await verifyAccessJwt(reqWith({ "Cf-Access-Jwt-Assertion": token }), ENV)).toBeNull();
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("refetches certs on an unknown kid once the cooldown has passed (key rotation)", async () => {
+    const valid = await sign(claims());
+    expect(await verifyAccessJwt(reqWith({ "Cf-Access-Jwt-Assertion": valid }), ENV)).not.toBeNull();
+    const now = Date.now();
+    const spy = vi.spyOn(Date, "now").mockReturnValue(now + 61_000);
+    try {
+      const token = await sign(claims(), { kid: "rotated-away" });
+      expect(await verifyAccessJwt(reqWith({ "Cf-Access-Jwt-Assertion": token }), ENV)).toBeNull();
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
 

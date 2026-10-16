@@ -251,7 +251,7 @@ OKR/Pipeline micro-task text (Today tab OKR rows, OKR Progress task lists and "t
 
 `functions/_shared/auth.js` is the single source of auth logic.
 
-- **Identity = verified Cloudflare Access JWT only.** `getCallerIdentity(request, env)` verifies `Cf-Access-Jwt-Assertion` (RS256 against `https://<CF_ACCESS_TEAM_DOMAIN>/cdn-cgi/access/certs`, cached 1h, refetched on unknown `kid`; checks `aud` = `CF_ACCESS_AUD`, `iss`, `exp`, `nbf`). Returns the email, or the service token's `common_name`. The unsigned `Cf-Access-Authenticated-User-Email` header is **never** trusted — it can be forged on any route that bypasses Access (e.g. `*.pages.dev`).
+- **Identity = verified Cloudflare Access JWT only.** `getCallerIdentity(request, env)` verifies `Cf-Access-Jwt-Assertion` (RS256 against `https://<CF_ACCESS_TEAM_DOMAIN>/cdn-cgi/access/certs`, cached 1h, refetched on unknown `kid` at most once per 60s; checks `aud` = `CF_ACCESS_AUD`, `iss`, `exp`, `nbf`). Returns the email, or the service token's `common_name`. The unsigned `Cf-Access-Authenticated-User-Email` header is **never** trusted — it can be forged on any route that bypasses Access (e.g. `*.pages.dev`).
 - **Write endpoints** (`requireWriteAuth`, async — always `await` it): pass with a verified JWT or `WRITE_TOKEN` bearer. Open only when neither `WRITE_TOKEN` nor Access verification is configured (local dev).
 - **`/api/mcp`**: same rule with `MCP_SECRET_TOKEN`. Service token tools (`list/create/rotate/delete_service_token`) always require an authenticated caller, even in local dev.
 - Bearer tokens are compared in constant time (`timingSafeEqual`).

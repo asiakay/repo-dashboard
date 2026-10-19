@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-10-19T00:58:13.312Z",
-  "total_prs": 539,
+  "generated_at": "2026-10-19T05:59:38.654Z",
+  "total_prs": 542,
   "repos": [
     {
       "name": "asiagrady",
@@ -255,6 +255,13 @@
       "total": 3
     },
     {
+      "name": "your-campus-your-voice",
+      "open": 0,
+      "merged": 3,
+      "closed": 0,
+      "total": 3
+    },
+    {
       "name": "climasphere",
       "open": 1,
       "merged": 1,
@@ -326,6 +333,39 @@
     }
   ],
   "history": [
+    {
+      "repo": "your-campus-your-voice",
+      "number": 3,
+      "title": "Merge pull request #2 from asiakay/main",
+      "state": "merged",
+      "url": "https://github.com/asiakay/your-campus-your-voice/pull/3",
+      "created_at": "2026-10-19T03:20:08Z",
+      "merged_at": "2026-10-19T03:21:49Z",
+      "closed_at": "2026-10-19T03:21:49Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "your-campus-your-voice",
+      "number": 2,
+      "title": "Merge pull request #1 from asiakay/claude/vibrant-ritchie-7tq7hz",
+      "state": "merged",
+      "url": "https://github.com/asiakay/your-campus-your-voice/pull/2",
+      "created_at": "2026-10-19T03:18:26Z",
+      "merged_at": "2026-10-19T03:19:22Z",
+      "closed_at": "2026-10-19T03:19:22Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "your-campus-your-voice",
+      "number": 1,
+      "title": "Add production-mcp: remote MCP server for GitHub production workspaces",
+      "state": "merged",
+      "url": "https://github.com/asiakay/your-campus-your-voice/pull/1",
+      "created_at": "2026-10-19T02:03:46Z",
+      "merged_at": "2026-10-19T02:09:19Z",
+      "closed_at": "2026-10-19T02:09:19Z",
+      "author": "asiakay"
+    },
     {
       "repo": "leverage-list",
       "number": 30,
@@ -3591,39 +3631,6 @@
       "created_at": "2026-06-06T23:46:58Z",
       "merged_at": "2026-06-06T23:48:30Z",
       "closed_at": "2026-06-06T23:48:30Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "grant-manager-tool-demo",
-      "number": 140,
-      "title": "Fix match score consistency: summary card and table now use same score",
-      "state": "merged",
-      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/140",
-      "created_at": "2026-06-06T23:35:32Z",
-      "merged_at": "2026-06-06T23:36:51Z",
-      "closed_at": "2026-06-06T23:36:51Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "grant-manager-tool-demo",
-      "number": 139,
-      "title": "Add welcome page with profile summary and personalized match banner",
-      "state": "merged",
-      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/139",
-      "created_at": "2026-06-06T23:19:52Z",
-      "merged_at": "2026-06-06T23:25:56Z",
-      "closed_at": "2026-06-06T23:25:56Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "grant-manager-tool-demo",
-      "number": 138,
-      "title": "Fix Pages function: add /signup and D1 login support",
-      "state": "merged",
-      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/138",
-      "created_at": "2026-06-06T22:59:23Z",
-      "merged_at": "2026-06-06T22:59:37Z",
-      "closed_at": "2026-06-06T22:59:37Z",
       "author": "asiakay"
     }
   ]

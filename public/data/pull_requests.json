@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-10-27T01:54:20.386Z",
-  "total_prs": 539,
+  "generated_at": "2026-10-27T07:33:17.721Z",
+  "total_prs": 541,
   "repos": [
     {
       "name": "asiagrady",
@@ -255,6 +255,13 @@
       "total": 3
     },
     {
+      "name": "sovereign-protocol",
+      "open": 0,
+      "merged": 3,
+      "closed": 0,
+      "total": 3
+    },
+    {
       "name": "climasphere",
       "open": 1,
       "merged": 1,
@@ -318,13 +325,6 @@
       "total": 1
     },
     {
-      "name": "sovereign-protocol",
-      "open": 1,
-      "merged": 0,
-      "closed": 0,
-      "total": 1
-    },
-    {
       "name": "we-are-the-infrastructure",
       "open": 0,
       "merged": 1,
@@ -335,13 +335,35 @@
   "history": [
     {
       "repo": "sovereign-protocol",
+      "number": 3,
+      "title": "Make deploy workflow fail on the real error, and verify the token first",
+      "state": "merged",
+      "url": "https://github.com/asiakay/sovereign-protocol/pull/3",
+      "created_at": "2026-10-27T03:28:46Z",
+      "merged_at": "2026-10-27T03:36:07Z",
+      "closed_at": "2026-10-27T03:36:07Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "sovereign-protocol",
+      "number": 2,
+      "title": "Add GitHub Actions workflow to deploy the reference Worker",
+      "state": "merged",
+      "url": "https://github.com/asiakay/sovereign-protocol/pull/2",
+      "created_at": "2026-10-27T03:18:48Z",
+      "merged_at": "2026-10-27T03:25:34Z",
+      "closed_at": "2026-10-27T03:25:34Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "sovereign-protocol",
       "number": 1,
       "title": "Add SPEC-0001 Open Grant Ledger standard and reference Worker",
-      "state": "open",
+      "state": "merged",
       "url": "https://github.com/asiakay/sovereign-protocol/pull/1",
       "created_at": "2026-10-23T06:55:03Z",
-      "merged_at": null,
-      "closed_at": null,
+      "merged_at": "2026-10-27T03:02:11Z",
+      "closed_at": "2026-10-27T03:02:11Z",
       "author": "asiakay"
     },
     {
@@ -3609,28 +3631,6 @@
       "created_at": "2026-06-07T01:57:26Z",
       "merged_at": "2026-06-07T01:57:37Z",
       "closed_at": "2026-06-07T01:57:37Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "grant-manager-tool-demo",
-      "number": 144,
-      "title": "Add filter to show only saved grants (candidates + watchlist)",
-      "state": "merged",
-      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/144",
-      "created_at": "2026-06-07T01:46:46Z",
-      "merged_at": "2026-06-07T01:48:58Z",
-      "closed_at": "2026-06-07T01:48:58Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "grant-manager-tool-demo",
-      "number": 142,
-      "title": "Claude/relaxed keller qs8mw",
-      "state": "merged",
-      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/142",
-      "created_at": "2026-06-07T01:06:45Z",
-      "merged_at": "2026-06-07T01:18:48Z",
-      "closed_at": "2026-06-07T01:18:48Z",
       "author": "asiakay"
     }
   ]

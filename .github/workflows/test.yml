@@ -1,0 +1,36 @@
+name: Tests
+
+# Runs the vitest suite (tests/) on every pull request and on pushes to main.
+# The suite needs no network or secrets: GitHub is stubbed, and D1 is a real
+# in-memory SQLite database built from db/schema.sql (tests/helpers/d1.js).
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # 22.13+ is required: node:sqlite (used by the D1 test helper) is
+          # available without a flag from 22.13.
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm test

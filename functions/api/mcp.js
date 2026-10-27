@@ -181,7 +181,7 @@ const TOOLS = [
   // ── Repo health (read-only) ──────────────────────────────────────────────
   {
     name: "list_repos",
-    description: "Read-only. List all GitHub repos from the dashboard's live repo health data (same source as /api/repos: GitHub API, cached ~5 min, falling back to the committed snapshot with stale=true), with each repo's exact repo_name, description, GitHub URL, live site URL if present, and health fields. The repo_name values used by other tools (e.g. list_agent_tasks, work items) must match these names exactly, including case.",
+    description: "Read-only. List all GitHub repos from the dashboard's live repo health data (same source as /api/repos: GitHub API cached ~5 min in D1; when GitHub is unavailable, the last good result or the committed snapshot with stale=true), with each repo's exact repo_name, description, GitHub URL, live site URL if present, health, and live-site probe result (site_error, site_checked_at; null when the repo has no homepage or has not been probed). The repo_name values used by other tools (e.g. list_agent_tasks, work items) must match these names exactly, including case.",
     inputSchema: { type: "object", properties: {}, required: [] },
   },
   // ── Cloudflare Access service token tools ────────────────────────────────
@@ -322,6 +322,7 @@ async function handleToolCall(name, args, db, env, isAuthenticated = false, requ
       homepage: r.homepage || null,
       health: r.health || null,
       site_error: r.site_error ?? null,
+      site_checked_at: r.site_checked_at || null,
       open_issues: r.open_issues ?? null,
       updated_at: r.updated_at || null,
       language: r.language || null,

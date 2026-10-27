@@ -58,6 +58,28 @@ CREATE TABLE IF NOT EXISTS tasks (
 
 CREATE INDEX IF NOT EXISTS idx_tasks_okr_id ON tasks(okr_id);
 
+-- ── Repo health data (functions/_shared/repos.js) ───────────────────────────
+
+-- Small key/value cache. The Workers Cache API is unavailable behind
+-- Cloudflare Access, so the GitHub repo list is cached here instead.
+-- expires_at is epoch milliseconds; expired rows are kept as the
+-- last-known-good fallback when GitHub is down.
+CREATE TABLE IF NOT EXISTS cache_entries (
+    key        TEXT PRIMARY KEY,
+    value      TEXT NOT NULL,      -- JSON
+    expires_at INTEGER NOT NULL
+);
+
+-- Live-site probe results, replaced wholesale by .github/workflows/update.yml
+-- each run. Joined to repos by name (and only while homepage still matches).
+CREATE TABLE IF NOT EXISTS site_status (
+    repo_name   TEXT PRIMARY KEY,
+    homepage    TEXT NOT NULL,
+    is_error    INTEGER NOT NULL CHECK(is_error IN (0, 1)),
+    http_status INTEGER,           -- NULL when the request itself failed (DNS, timeout, TLS)
+    checked_at  TEXT NOT NULL      -- ISO 8601
+);
+
 -- Seed data — only inserted into an empty work_items table, so re-running this
 -- file (e.g. from the deploy workflow) never duplicates rows in production.
 INSERT INTO work_items (repo_name, task_description, status, assigned_to, depends_on_repo)

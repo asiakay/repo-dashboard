@@ -8,11 +8,15 @@ A live GitHub repo health dashboard for github.com/asiakay, with an added "Activ
 
 ## Architecture
 
-Static Cloudflare Pages site — no build step, no package.json, vanilla HTML/CSS/JS.
+Static Cloudflare Pages site — no build step, vanilla HTML/CSS/JS. `package.json` exists only for dev tooling (vitest, wrangler scripts); nothing is bundled.
 
-- `functions/_shared/repos.js` — `getRepos(env, requestUrl)`: the single source of live repo health data. Fetches public repos from the GitHub API (`GITHUB_TOKEN` raises the rate limit), computes `health`, caches the result for 5 minutes via `caches.default` where available (best-effort: the Cache API is unavailable behind Cloudflare Access, so production should set `GITHUB_TOKEN` for 5,000 req/hr), and falls back to the committed `public/data/repos.json` snapshot (marked `stale: true`) if any GitHub page fails — a partial list is never served or cached. Used by `/api/repos` and the MCP `list_repos` tool.
+The repo-health data flow (GitHub → D1 cache → `/api/repos` / MCP, plus the live-site probe) is documented end to end in `docs/architecture.md`. Read it before changing anything in that path.
+
+- `functions/_shared/repos.js` — `getRepos(env, requestUrl)`: the single source of live repo health data, used by `/api/repos` and the MCP `list_repos` tool. Order: fresh D1 cache (5 min) → GitHub API (all pages or nothing; a partial list is never served or cached) → last good D1 entry with `stale: true` (GitHub then retried at most once a minute) → committed snapshot with `stale: true` → `{ error }`. Joins `site_status` to set `site_error`. Never throws; works with no DB binding or before the tables exist. The cache is in D1, not `caches.default`, because the Cache API is unavailable behind Cloudflare Access.
 - `functions/api/repos.js` — GET `/api/repos`; thin wrapper over `getRepos`. The frontend (`loadRepos()` in `public/js/app.js`) calls this first and only reads `/data/repos.json` directly if the request itself throws.
-- `public/data/repos.json` — static fallback snapshot only. `.github/workflows/update.yml` regenerates it each run (later steps in the same run read it), but branch protection keeps the regenerated copy from reaching `main`, so the committed file dates from 2025-11. This is accepted: the live path above is the real source. `site_error` (live-site probe) only exists in the workflow's copy, so it is currently absent in the dashboard.
+- `public/data/repos.json` — last-resort fallback snapshot only (committed copy dates from 2025-11; branch protection keeps the workflow's regenerated copy off `main`, by design). Only served when GitHub is failing *and* D1 has no cached list.
+- `scripts/probe-sites.mjs` — run hourly by `update.yml`: probes every repo homepage (HEAD, GET retry on 403/405/501, redirects followed) and emits SQL that replaces the D1 `site_status` table, loaded with `wrangler d1 execute --remote`. That join is the only source of `site_error`.
+- `tests/` — vitest (`npm test`), run in CI by `.github/workflows/test.yml` on every PR. `tests/helpers/d1.js` is a D1 binding backed by real in-memory SQLite (`node:sqlite`, Node ≥ 22.13) loaded from `db/schema.sql`, so tests execute the real SQL. When adding an MCP tool, update the tool count in `tests/worker.test.js`.
 - `functions/api/work-items.js` / `functions/api/work-items/[id].js` — API for the D1-backed work-items tracker (GET/POST list+create, PUT update by id). The PUT handler auto-stamps `started_at`/`completed_at` based on status transitions (server-side).
 - `functions/api/me.js` — GET `/api/me`; returns `{ email, authenticated }` from the `Cf-Access-Authenticated-User-Email` header injected by Cloudflare Access.
 - `wrangler.jsonc` — config; includes a `d1_databases` binding named `DB` pointing at the `repo-dashboard-work-items` database.
@@ -39,6 +43,8 @@ CREATE TABLE work_items (
 
 One row per task, not per repo — a repo accumulates history over time rather than being overwritten.
 
+Repo-health tables `cache_entries` (GitHub list cache) and `site_status` (live-site probe results) are defined in `db/schema.sql`; see `docs/architecture.md` for how they are written and read.
+
 ## Key behaviors to preserve
 
 - **Dependency warnings are soft, not hard blocks.** If a work item's `depends_on_repo` has any open (not_started/in_progress/blocked) items, show a warning banner — but still allow the status change. The person (or agent) may have a good reason to proceed anyway.
@@ -48,7 +54,9 @@ One row per task, not per repo — a repo accumulates history over time rather t
 ## Where things can go wrong
 
 - The repo-health data pipeline (GitHub Actions → repos.json) has previously broken silently when a processing script's expected file path drifted from where the fetch step actually wrote its output. If repo counts ever show as 0 or stuck on "Loading…" again, check for a path mismatch between the fetch step and the processing step before assuming a frontend bug.
-- `main` has a "changes must be made through a pull request" protection rule, so the workflow's `git-auto-commit-action` step reports success but commits nothing. Only `pull_requests.json` gets through (via the Contents API with `REPOS_PAT`). `repos.json` is deliberately not committed that way (it would mean an hourly branch-protection bypass); repo data comes live from `/api/repos` instead. If the dashboard shows "using cached data", GitHub failed and the 2025-11 snapshot is being served — check `GITHUB_TOKEN` in the Cloudflare Pages settings.
+- `main` has a "changes must be made through a pull request" protection rule, so the workflow's `git-auto-commit-action` step reports success but commits nothing. Only `pull_requests.json` gets through (via the Contents API with `REPOS_PAT`), and that step now fails the run if the commit fails. `repos.json` is deliberately not committed that way (it would mean an hourly branch-protection bypass); repo data comes live from `/api/repos` instead.
+- If the dashboard footer says "using cached data", GitHub is failing. The freshness time shows how old the data is: hours old means the D1 last-good copy; 2025-11 means D1 had nothing either. Check `GITHUB_TOKEN` in the Cloudflare Pages settings (60 req/hr without it), then `SELECT key, expires_at FROM cache_entries` in D1.
+- No "↗ site" / "⚠ site error" badges at all means `site_status` is empty: check the "Record live-site status in D1" step of the hourly workflow (needs `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID`, same as `deploy.yml`).
 - `REPOS_PAT` expiring breaks both the repo fetch and the `pull_requests.json` commit. Since 2026-10-01 every run has failed at the fetch step; it now fails with an explicit `::error::` naming `REPOS_PAT`.
 - The frontend should always handle an error/empty-data response gracefully (show a message, don't just silently render zero) — this was added defensively after the above.
 
@@ -142,7 +150,7 @@ JSON-RPC 2.0 transport. All requests must include `Content-Type: application/jso
 | `list_okr_tasks` | _(none)_ | Return OKR micro-tasks from the `tasks` table. Optional: `okr_id`, `status`, `include_done` |
 | `start_okr_task` | `task_id` | Advance an OKR micro-task to In Progress; stamps `started_at`. Idempotent |
 | `finish_okr_task` | `task_id` | Advance an OKR micro-task to Done; stamps `completed_at`. Optional: `notes`, `time_spent` |
-| `list_repos` | _(none)_ | Read-only. Live repo list + health via `getRepos` (same source as `/api/repos`): `repo_name`, `description`, `url`, `homepage` (live site), `health`, `site_error`, `open_issues`, `updated_at`, `language`, plus `generated_at` and `stale`. Other tools' `repo_name` values must match these exactly |
+| `list_repos` | _(none)_ | Read-only. Live repo list + health via `getRepos` (same source as `/api/repos`): `repo_name`, `full_name`, `description`, `url`, `homepage` (live site), `health`, `site_error`, `site_checked_at`, `open_issues`, `updated_at`, `language`, plus `generated_at` and `stale`. Other tools' `repo_name` values must match these exactly |
 
 **Error codes:**
 

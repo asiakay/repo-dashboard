@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-10-27T23:40:49.099Z",
-  "total_prs": 562,
+  "generated_at": "2026-10-28T04:53:37.138Z",
+  "total_prs": 556,
   "repos": [
     {
       "name": "asiagrady",
@@ -190,13 +190,6 @@
       "merged": 7,
       "closed": 0,
       "total": 7
-    },
-    {
-      "name": "rse-deploy",
-      "open": 0,
-      "merged": 6,
-      "closed": 0,
-      "total": 6
     },
     {
       "name": "climasphere-global-climate-event-tracker",

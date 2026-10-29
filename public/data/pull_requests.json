@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-10-28T23:01:33.514Z",
-  "total_prs": 556,
+  "generated_at": "2026-10-29T05:03:49.545Z",
+  "total_prs": 525,
   "repos": [
     {
       "name": "asiagrady",
@@ -57,13 +57,6 @@
       "merged": 27,
       "closed": 0,
       "total": 27
-    },
-    {
-      "name": "legalaide",
-      "open": 0,
-      "merged": 26,
-      "closed": 0,
-      "total": 26
     },
     {
       "name": "leverage-list",
@@ -209,13 +202,6 @@
       "name": "solar-roots-agents",
       "open": 0,
       "merged": 5,
-      "closed": 0,
-      "total": 5
-    },
-    {
-      "name": "temporal-convergence",
-      "open": 1,
-      "merged": 4,
       "closed": 0,
       "total": 5
     },
@@ -2325,28 +2311,6 @@
       "author": "asiakay"
     },
     {
-      "repo": "legalaide",
-      "number": 26,
-      "title": "Add demo mode section to README",
-      "state": "merged",
-      "url": "https://github.com/asiakay/legalaide/pull/26",
-      "created_at": "2026-07-31T03:33:44Z",
-      "merged_at": "2026-07-31T03:34:07Z",
-      "closed_at": "2026-07-31T03:34:07Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "legalaide",
-      "number": 25,
-      "title": "Add public demo mode with fictional housing case",
-      "state": "merged",
-      "url": "https://github.com/asiakay/legalaide/pull/25",
-      "created_at": "2026-07-31T02:27:00Z",
-      "merged_at": "2026-07-31T02:27:42Z",
-      "closed_at": "2026-07-31T02:27:42Z",
-      "author": "asiakay"
-    },
-    {
       "repo": "repo-dashboard",
       "number": 6,
       "title": "Add user stories documentation for dashboard features",
@@ -2355,28 +2319,6 @@
       "created_at": "2026-07-30T18:37:49Z",
       "merged_at": "2026-07-30T18:41:51Z",
       "closed_at": "2026-07-30T18:41:51Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "legalaide",
-      "number": 24,
-      "title": "Add Re-assess / Re-route option to planner items",
-      "state": "merged",
-      "url": "https://github.com/asiakay/legalaide/pull/24",
-      "created_at": "2026-07-30T06:02:31Z",
-      "merged_at": "2026-07-30T06:08:47Z",
-      "closed_at": "2026-07-30T06:08:47Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "legalaide",
-      "number": 23,
-      "title": "Fix deploy workflow: add migration 008 and make secrets upload resilient",
-      "state": "merged",
-      "url": "https://github.com/asiakay/legalaide/pull/23",
-      "created_at": "2026-07-30T05:19:15Z",
-      "merged_at": "2026-07-30T05:19:49Z",
-      "closed_at": "2026-07-30T05:19:49Z",
       "author": "asiakay"
     },
     {
@@ -2399,149 +2341,6 @@
       "created_at": "2026-07-30T01:10:27Z",
       "merged_at": "2026-07-30T04:33:38Z",
       "closed_at": "2026-07-30T04:33:38Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "legalaide",
-      "number": 22,
-      "title": "Add Priority Planner: AI-powered task parsing and ranking",
-      "state": "merged",
-      "url": "https://github.com/asiakay/legalaide/pull/22",
-      "created_at": "2026-07-29T01:52:53Z",
-      "merged_at": "2026-07-29T02:48:11Z",
-      "closed_at": "2026-07-29T02:48:11Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "legalaide",
-      "number": 21,
-      "title": "Add LOGIN_PASSWORD and SESSION_SECRET to deploy workflow",
-      "state": "merged",
-      "url": "https://github.com/asiakay/legalaide/pull/21",
-      "created_at": "2026-07-28T05:00:22Z",
-      "merged_at": "2026-07-28T05:00:39Z",
-      "closed_at": "2026-07-28T05:00:40Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "legalaide",
-      "number": 20,
-      "title": "Add viewer role, password change, invite links, and audit log",
-      "state": "merged",
-      "url": "https://github.com/asiakay/legalaide/pull/20",
-      "created_at": "2026-07-28T01:58:49Z",
-      "merged_at": "2026-07-28T02:05:00Z",
-      "closed_at": "2026-07-28T02:05:00Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "legalaide",
-      "number": 19,
-      "title": "Fix CI: unblock deploy when D1 token lacks edit permission",
-      "state": "merged",
-      "url": "https://github.com/asiakay/legalaide/pull/19",
-      "created_at": "2026-07-26T20:05:47Z",
-      "merged_at": "2026-07-26T20:06:04Z",
-      "closed_at": "2026-07-26T20:06:05Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "legalaide",
-      "number": 18,
-      "title": "Add user management and multi-account authentication",
-      "state": "merged",
-      "url": "https://github.com/asiakay/legalaide/pull/18",
-      "created_at": "2026-07-26T19:53:57Z",
-      "merged_at": "2026-07-26T19:56:13Z",
-      "closed_at": "2026-07-26T19:56:13Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "legalaide",
-      "number": 17,
-      "title": "Add markdown table rendering to chat responses",
-      "state": "merged",
-      "url": "https://github.com/asiakay/legalaide/pull/17",
-      "created_at": "2026-07-26T02:15:06Z",
-      "merged_at": "2026-07-26T02:15:20Z",
-      "closed_at": "2026-07-26T02:15:20Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "legalaide",
-      "number": 16,
-      "title": "Fix SyntaxError: escape \\\\n in text.split and fix tab activation",
-      "state": "merged",
-      "url": "https://github.com/asiakay/legalaide/pull/16",
-      "created_at": "2026-07-26T01:07:34Z",
-      "merged_at": "2026-07-26T01:07:45Z",
-      "closed_at": "2026-07-26T01:07:45Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "legalaide",
-      "number": 15,
-      "title": "Fix isLoading stuck state, expose errors, load history on init",
-      "state": "merged",
-      "url": "https://github.com/asiakay/legalaide/pull/15",
-      "created_at": "2026-07-26T00:16:23Z",
-      "merged_at": "2026-07-26T00:16:34Z",
-      "closed_at": "2026-07-26T00:16:34Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "legalaide",
-      "number": 14,
-      "title": "Fix broken bold/italic regex in renderMarkdown",
-      "state": "merged",
-      "url": "https://github.com/asiakay/legalaide/pull/14",
-      "created_at": "2026-07-25T23:54:16Z",
-      "merged_at": "2026-07-25T23:54:27Z",
-      "closed_at": "2026-07-25T23:54:28Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "legalaide",
-      "number": 13,
-      "title": "Add markdown rendering for assistant messages",
-      "state": "merged",
-      "url": "https://github.com/asiakay/legalaide/pull/13",
-      "created_at": "2026-07-25T23:46:36Z",
-      "merged_at": "2026-07-25T23:47:34Z",
-      "closed_at": "2026-07-25T23:47:34Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "legalaide",
-      "number": 12,
-      "title": "Add password-protected authentication with session cookies",
-      "state": "merged",
-      "url": "https://github.com/asiakay/legalaide/pull/12",
-      "created_at": "2026-07-25T23:29:38Z",
-      "merged_at": "2026-07-25T23:31:02Z",
-      "closed_at": "2026-07-25T23:31:02Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "legalaide",
-      "number": 11,
-      "title": "Enable workers.dev subdomain so deployment URL appears in Cloudflare …",
-      "state": "merged",
-      "url": "https://github.com/asiakay/legalaide/pull/11",
-      "created_at": "2026-07-25T23:17:36Z",
-      "merged_at": "2026-07-25T23:18:01Z",
-      "closed_at": "2026-07-25T23:18:01Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "legalaide",
-      "number": 10,
-      "title": "Add PATCH endpoints and expand date/care request fields",
-      "state": "merged",
-      "url": "https://github.com/asiakay/legalaide/pull/10",
-      "created_at": "2026-07-25T06:06:41Z",
-      "merged_at": "2026-07-25T06:07:55Z",
-      "closed_at": "2026-07-25T06:07:55Z",
       "author": "asiakay"
     },
     {
@@ -3051,83 +2850,6 @@
       "author": "asiakay"
     },
     {
-      "repo": "legalaide",
-      "number": 9,
-      "title": "Enable AI-driven database writes via structured Claude replies",
-      "state": "merged",
-      "url": "https://github.com/asiakay/legalaide/pull/9",
-      "created_at": "2026-06-26T02:27:56Z",
-      "merged_at": "2026-06-26T02:30:42Z",
-      "closed_at": "2026-06-26T02:30:42Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "legalaide",
-      "number": 8,
-      "title": "Claude/legalaide case data structure nhcpie",
-      "state": "merged",
-      "url": "https://github.com/asiakay/legalaide/pull/8",
-      "created_at": "2026-06-26T01:41:11Z",
-      "merged_at": "2026-06-26T01:41:25Z",
-      "closed_at": "2026-06-26T01:41:25Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "legalaide",
-      "number": 7,
-      "title": "feat: upgrade dashboard to case manager side panel with inbox, case f…",
-      "state": "merged",
-      "url": "https://github.com/asiakay/legalaide/pull/7",
-      "created_at": "2026-06-24T21:54:27Z",
-      "merged_at": "2026-06-24T21:54:40Z",
-      "closed_at": "2026-06-24T21:54:40Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "legalaide",
-      "number": 6,
-      "title": "Add operations dashboard and document vault",
-      "state": "merged",
-      "url": "https://github.com/asiakay/legalaide/pull/6",
-      "created_at": "2026-06-24T16:36:09Z",
-      "merged_at": "2026-06-24T16:46:02Z",
-      "closed_at": "2026-06-24T16:46:02Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "legalaide",
-      "number": 5,
-      "title": "Fix CI: create R2 bucket before deploy",
-      "state": "merged",
-      "url": "https://github.com/asiakay/legalaide/pull/5",
-      "created_at": "2026-06-23T23:07:06Z",
-      "merged_at": "2026-06-23T23:07:22Z",
-      "closed_at": "2026-06-23T23:07:22Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "legalaide",
-      "number": 4,
-      "title": "Add R2 evidence upload to father-care incidents",
-      "state": "merged",
-      "url": "https://github.com/asiakay/legalaide/pull/4",
-      "created_at": "2026-06-22T00:28:14Z",
-      "merged_at": "2026-06-22T00:29:18Z",
-      "closed_at": "2026-06-22T00:29:18Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "legalaide",
-      "number": 3,
-      "title": "Add father care advocacy thread with incident & request tracking",
-      "state": "merged",
-      "url": "https://github.com/asiakay/legalaide/pull/3",
-      "created_at": "2026-06-22T00:11:07Z",
-      "merged_at": "2026-06-22T00:12:35Z",
-      "closed_at": "2026-06-22T00:12:35Z",
-      "author": "asiakay"
-    },
-    {
       "repo": "moving-agent-project",
       "number": 13,
       "title": "Add \"Create new task\" option inside expense form task dropdown",
@@ -3268,28 +2990,6 @@
       "created_at": "2026-06-20T01:03:40Z",
       "merged_at": "2026-06-20T01:03:49Z",
       "closed_at": "2026-06-20T01:03:49Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "legalaide",
-      "number": 2,
-      "title": "Add GitHub Actions workflow for Cloudflare Workers deployment",
-      "state": "merged",
-      "url": "https://github.com/asiakay/legalaide/pull/2",
-      "created_at": "2026-06-17T23:40:58Z",
-      "merged_at": "2026-06-17T23:41:07Z",
-      "closed_at": "2026-06-17T23:41:07Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "legalaide",
-      "number": 1,
-      "title": "Add D1 database with full actions layer",
-      "state": "merged",
-      "url": "https://github.com/asiakay/legalaide/pull/1",
-      "created_at": "2026-06-17T23:06:36Z",
-      "merged_at": "2026-06-17T23:20:41Z",
-      "closed_at": "2026-06-17T23:20:41Z",
       "author": "asiakay"
     },
     {
@@ -3631,6 +3331,292 @@
       "created_at": "2026-06-08T01:15:14Z",
       "merged_at": "2026-06-08T01:15:34Z",
       "closed_at": "2026-06-08T01:15:34Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 172,
+      "title": "Claude/awesome hamilton g tb9 c",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/172",
+      "created_at": "2026-06-08T00:34:53Z",
+      "merged_at": "2026-06-08T00:36:08Z",
+      "closed_at": "2026-06-08T00:36:08Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 171,
+      "title": "Paginate /api/grants for scalability headroom",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/171",
+      "created_at": "2026-06-07T14:05:35Z",
+      "merged_at": "2026-06-07T14:05:46Z",
+      "closed_at": "2026-06-07T14:05:46Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 170,
+      "title": "Add structured JSON logging and observability to worker.js",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/170",
+      "created_at": "2026-06-07T13:57:12Z",
+      "merged_at": "2026-06-07T13:57:25Z",
+      "closed_at": "2026-06-07T13:57:25Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 169,
+      "title": "Strengthen auth: 8-char min, signup rate limit, CSRF, password reset",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/169",
+      "created_at": "2026-06-07T13:41:58Z",
+      "merged_at": "2026-06-07T13:42:11Z",
+      "closed_at": "2026-06-07T13:42:11Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 168,
+      "title": "Automate CSV → D1 import pipeline",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/168",
+      "created_at": "2026-06-07T12:47:41Z",
+      "merged_at": "2026-06-07T12:50:08Z",
+      "closed_at": "2026-06-07T12:50:08Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 167,
+      "title": "Fix computeCadenceRecency scoring past deadlines as maximum urgency",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/167",
+      "created_at": "2026-06-07T12:32:27Z",
+      "merged_at": "2026-06-07T12:32:39Z",
+      "closed_at": "2026-06-07T12:32:39Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 166,
+      "title": "Claude/awesome hamilton g tb9 c",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/166",
+      "created_at": "2026-06-07T12:29:37Z",
+      "merged_at": "2026-06-07T12:29:50Z",
+      "closed_at": "2026-06-07T12:29:50Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 165,
+      "title": "Remove Cloudflare Worker implementation",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/165",
+      "created_at": "2026-06-07T12:15:13Z",
+      "merged_at": "2026-06-07T12:16:03Z",
+      "closed_at": "2026-06-07T12:16:03Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "receipt-logger",
+      "number": 12,
+      "title": "Refactor add receipt navigation and improve form placeholders",
+      "state": "merged",
+      "url": "https://github.com/asiakay/receipt-logger/pull/12",
+      "created_at": "2026-06-07T12:09:10Z",
+      "merged_at": "2026-06-07T12:09:28Z",
+      "closed_at": "2026-06-07T12:09:28Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 162,
+      "title": "Rebrand README as FoundationPlanner product page",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/162",
+      "created_at": "2026-06-07T11:38:32Z",
+      "merged_at": "2026-06-07T11:38:43Z",
+      "closed_at": "2026-06-07T11:38:43Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 161,
+      "title": "Move USER_HASHES to Cloudflare Secrets in docs",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/161",
+      "created_at": "2026-06-07T11:26:58Z",
+      "merged_at": "2026-06-07T11:27:28Z",
+      "closed_at": "2026-06-07T11:27:28Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 159,
+      "title": "Simplify CI and fix Workers AI via REST API fallback",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/159",
+      "created_at": "2026-06-07T10:59:38Z",
+      "merged_at": "2026-06-07T10:59:56Z",
+      "closed_at": "2026-06-07T10:59:56Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 158,
+      "title": "Add verbose wrangler deploy output to diagnose AI binding registration",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/158",
+      "created_at": "2026-06-07T10:51:40Z",
+      "merged_at": "2026-06-07T10:52:02Z",
+      "closed_at": "2026-06-07T10:52:02Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 157,
+      "title": "Claude/charming dirac wk4 sw",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/157",
+      "created_at": "2026-06-07T10:40:20Z",
+      "merged_at": "2026-06-07T10:40:35Z",
+      "closed_at": "2026-06-07T10:40:35Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 156,
+      "title": "Remove API key requirement from agents-starter env config",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/156",
+      "created_at": "2026-06-07T10:34:44Z",
+      "merged_at": "2026-06-07T10:34:57Z",
+      "closed_at": "2026-06-07T10:34:57Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 155,
+      "title": "Switch from Anthropic to Cloudflare Workers AI provider",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/155",
+      "created_at": "2026-06-07T10:31:04Z",
+      "merged_at": "2026-06-07T10:31:35Z",
+      "closed_at": "2026-06-07T10:31:35Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 153,
+      "title": "Add /api/ai-status endpoint and proactive AI banner check",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/153",
+      "created_at": "2026-06-07T08:36:21Z",
+      "merged_at": "2026-06-07T08:36:35Z",
+      "closed_at": "2026-06-07T08:36:35Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 152,
+      "title": "Switch AI provider from OpenAI to Anthropic Claude",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/152",
+      "created_at": "2026-06-07T08:25:50Z",
+      "merged_at": "2026-06-07T08:26:26Z",
+      "closed_at": "2026-06-07T08:26:26Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 147,
+      "title": "Claude/busy darwin nf kj q",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/147",
+      "created_at": "2026-06-07T02:38:21Z",
+      "merged_at": "2026-06-07T02:38:31Z",
+      "closed_at": "2026-06-07T02:38:31Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 146,
+      "title": "Fix notes saving with a dedicated /api/notes endpoint",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/146",
+      "created_at": "2026-06-07T02:05:26Z",
+      "merged_at": "2026-06-07T02:07:31Z",
+      "closed_at": "2026-06-07T02:07:31Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 145,
+      "title": "Claude/busy darwin nf kj q",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/145",
+      "created_at": "2026-06-07T01:57:26Z",
+      "merged_at": "2026-06-07T01:57:37Z",
+      "closed_at": "2026-06-07T01:57:37Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 144,
+      "title": "Add filter to show only saved grants (candidates + watchlist)",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/144",
+      "created_at": "2026-06-07T01:46:46Z",
+      "merged_at": "2026-06-07T01:48:58Z",
+      "closed_at": "2026-06-07T01:48:58Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 142,
+      "title": "Claude/relaxed keller qs8mw",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/142",
+      "created_at": "2026-06-07T01:06:45Z",
+      "merged_at": "2026-06-07T01:18:48Z",
+      "closed_at": "2026-06-07T01:18:48Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 141,
+      "title": "Fix keyword matching: expand profile selections into real search terms",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/141",
+      "created_at": "2026-06-06T23:46:58Z",
+      "merged_at": "2026-06-06T23:48:30Z",
+      "closed_at": "2026-06-06T23:48:30Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 140,
+      "title": "Fix match score consistency: summary card and table now use same score",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/140",
+      "created_at": "2026-06-06T23:35:32Z",
+      "merged_at": "2026-06-06T23:36:51Z",
+      "closed_at": "2026-06-06T23:36:51Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "grant-manager-tool-demo",
+      "number": 139,
+      "title": "Add welcome page with profile summary and personalized match banner",
+      "state": "merged",
+      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/139",
+      "created_at": "2026-06-06T23:19:52Z",
+      "merged_at": "2026-06-06T23:25:56Z",
+      "closed_at": "2026-06-06T23:25:56Z",
       "author": "asiakay"
     }
   ]

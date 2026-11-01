@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-11-01T05:14:56.187Z",
-  "total_prs": 525,
+  "generated_at": "2026-11-01T12:56:12.436Z",
+  "total_prs": 532,
   "repos": [
     {
       "name": "asiagrady",
@@ -136,6 +136,13 @@
       "total": 11
     },
     {
+      "name": "your-campus-your-voice",
+      "open": 0,
+      "merged": 11,
+      "closed": 0,
+      "total": 11
+    },
+    {
       "name": "bridge-marketplace",
       "open": 0,
       "merged": 9,
@@ -216,13 +223,6 @@
       "name": "sovereign-protocol",
       "open": 1,
       "merged": 3,
-      "closed": 0,
-      "total": 4
-    },
-    {
-      "name": "your-campus-your-voice",
-      "open": 0,
-      "merged": 4,
       "closed": 0,
       "total": 4
     },
@@ -319,6 +319,83 @@
     }
   ],
   "history": [
+    {
+      "repo": "your-campus-your-voice",
+      "number": 11,
+      "title": "Harden OCOV read-only MCP protocol and deployment gates",
+      "state": "merged",
+      "url": "https://github.com/asiakay/your-campus-your-voice/pull/11",
+      "created_at": "2026-11-01T09:05:58Z",
+      "merged_at": "2026-11-01T09:06:57Z",
+      "closed_at": "2026-11-01T09:06:57Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "your-campus-your-voice",
+      "number": 10,
+      "title": "Add isolated read-only OCOV archive MCP Worker (no deployment)",
+      "state": "merged",
+      "url": "https://github.com/asiakay/your-campus-your-voice/pull/10",
+      "created_at": "2026-11-01T07:17:14Z",
+      "merged_at": "2026-11-01T07:32:57Z",
+      "closed_at": "2026-11-01T07:32:57Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "your-campus-your-voice",
+      "number": 9,
+      "title": "Document Access-first deployment for studio.asiagrady.com",
+      "state": "merged",
+      "url": "https://github.com/asiakay/your-campus-your-voice/pull/9",
+      "created_at": "2026-11-01T06:57:26Z",
+      "merged_at": "2026-11-01T07:34:16Z",
+      "closed_at": "2026-11-01T07:34:16Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "your-campus-your-voice",
+      "number": 8,
+      "title": "Draft: From Tools to Systems — Episode 01 production package",
+      "state": "merged",
+      "url": "https://github.com/asiakay/your-campus-your-voice/pull/8",
+      "created_at": "2026-11-01T06:38:59Z",
+      "merged_at": "2026-11-01T06:44:31Z",
+      "closed_at": "2026-11-01T06:44:31Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "your-campus-your-voice",
+      "number": 7,
+      "title": "Draft: Build private Our Campus, Our Voice Production Studio",
+      "state": "merged",
+      "url": "https://github.com/asiakay/your-campus-your-voice/pull/7",
+      "created_at": "2026-11-01T06:29:14Z",
+      "merged_at": "2026-11-01T06:54:24Z",
+      "closed_at": "2026-11-01T06:54:24Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "your-campus-your-voice",
+      "number": 6,
+      "title": "Draft: Add verified FigJam deep links to five editorial manifests",
+      "state": "merged",
+      "url": "https://github.com/asiakay/your-campus-your-voice/pull/6",
+      "created_at": "2026-11-01T06:12:20Z",
+      "merged_at": "2026-11-01T06:13:57Z",
+      "closed_at": "2026-11-01T06:13:57Z",
+      "author": "asiakay"
+    },
+    {
+      "repo": "your-campus-your-voice",
+      "number": 5,
+      "title": "Draft: FigJam-linked editorial archive proposal for five productions",
+      "state": "merged",
+      "url": "https://github.com/asiakay/your-campus-your-voice/pull/5",
+      "created_at": "2026-11-01T05:59:52Z",
+      "merged_at": "2026-11-01T06:02:40Z",
+      "closed_at": "2026-11-01T06:02:40Z",
+      "author": "asiakay"
+    },
     {
       "repo": "admin-wizard-tracker",
       "number": 20,
@@ -3540,83 +3617,6 @@
       "created_at": "2026-06-07T02:38:21Z",
       "merged_at": "2026-06-07T02:38:31Z",
       "closed_at": "2026-06-07T02:38:31Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "grant-manager-tool-demo",
-      "number": 146,
-      "title": "Fix notes saving with a dedicated /api/notes endpoint",
-      "state": "merged",
-      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/146",
-      "created_at": "2026-06-07T02:05:26Z",
-      "merged_at": "2026-06-07T02:07:31Z",
-      "closed_at": "2026-06-07T02:07:31Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "grant-manager-tool-demo",
-      "number": 145,
-      "title": "Claude/busy darwin nf kj q",
-      "state": "merged",
-      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/145",
-      "created_at": "2026-06-07T01:57:26Z",
-      "merged_at": "2026-06-07T01:57:37Z",
-      "closed_at": "2026-06-07T01:57:37Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "grant-manager-tool-demo",
-      "number": 144,
-      "title": "Add filter to show only saved grants (candidates + watchlist)",
-      "state": "merged",
-      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/144",
-      "created_at": "2026-06-07T01:46:46Z",
-      "merged_at": "2026-06-07T01:48:58Z",
-      "closed_at": "2026-06-07T01:48:58Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "grant-manager-tool-demo",
-      "number": 142,
-      "title": "Claude/relaxed keller qs8mw",
-      "state": "merged",
-      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/142",
-      "created_at": "2026-06-07T01:06:45Z",
-      "merged_at": "2026-06-07T01:18:48Z",
-      "closed_at": "2026-06-07T01:18:48Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "grant-manager-tool-demo",
-      "number": 141,
-      "title": "Fix keyword matching: expand profile selections into real search terms",
-      "state": "merged",
-      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/141",
-      "created_at": "2026-06-06T23:46:58Z",
-      "merged_at": "2026-06-06T23:48:30Z",
-      "closed_at": "2026-06-06T23:48:30Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "grant-manager-tool-demo",
-      "number": 140,
-      "title": "Fix match score consistency: summary card and table now use same score",
-      "state": "merged",
-      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/140",
-      "created_at": "2026-06-06T23:35:32Z",
-      "merged_at": "2026-06-06T23:36:51Z",
-      "closed_at": "2026-06-06T23:36:51Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "grant-manager-tool-demo",
-      "number": 139,
-      "title": "Add welcome page with profile summary and personalized match banner",
-      "state": "merged",
-      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/139",
-      "created_at": "2026-06-06T23:19:52Z",
-      "merged_at": "2026-06-06T23:25:56Z",
-      "closed_at": "2026-06-06T23:25:56Z",
       "author": "asiakay"
     }
   ]

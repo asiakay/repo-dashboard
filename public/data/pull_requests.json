@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-11-10T09:29:57.988Z",
-  "total_prs": 513,
+  "generated_at": "2026-11-10T17:35:03.079Z",
+  "total_prs": 514,
   "repos": [
     {
       "name": "asiagrady",
@@ -115,16 +115,16 @@
       "total": 13
     },
     {
+      "name": "your-campus-your-voice",
+      "open": 0,
+      "merged": 13,
+      "closed": 0,
+      "total": 13
+    },
+    {
       "name": "signup-app",
       "open": 2,
       "merged": 10,
-      "closed": 0,
-      "total": 12
-    },
-    {
-      "name": "your-campus-your-voice",
-      "open": 0,
-      "merged": 12,
       "closed": 0,
       "total": 12
     },
@@ -319,6 +319,17 @@
     }
   ],
   "history": [
+    {
+      "repo": "your-campus-your-voice",
+      "number": 13,
+      "title": "Answer prompt and resource listings so MCP portals can sync",
+      "state": "merged",
+      "url": "https://github.com/asiakay/your-campus-your-voice/pull/13",
+      "created_at": "2026-11-10T10:38:12Z",
+      "merged_at": "2026-11-10T11:32:40Z",
+      "closed_at": "2026-11-10T11:32:40Z",
+      "author": "asiakay"
+    },
     {
       "repo": "your-campus-your-voice",
       "number": 12,
@@ -3606,17 +3617,6 @@
       "created_at": "2026-06-07T10:34:44Z",
       "merged_at": "2026-06-07T10:34:57Z",
       "closed_at": "2026-06-07T10:34:57Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "grant-manager-tool-demo",
-      "number": 155,
-      "title": "Switch from Anthropic to Cloudflare Workers AI provider",
-      "state": "merged",
-      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/155",
-      "created_at": "2026-06-07T10:31:04Z",
-      "merged_at": "2026-06-07T10:31:35Z",
-      "closed_at": "2026-06-07T10:31:35Z",
       "author": "asiakay"
     }
   ]

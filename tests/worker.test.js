@@ -62,37 +62,53 @@ function ctx(method, { headers = {}, body = null, env = {}, params = {} } = {}) 
 // ─── requireWriteAuth ───────────────────────────────────────────────────────
 
 describe("requireWriteAuth", () => {
-  it("returns null when WRITE_TOKEN is not configured", () => {
-    const result = requireWriteAuth(req("POST"), {});
+  it("returns null when neither WRITE_TOKEN nor Access is configured (local dev)", async () => {
+    const result = await requireWriteAuth(req("POST"), {});
     expect(result).toBeNull();
   });
 
-  it("returns null when the correct token is provided", () => {
+  it("returns null when the correct token is provided", async () => {
     const env = { WRITE_TOKEN: "secret" };
-    const result = requireWriteAuth(req("POST", { headers: { Authorization: "Bearer secret" } }), env);
+    const result = await requireWriteAuth(req("POST", { headers: { Authorization: "Bearer secret" } }), env);
     expect(result).toBeNull();
   });
 
   it("returns 401 when the token is wrong", async () => {
     const env = { WRITE_TOKEN: "secret" };
-    const result = requireWriteAuth(req("POST", { headers: { Authorization: "Bearer wrong" } }), env);
+    const result = await requireWriteAuth(req("POST", { headers: { Authorization: "Bearer wrong" } }), env);
     expect(result).toBeInstanceOf(Response);
     expect(result.status).toBe(401);
     const body = await result.json();
     expect(body.error).toBe("Unauthorized");
   });
 
-  it("returns 401 when Authorization header is missing", () => {
+  it("returns 401 when Authorization header is missing", async () => {
     const env = { WRITE_TOKEN: "secret" };
-    const result = requireWriteAuth(req("POST"), env);
+    const result = await requireWriteAuth(req("POST"), env);
     expect(result).toBeInstanceOf(Response);
     expect(result.status).toBe(401);
   });
 
-  it("returns 401 when the Bearer prefix is absent", () => {
+  it("returns 401 when the Bearer prefix is absent", async () => {
     const env = { WRITE_TOKEN: "secret" };
-    const result = requireWriteAuth(req("POST", { headers: { Authorization: "secret" } }), env);
+    const result = await requireWriteAuth(req("POST", { headers: { Authorization: "secret" } }), env);
     expect(result).toBeInstanceOf(Response);
+    expect(result.status).toBe(401);
+  });
+
+  it("ignores a forged Cf-Access-Authenticated-User-Email header", async () => {
+    const env = { WRITE_TOKEN: "secret" };
+    const result = await requireWriteAuth(
+      req("POST", { headers: { "Cf-Access-Authenticated-User-Email": "attacker@example.com" } }), env
+    );
+    expect(result.status).toBe(401);
+  });
+
+  it("fails closed when Access is configured, even without WRITE_TOKEN", async () => {
+    const result = await requireWriteAuth(
+      req("POST", { headers: { "Cf-Access-Authenticated-User-Email": "attacker@example.com" } }),
+      { CF_ACCESS_TEAM_DOMAIN: "team.cloudflareaccess.com", CF_ACCESS_AUD: "aud-tag" }
+    );
     expect(result.status).toBe(401);
   });
 });
@@ -404,14 +420,14 @@ describe("MCP handler", () => {
     expect(res.status).toBe(401);
   });
 
-  it("tools/list returns all 16 tools when auth passes", async () => {
+  it("tools/list returns all 17 tools when auth passes", async () => {
     const res = await mcpHandler(mcpCtx(
       { jsonrpc: "2.0", id: 1, method: "tools/list" },
       { env: { DB: makeMcpDB(), MCP_SECRET_TOKEN: "secret" }, token: "secret" }
     ));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.result.tools).toHaveLength(16);
+    expect(body.result.tools).toHaveLength(17);
     const names = body.result.tools.map((t) => t.name);
     expect(names).toContain("log_task");
     expect(names).toContain("get_okr_progress");
@@ -427,6 +443,7 @@ describe("MCP handler", () => {
     expect(names).toContain("create_service_token");
     expect(names).toContain("rotate_service_token");
     expect(names).toContain("delete_service_token");
+    expect(names).toContain("list_repos");
     expect(names).toContain("list_resources");
     expect(names).toContain("upsert_resource");
   });
@@ -435,7 +452,7 @@ describe("MCP handler", () => {
     const res = await mcpHandler(mcpCtx({ jsonrpc: "2.0", id: 2, method: "tools/list" }));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.result.tools).toHaveLength(16);
+    expect(body.result.tools).toHaveLength(17);
   });
 
   it("unknown method returns -32601", async () => {
@@ -1031,16 +1048,16 @@ describe("me handler", () => {
     expect(body.email).toBeNull();
   });
 
-  it("GET returns authenticated:true with email when CF Access header is present", async () => {
+  it("GET ignores an unsigned CF Access email header", async () => {
     const request = new Request("http://localhost/api/me", {
       method: "GET",
       headers: { "Cf-Access-Authenticated-User-Email": "asia@example.com" },
     });
-    const res = await meHandler({ request });
+    const res = await meHandler({ request, env: {} });
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.authenticated).toBe(true);
-    expect(body.email).toBe("asia@example.com");
+    expect(body.authenticated).toBe(false);
+    expect(body.email).toBeNull();
   });
 
   it("OPTIONS returns 204", async () => {

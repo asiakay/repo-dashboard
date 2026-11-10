@@ -12,7 +12,7 @@ export async function onRequest({ request, env, params }) {
     return new Response(null, { status: 204, headers: CORS });
   }
 
-  const authError = requireWriteAuth(request, env);
+  const authError = await requireWriteAuth(request, env);
   if (authError) return authError;
 
   const id = parseInt(params.id, 10);

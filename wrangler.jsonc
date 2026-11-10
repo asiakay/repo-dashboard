@@ -16,8 +16,12 @@
   //
   // Variables consumed by the functions:
   //   GITHUB_TOKEN      – raises GitHub API rate limit from 60 → 5000 req/hr
-  //   WRITE_TOKEN       – guards POST/PUT on /api/work-items (opt-in; open when unset)
-  //   MCP_SECRET_TOKEN  – guards POST on /api/mcp (opt-in; open when unset)
+  //   CF_ACCESS_TEAM_DOMAIN – Access team domain, e.g. "myteam.cloudflareaccess.com"
+  //   CF_ACCESS_AUD         – Access application Audience (AUD) tag
+  //                           Together these enable verification of Cf-Access-Jwt-Assertion.
+  //                           When set, write endpoints and /api/mcp fail closed.
+  //   WRITE_TOKEN       – bearer token for write endpoints (open only when this AND Access are unset)
+  //   MCP_SECRET_TOKEN  – bearer token for /api/mcp (open only when this AND Access are unset)
   //   CF_API_TOKEN      – Cloudflare API token (Access: Service Tokens: Edit permission)
   //                       used by list/create/rotate/delete_service_token MCP tools
   //   CF_ACCOUNT_ID     – Cloudflare account ID (visible in CF dashboard sidebar)

@@ -427,7 +427,7 @@ describe("MCP handler", () => {
     ));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.result.tools).toHaveLength(17);
+    expect(body.result.tools).toHaveLength(19);
     const names = body.result.tools.map((t) => t.name);
     expect(names).toContain("log_task");
     expect(names).toContain("get_okr_progress");
@@ -446,13 +446,15 @@ describe("MCP handler", () => {
     expect(names).toContain("list_repos");
     expect(names).toContain("list_resources");
     expect(names).toContain("upsert_resource");
+    expect(names).toContain("list_projects");
+    expect(names).toContain("upsert_project");
   });
 
   it("tools/list works when MCP_SECRET_TOKEN is not configured (open)", async () => {
     const res = await mcpHandler(mcpCtx({ jsonrpc: "2.0", id: 2, method: "tools/list" }));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.result.tools).toHaveLength(17);
+    expect(body.result.tools).toHaveLength(19);
   });
 
   it("unknown method returns -32601", async () => {

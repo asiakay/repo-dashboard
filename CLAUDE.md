@@ -144,6 +144,8 @@ JSON-RPC 2.0 transport. All requests must include `Content-Type: application/jso
 | `list_okr_tasks` | _(none)_ | Return OKR micro-tasks from the `tasks` table. Optional: `okr_id`, `status`, `include_done` |
 | `start_okr_task` | `task_id` | Advance an OKR micro-task to In Progress; stamps `started_at`. Idempotent |
 | `finish_okr_task` | `task_id` | Advance an OKR micro-task to Done; stamps `completed_at`. Optional: `notes`, `time_spent` |
+| `list_projects` | _(none)_ | Project handoff cards (see `docs/projects.md`). Optional `status` filter |
+| `upsert_project` | `name` | Create or update a project card; matches by `id`, else by slug (derived from `name`). Only fields passed change on update |
 | `list_repos` | _(none)_ | Read-only. Live repo list + health via `getRepos` (same source as `/api/repos`): `repo_name`, `description`, `url`, `homepage` (live site), `health`, `site_error`, `open_issues`, `updated_at`, `language`, plus `generated_at` and `stale`. Other tools' `repo_name` values must match these exactly |
 
 **Error codes:**
@@ -250,6 +252,15 @@ A strip under the topbar (`#focus-strip`, `renderFocusStrip()` in `public/js/app
 ## Task search modal
 
 OKR/Pipeline micro-task text (Today tab OKR rows, OKR Progress task lists and "today" list, Pipeline cards) is rendered with `taskLink(text, id)` in `public/js/app.js`. Clicking one opens `#task-search-modal` (a native `<dialog>` in `public/index.html`), which searches the data the page has already loaded (OKR tasks, OKRs, work items, repos, resources). It runs fully client-side with no API call. Matching is per-word with stopwords removed and prefix matching (≥4 chars). The clicked task is left out of its own results. Clicking a result switches to the relevant tab, or opens the repo on GitHub. Styles live under "Task search" in `public/styles.css`. The focus strip keeps its own click behavior and is not linked.
+
+## Projects index (handoff cards)
+
+The **Projects** tab (`public/js/projects.js`, loaded before `app.js`, styles under "Projects" at the end of `public/styles.css`) shows one card per project page/app: hook, one-sentence summary, status, front end, back end, edit links, repo, handoff notes, value. Editing happens in a native `<dialog>` (`#project-editor`).
+
+- Table `projects` (unique `slug`) lives in `db/schema.sql` with a guarded example seed row; `db/migrations/0011_projects_index.sql` is the record.
+- REST: `GET/POST /api/projects`, `GET/PUT/DELETE /api/projects/:id` — `functions/api/projects.js`, `functions/api/projects/[id].js`. POST upserts by slug.
+- Validation and upsert logic shared with the MCP tools: `functions/_shared/projects.js`.
+- Full field guide: `docs/projects.md`. Cards are publicly readable — never store secrets in them.
 
 ## What's NOT built yet (as of last update)
 

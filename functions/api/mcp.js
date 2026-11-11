@@ -12,11 +12,13 @@
  *   tools/call   → invoke a tool by name
  *
  * Tools: log_task, get_okr_progress, get_daily_summary, register_okr,
- *         list_agent_tasks, start_task, finish_task, list_repos (read-only)
+ *         list_agent_tasks, start_task, finish_task, list_repos (read-only),
+ *         list_resources, upsert_resource, list_projects, upsert_project
  */
 
 import { accessConfigured, bearerMatches, getCallerIdentity } from "../_shared/auth.js";
 import { getRepos } from "../_shared/repos.js";
+import { listProjects, upsertProject, PROJECT_STATUSES } from "../_shared/projects.js";
 
 const CORS = {
   "Content-Type": "application/json",
@@ -263,6 +265,44 @@ const TOOLS = [
         notes:       { type: "string",  description: "Optional context about this resource" },
       },
       required: ["name", "category", "utilization"],
+    },
+  },
+  // ── Projects index (handoff cards) ─────────────────────────────────────────
+  {
+    name: "list_projects",
+    description: "List project cards: each project's one-line hook, one-sentence summary, status, front-end link, back end, edit links, repo, handoff notes and value. Live first.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        status: { type: "string", enum: ["draft", "live", "paused", "archived"], description: "Optional: filter by status" },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "upsert_project",
+    description: "Create a project card, or update one. Matches an existing card by id, else by slug (derived from name when omitted). On update only the fields you pass change.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id:             { type: "number", description: "Card id to update. Omit to match by slug/name or create." },
+        slug:           { type: "string", description: "Stable key, e.g. 'the-creative-principle'. Derived from name when omitted." },
+        name:           { type: "string", description: "Project name" },
+        hook:           { type: "string", description: "One line: why it matters" },
+        summary:        { type: "string", description: "One sentence: what it is and who it's for" },
+        status:         { type: "string", enum: ["draft", "live", "paused", "archived"] },
+        front_end_url:  { type: "string", description: "Live page URL" },
+        front_end_host: { type: "string", description: "Where the page is hosted, e.g. 'Claude artifact', 'Cloudflare Pages'" },
+        back_end_type:  { type: "string", description: "e.g. 'Tally form', 'D1', 'none'" },
+        back_end_url:   { type: "string", description: "Where the data lands or the service's page" },
+        edit_front_end: { type: "string", description: "Link or instructions for editing the page" },
+        edit_back_end:  { type: "string", description: "Link or instructions for editing the back end" },
+        repo_name:      { type: "string", description: "GitHub repo name, matching list_repos" },
+        handoff_notes:  { type: "string", description: "What someone needs to know before building on it" },
+        value_note:     { type: "string", description: "Portfolio, sellable or community value; price if any" },
+        tags:           { type: "string", description: "Comma-separated tags" },
+      },
+      required: ["name"],
     },
   },
 ];
@@ -624,6 +664,28 @@ async function handleToolCall(name, args, db, env, isAuthenticated = false, requ
     }
 
     return { content: [{ type: "text", text: JSON.stringify(row) }] };
+  }
+
+  if (name === "list_projects") {
+    const { status = null } = args || {};
+    if (status && !PROJECT_STATUSES.includes(status)) {
+      return { isError: true, content: [{ type: "text", text: `status must be one of: ${PROJECT_STATUSES.join(", ")}` }] };
+    }
+    const rows = await listProjects(db, { status });
+    return { content: [{ type: "text", text: JSON.stringify(rows) }] };
+  }
+
+  if (name === "upsert_project") {
+    try {
+      const result = await upsertProject(db, args || {});
+      if (result.error) return { isError: true, content: [{ type: "text", text: result.error }] };
+      return { content: [{ type: "text", text: JSON.stringify({ created: result.created, project: result.row }) }] };
+    } catch (err) {
+      if (/UNIQUE/i.test(String(err && err.message))) {
+        return { isError: true, content: [{ type: "text", text: "Another project already uses that slug" }] };
+      }
+      throw err;
+    }
   }
 
   const CF_AUTH_ERR = "Service token tools require authentication: a valid MCP_SECRET_TOKEN bearer token or a verified Cloudflare Access session.";

@@ -139,7 +139,7 @@ function updateActivePill() {
 // ============================================================
 // Tab switching
 // ============================================================
-const TABS = ["today", "capacity", "repos", "active-work", "agent-tasks", "priority", "okr-progress", "pipeline", "pull-requests"];
+const TABS = ["today", "capacity", "repos", "active-work", "agent-tasks", "priority", "okr-progress", "pipeline", "pull-requests", "projects"];
 
 function switchTab(tabId) {
   TABS.forEach(id => {
@@ -159,6 +159,7 @@ function switchTab(tabId) {
   if (tabId === "okr-progress") renderOkrProgress();
   if (tabId === "pipeline") renderPipeline();
   if (tabId === "pull-requests") renderPullRequests();
+  if (tabId === "projects") renderProjects();
 }
 
 document.querySelectorAll(".tab-btn").forEach(btn => {
@@ -3047,7 +3048,7 @@ document.addEventListener("click", e => {
 })();
 
 async function init() {
-  await Promise.all([loadRepos(), loadWorkItems(), loadPriorityData(), loadOkrStats(), loadRepoTaskData(), loadPipelineTasks(), loadResources(), loadIdentity(), loadCollegeDeadlines(), loadCollegeDailyTasks(), loadPullRequests()]);
+  await Promise.all([loadRepos(), loadWorkItems(), loadPriorityData(), loadOkrStats(), loadRepoTaskData(), loadPipelineTasks(), loadResources(), loadIdentity(), loadCollegeDeadlines(), loadCollegeDailyTasks(), loadPullRequests(), loadProjects()]);
   renderToday();   // Today is the landing view
   renderRepos();   // pre-render repos with work items overlaid
   renderFocusStrip();

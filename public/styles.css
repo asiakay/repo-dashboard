@@ -2447,3 +2447,93 @@ body { min-height: 100vh; }
   border-radius: 3px;
   padding: 0 2px;
 }
+
+/* ============================================================
+   Projects (handoff cards) — public/js/projects.js
+   ============================================================ */
+.project-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; justify-content: flex-end; }
+.project-filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.project-filter-btn.active { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+
+.project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+.project-card {
+  background: var(--card);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--text-muted);
+  border-radius: var(--radius-lg);
+  padding: 16px 18px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.project-status-live     { border-left-color: #34d399; }
+.project-status-draft    { border-left-color: #60a5fa; }
+.project-status-paused   { border-left-color: #fbbf24; }
+.project-status-archived { border-left-color: var(--text-muted); opacity: 0.75; }
+
+.project-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.project-name { margin: 0; font-size: 16px; font-weight: 600; color: var(--text-main); word-break: break-word; }
+.project-hook { margin: 4px 0 0; font-size: 13px; color: var(--accent); line-height: 1.4; }
+.project-summary { margin: 0; font-size: 13px; color: var(--text-main); line-height: 1.5; }
+
+.project-badge {
+  flex: none; font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+  padding: 2px 8px; border-radius: var(--radius-pill); border: 1px solid currentColor;
+}
+.project-badge-live     { color: #34d399; }
+.project-badge-draft    { color: #60a5fa; }
+.project-badge-paused   { color: #fbbf24; }
+.project-badge-archived { color: var(--text-muted); }
+
+.project-rows { margin: 0; display: grid; gap: 6px; }
+.project-row { display: grid; grid-template-columns: 96px 1fr; gap: 8px; font-size: 12px; line-height: 1.45; }
+.project-row dt { color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-size: 10.5px; padding-top: 1px; }
+.project-row dd { margin: 0; color: var(--text-main); word-break: break-word; white-space: pre-wrap; }
+.project-row a { color: var(--accent-strong); }
+.project-muted { color: var(--text-muted); font-size: 12px; }
+
+.project-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.project-tag { font-size: 11px; color: var(--text-muted); background: var(--card-alt); border-radius: var(--radius-pill); padding: 2px 8px; }
+
+.project-card-footer {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  margin-top: auto; padding-top: 8px; border-top: 1px solid var(--border-subtle);
+}
+.project-missing  { font-size: 11px; color: #fbbf24; }
+.project-complete { font-size: 11px; color: #34d399; }
+
+.project-editor {
+  width: min(720px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  background: var(--bg-alt);
+  color: var(--text-main);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+}
+.project-editor::backdrop { background: rgba(3, 4, 10, 0.72); backdrop-filter: blur(3px); }
+.project-editor-fields {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px 0 16px;
+}
+.project-field-wide { grid-column: 1 / -1; }
+.project-editor textarea {
+  padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border-subtle);
+  background: rgba(10, 13, 32, 0.95); color: var(--text-main); font: inherit; font-size: 14px;
+  resize: vertical; outline: none;
+}
+.project-editor textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(79, 209, 197, 0.5); }
+.project-editor-actions { align-items: center; flex-wrap: wrap; }
+.project-editor-actions #project-editor-delete { margin-left: auto; }
+
+@media (max-width: 640px) {
+  .project-grid { grid-template-columns: 1fr; }
+  .project-editor-fields { grid-template-columns: 1fr; }
+  .view-header:has(.project-toolbar) { flex-direction: column; }
+  .project-toolbar { justify-content: flex-start; }
+}

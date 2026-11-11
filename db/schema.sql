@@ -58,6 +58,33 @@ CREATE TABLE IF NOT EXISTS tasks (
 
 CREATE INDEX IF NOT EXISTS idx_tasks_okr_id ON tasks(okr_id);
 
+-- ── Projects index (handoff cards) ─────────────────────────────────────────
+-- One row per project page/app. Each card says what it is, where its front end
+-- and back end live, how to edit both, and what someone needs to take it over.
+-- See docs/projects.md.
+
+CREATE TABLE IF NOT EXISTS projects (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    slug            TEXT NOT NULL UNIQUE,      -- stable key, e.g. 'the-creative-principle'
+    name            TEXT NOT NULL,
+    hook            TEXT,                      -- one line: why it matters
+    summary         TEXT,                      -- one sentence: what it is and who it's for
+    status          TEXT NOT NULL DEFAULT 'draft'
+                    CHECK(status IN ('draft','live','paused','archived')),
+    front_end_url   TEXT,                      -- live page
+    front_end_host  TEXT,                      -- e.g. 'Claude artifact', 'Cloudflare Pages', 'GitHub Pages'
+    back_end_type   TEXT,                      -- e.g. 'Tally form', 'D1', 'none'
+    back_end_url    TEXT,                      -- where data lands / the service's page
+    edit_front_end  TEXT,                      -- link or instructions for editing the page
+    edit_back_end   TEXT,                      -- link or instructions for editing the back end
+    repo_name       TEXT,                      -- GitHub repo, if any (matches /api/repos names)
+    handoff_notes   TEXT,                      -- what to know before building on it
+    value_note      TEXT,                      -- portfolio / sellable / community value, price if any
+    tags            TEXT,                      -- comma-separated
+    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Seed data — only inserted into an empty work_items table, so re-running this
 -- file (e.g. from the deploy workflow) never duplicates rows in production.
 INSERT INTO work_items (repo_name, task_description, status, assigned_to, depends_on_repo)
@@ -76,3 +103,20 @@ SELECT * FROM (VALUES
   ('pwse', 'Decide public vs. gated', 'not_started', 'asia', NULL)
 )
 WHERE NOT EXISTS (SELECT 1 FROM work_items);
+
+-- Example card — only inserted into an empty projects table.
+INSERT INTO projects (slug, name, hook, summary, status, front_end_url, front_end_host,
+                      back_end_type, back_end_url, edit_front_end, edit_back_end,
+                      handoff_notes, value_note, tags)
+SELECT 'the-creative-principle', 'The Creative Principle',
+       'An invite-only collective page that makes people want to knock.',
+       'A cinematic landing page for a private creative collective, with gatherings, a membership path, and a request-an-invite form.',
+       'live',
+       'https://claude.ai/artifact/RnbLUJqiKJegrTAcGUdbJ6', 'Claude artifact',
+       'Tally form', 'https://tally.so/r/8Naaxl',
+       'Ask Claude to revise the artifact (it is published from a single index.html).',
+       'https://tally.so/forms/8Naaxl/edit',
+       'Event names and copy are placeholders. Tally custom styling needs Tally Pro to show on the live form.',
+       'Template for any members-only collective, festival or conference launch.',
+       'landing page, collective, membership'
+WHERE NOT EXISTS (SELECT 1 FROM projects);

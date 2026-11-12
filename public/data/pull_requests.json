@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-11-12T01:24:36.573Z",
-  "total_prs": 514,
+  "generated_at": "2026-11-12T09:31:33.583Z",
+  "total_prs": 515,
   "repos": [
     {
       "name": "asiagrady",
@@ -108,14 +108,14 @@
       "total": 15
     },
     {
-      "name": "receipt-logger",
+      "name": "your-campus-your-voice",
       "open": 0,
-      "merged": 13,
+      "merged": 14,
       "closed": 0,
-      "total": 13
+      "total": 14
     },
     {
-      "name": "your-campus-your-voice",
+      "name": "receipt-logger",
       "open": 0,
       "merged": 13,
       "closed": 0,
@@ -319,6 +319,17 @@
     }
   ],
   "history": [
+    {
+      "repo": "your-campus-your-voice",
+      "number": 14,
+      "title": "Document RCC News deliverables and assets",
+      "state": "merged",
+      "url": "https://github.com/asiakay/your-campus-your-voice/pull/14",
+      "created_at": "2026-11-12T06:18:14Z",
+      "merged_at": "2026-11-12T06:36:27Z",
+      "closed_at": "2026-11-12T06:36:27Z",
+      "author": "asiakay"
+    },
     {
       "repo": "your-campus-your-voice",
       "number": 13,
@@ -3606,17 +3617,6 @@
       "created_at": "2026-06-07T10:40:20Z",
       "merged_at": "2026-06-07T10:40:35Z",
       "closed_at": "2026-06-07T10:40:35Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "grant-manager-tool-demo",
-      "number": 156,
-      "title": "Remove API key requirement from agents-starter env config",
-      "state": "merged",
-      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/156",
-      "created_at": "2026-06-07T10:34:44Z",
-      "merged_at": "2026-06-07T10:34:57Z",
-      "closed_at": "2026-06-07T10:34:57Z",
       "author": "asiakay"
     }
   ]

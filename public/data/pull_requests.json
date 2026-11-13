@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-11-13T05:52:19.096Z",
-  "total_prs": 516,
+  "generated_at": "2026-11-13T14:17:32.697Z",
+  "total_prs": 517,
   "repos": [
     {
       "name": "asiagrady",
@@ -304,6 +304,13 @@
       "total": 1
     },
     {
+      "name": "independent-video",
+      "open": 0,
+      "merged": 1,
+      "closed": 0,
+      "total": 1
+    },
+    {
       "name": "racism-mutation-map",
       "open": 0,
       "merged": 1,
@@ -326,6 +333,17 @@
     }
   ],
   "history": [
+    {
+      "repo": "independent-video",
+      "number": 1,
+      "title": "fix: send Studio direct upload as multipart file field; add publish s…",
+      "state": "merged",
+      "url": "https://github.com/asiakay/independent-video/pull/1",
+      "created_at": "2026-11-13T07:26:50Z",
+      "merged_at": "2026-11-13T07:27:12Z",
+      "closed_at": "2026-11-13T07:27:12Z",
+      "author": "asiakay"
+    },
     {
       "repo": "rcc-news-control-room",
       "number": 2,
@@ -3613,17 +3631,6 @@
       "created_at": "2026-06-07T10:59:38Z",
       "merged_at": "2026-06-07T10:59:56Z",
       "closed_at": "2026-06-07T10:59:56Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "grant-manager-tool-demo",
-      "number": 158,
-      "title": "Add verbose wrangler deploy output to diagnose AI binding registration",
-      "state": "merged",
-      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/158",
-      "created_at": "2026-06-07T10:51:40Z",
-      "merged_at": "2026-06-07T10:52:02Z",
-      "closed_at": "2026-06-07T10:52:02Z",
       "author": "asiakay"
     }
   ]

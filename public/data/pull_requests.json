@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-11-14T02:04:32.625Z",
-  "total_prs": 517,
+  "generated_at": "2026-11-14T09:57:36.753Z",
+  "total_prs": 518,
   "repos": [
     {
       "name": "asiagrady",
@@ -109,10 +109,10 @@
     },
     {
       "name": "your-campus-your-voice",
-      "open": 0,
+      "open": 1,
       "merged": 14,
       "closed": 0,
-      "total": 14
+      "total": 15
     },
     {
       "name": "receipt-logger",
@@ -333,6 +333,17 @@
     }
   ],
   "history": [
+    {
+      "repo": "your-campus-your-voice",
+      "number": 15,
+      "title": "production-mcp: Access-verified identity, no public URL, no-CLI setup and live verification",
+      "state": "open",
+      "url": "https://github.com/asiakay/your-campus-your-voice/pull/15",
+      "created_at": "2026-11-14T09:26:55Z",
+      "merged_at": null,
+      "closed_at": null,
+      "author": "asiakay"
+    },
     {
       "repo": "independent-video",
       "number": 1,
@@ -3620,17 +3631,6 @@
       "created_at": "2026-06-07T11:26:58Z",
       "merged_at": "2026-06-07T11:27:28Z",
       "closed_at": "2026-06-07T11:27:28Z",
-      "author": "asiakay"
-    },
-    {
-      "repo": "grant-manager-tool-demo",
-      "number": 159,
-      "title": "Simplify CI and fix Workers AI via REST API fallback",
-      "state": "merged",
-      "url": "https://github.com/asiakay/grant-manager-tool-demo/pull/159",
-      "created_at": "2026-06-07T10:59:38Z",
-      "merged_at": "2026-06-07T10:59:56Z",
-      "closed_at": "2026-06-07T10:59:56Z",
       "author": "asiakay"
     }
   ]
